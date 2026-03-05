@@ -7,8 +7,7 @@ use crate::config::{DependencyLink, DependencySource, NormalizedDependency, Proj
 use crate::error::ModuleResolutionError;
 use crate::parser::DslParser;
 use crate::stdlib_registry::{
-    bundled_stdlib_module_path, find_bundled_stdlib_root, STDLIB_DEFAULT_ALIAS,
-    STDLIB_PACKAGE_NAME,
+    bundled_stdlib_module_path, find_bundled_stdlib_root, STDLIB_DEFAULT_ALIAS, STDLIB_PACKAGE_NAME,
 };
 use crate::tokenizer::DslTokenizer;
 
@@ -626,11 +625,12 @@ impl ModuleDiscoverer {
                 tail.clone()
             };
             let module_file = bundled_stdlib_module_path(stdlib_root, &effective_tail);
-            let source_code =
-                std::fs::read_to_string(&module_file).map_err(|_| ModuleResolutionError::ModuleNotFound {
+            let source_code = std::fs::read_to_string(&module_file).map_err(|_| {
+                ModuleResolutionError::ModuleNotFound {
                     module_path: module_path.to_string(),
                     searched_paths: vec![module_file.clone()],
-                })?;
+                }
+            })?;
             return Ok(Some(ResolvedDependencyModule {
                 module_path: module_path.to_string(),
                 file_path: module_file,

@@ -284,7 +284,9 @@ impl ASTGenerator {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
-                    if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                    if let Ok(offset) =
+                        self.calculate_account_field_offset(account_type, field, account_name)
+                    {
                         let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
                             field_info.offset
                         );
@@ -305,7 +307,9 @@ impl ASTGenerator {
 
                     // We could check if it's a bool field, but for simplicity just emit
                     // and let runtime handle type checking
-                    if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                    if let Ok(offset) =
+                        self.calculate_account_field_offset(account_type, field, account_name)
+                    {
                         let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
                             field_info.offset
                         );
@@ -448,7 +452,9 @@ impl ASTGenerator {
         if let AstNode::Identifier(account_name) = object {
             if let Some(field_info) = self.local_symbol_table.get(account_name) {
                 let account_type = &field_info.field_type;
-                if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                if let Ok(offset) =
+                    self.calculate_account_field_offset(account_type, field, account_name)
+                {
                     let acc_idx =
                         crate::bytecode_generator::account_utils::account_index_from_param_offset(
                             field_info.offset,
@@ -484,7 +490,9 @@ impl ASTGenerator {
             AstNode::Identifier(account_name) => {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
-                    if let Ok(offset) = self.calculate_account_field_offset(account_type, field) {
+                    if let Ok(offset) =
+                        self.calculate_account_field_offset(account_type, field, account_name)
+                    {
                         let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
                             field_info.offset
                         );
@@ -722,7 +730,8 @@ impl ASTGenerator {
                     let pubkey_fields =
                         ["owner", "mint", "delegate", "authority", "freeze_authority"];
                     if pubkey_fields.contains(&field.as_str()) {
-                        if let Ok(offset) = self.calculate_account_field_offset(account_type, field)
+                        if let Ok(offset) =
+                            self.calculate_account_field_offset(account_type, field, account_name)
                         {
                             let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
                                 field_info.offset

@@ -165,11 +165,7 @@ impl ASTGenerator {
             .insert(module_namespace, interface_name);
     }
 
-    pub fn register_module_path_alias(
-        &mut self,
-        module_namespace: String,
-        module_path: String,
-    ) {
+    pub fn register_module_path_alias(&mut self, module_namespace: String, module_path: String) {
         self.module_path_aliases
             .insert(module_namespace, module_path);
     }

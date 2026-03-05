@@ -81,9 +81,10 @@ impl AccountSystem {
             AstNode::AccountDefinition {
                 name,
                 fields,
+                serializer,
                 visibility: _,
             } => {
-                self.process_account_definition(name, fields)?;
+                self.process_account_definition(name, fields, *serializer)?;
             }
             _ => {} // Skip non-account definitions
         }
@@ -95,6 +96,7 @@ impl AccountSystem {
         &mut self,
         name: &str,
         fields: &[StructField],
+        serializer: Option<crate::ast::AccountSerializer>,
     ) -> Result<(), VMError> {
         println!("AccountSystem: Processing account definition '{}'", name);
         let mut account_fields = HashMap::new();
@@ -144,6 +146,12 @@ impl AccountSystem {
             name: name.to_string(),
             fields: account_fields,
             total_size,
+            serializer: serializer.map(|mode| match mode {
+                crate::ast::AccountSerializer::Raw => AccountDecodingSerializer::Raw,
+                crate::ast::AccountSerializer::Borsh => AccountDecodingSerializer::Borsh,
+                crate::ast::AccountSerializer::Bincode => AccountDecodingSerializer::Bincode,
+                crate::ast::AccountSerializer::Anchor => AccountDecodingSerializer::Anchor,
+            }),
         };
 
         // Add to registry
@@ -679,7 +687,7 @@ mod tests {
         ];
 
         account_system
-            .process_account_definition("CustomAccount", &fields)
+            .process_account_definition("CustomAccount", &fields, None)
             .unwrap();
 
         assert!(account_system.validate_account_type("CustomAccount"));
@@ -708,7 +716,7 @@ mod tests {
         }];
 
         account_system
-            .process_account_definition("Profile", &fields)
+            .process_account_definition("Profile", &fields, None)
             .unwrap();
 
         let account_info = &account_system.account_registry.account_types["Profile"];

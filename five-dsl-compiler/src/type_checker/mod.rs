@@ -87,11 +87,7 @@ impl types::TypeCheckerContext {
                         if let Some((symbol_name, kind)) =
                             self.resolve_nested_symbol_import(module_specifier)?
                         {
-                            self.register_imported_symbol(
-                                &symbol_name,
-                                kind,
-                                import_idx as u32,
-                            )?;
+                            self.register_imported_symbol(&symbol_name, kind, import_idx as u32)?;
                             continue;
                         }
 
@@ -325,8 +321,9 @@ impl types::TypeCheckerContext {
             AstNode::AccountDefinition {
                 name,
                 fields,
+                serializer,
                 visibility,
-            } => self.check_account_definition(name, fields, *visibility),
+            } => self.check_account_definition(name, fields, *serializer, *visibility),
             AstNode::TypeDefinition {
                 name,
                 definition,
@@ -380,9 +377,7 @@ impl types::TypeCheckerContext {
         }
     }
 
-    fn module_path_and_alias(
-        module_specifier: &ModuleSpecifier,
-    ) -> Option<(String, String)> {
+    fn module_path_and_alias(module_specifier: &ModuleSpecifier) -> Option<(String, String)> {
         match module_specifier {
             ModuleSpecifier::Local(name) => Some((name.clone(), name.clone())),
             ModuleSpecifier::Nested(path) if !path.is_empty() => {

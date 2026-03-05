@@ -1,7 +1,34 @@
-use crate::ast::{AstNode, ErrorVariant, StructField};
+use crate::ast::{AccountSerializer, AstNode, ErrorVariant, StructField};
 use crate::parser::{types, DslParser};
 use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
+
+fn parse_serializer_name(parser: &mut DslParser) -> Result<String, VMError> {
+    match &parser.current_token {
+        Token::StringLiteral(s) => {
+            let out = s.clone();
+            parser.advance();
+            Ok(out)
+        }
+        Token::Identifier(s) => {
+            let out = s.clone();
+            parser.advance();
+            Ok(out)
+        }
+        _ => Err(parser.parse_error("serializer name (identifier or string literal)")),
+    }
+}
+
+fn parse_account_serializer(parser: &mut DslParser) -> Result<AccountSerializer, VMError> {
+    let name = parse_serializer_name(parser)?;
+    match name.as_str() {
+        "raw" => Ok(AccountSerializer::Raw),
+        "borsh" => Ok(AccountSerializer::Borsh),
+        "bincode" => Ok(AccountSerializer::Bincode),
+        "anchor" => Ok(AccountSerializer::Anchor),
+        _ => Err(parser.parse_error("valid serializer: raw, borsh, bincode, or anchor")),
+    }
+}
 
 #[allow(dead_code)]
 pub(crate) fn parse_field_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
@@ -286,6 +313,47 @@ pub(crate) fn parse_account_definition(parser: &mut DslParser) -> Result<AstNode
     };
     parser.advance();
 
+    // Optional serializer hint: @serializer("borsh") or serializer("borsh")
+    let mut serializer: Option<AccountSerializer> = None;
+    if matches!(parser.current_token, Token::At) {
+        let saved_pos = parser.position;
+        parser.advance(); // consume '@'
+        let is_serializer_attr = matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
+            || matches!(parser.current_token, Token::Serializer);
+        if is_serializer_attr {
+            parser.advance(); // consume serializer token
+            if !matches!(parser.current_token, Token::LeftParen) {
+                return Err(parser.parse_error("'(' after serializer attribute"));
+            }
+            parser.advance(); // consume '('
+            serializer = Some(parse_account_serializer(parser)?);
+            if !matches!(parser.current_token, Token::RightParen) {
+                return Err(parser.parse_error("')' after serializer name"));
+            }
+            parser.advance(); // consume ')'
+        } else {
+            parser.position = saved_pos;
+            parser.current_token = parser
+                .tokens
+                .get(parser.position)
+                .cloned()
+                .unwrap_or(Token::Eof);
+        }
+    } else if matches!(&parser.current_token, Token::Identifier(name) if name == "serializer")
+        || matches!(parser.current_token, Token::Serializer)
+    {
+        parser.advance(); // consume serializer token
+        if !matches!(parser.current_token, Token::LeftParen) {
+            return Err(parser.parse_error("'(' after serializer keyword"));
+        }
+        parser.advance(); // consume '('
+        serializer = Some(parse_account_serializer(parser)?);
+        if !matches!(parser.current_token, Token::RightParen) {
+            return Err(parser.parse_error("')' after serializer name"));
+        }
+        parser.advance(); // consume ')'
+    }
+
     // Parse account fields: { field1: Type, field2: Type }
     if !matches!(parser.current_token, Token::LeftBrace) {
         return Err(parser.parse_error("'{' to start account fields"));
@@ -355,6 +423,7 @@ pub(crate) fn parse_account_definition(parser: &mut DslParser) -> Result<AstNode
     Ok(AstNode::AccountDefinition {
         name,
         fields,
+        serializer,
         visibility,
     })
 }

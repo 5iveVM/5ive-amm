@@ -11,7 +11,8 @@ impl TypeCheckerContext {
         arg: &AstNode,
         expected_type: &TypeNode,
     ) -> Result<bool, VMError> {
-        if let (AstNode::Literal(value), TypeNode::Primitive(expected_name)) = (arg, expected_type) {
+        if let (AstNode::Literal(value), TypeNode::Primitive(expected_name)) = (arg, expected_type)
+        {
             match expected_name.as_str() {
                 "u8" => {
                     if value

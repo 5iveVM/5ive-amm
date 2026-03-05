@@ -395,8 +395,11 @@ impl ASTGenerator {
                     // Handle field assignment (e.g., account.field = value)
                     if let AstNode::Identifier(account_name) = object.as_ref() {
                         if let Some(field_info) = self.local_symbol_table.get(account_name) {
-                            let field_offset =
-                                self.calculate_account_field_offset(&field_info.field_type, field)?; // Pass account_type string
+                            let field_offset = self.calculate_account_field_offset(
+                                &field_info.field_type,
+                                field,
+                                account_name,
+                            )?; // Pass account_type string
                             emitter.emit_opcode(STORE_FIELD); // Use STORE_FIELD for now, assuming it handles account fields
                             emitter.emit_u8(field_info.offset as u8);
                             emitter.emit_u32(field_offset);
@@ -571,7 +574,8 @@ impl ASTGenerator {
                 }
 
                 // Calculate field offset within account using the account type
-                let field_offset = self.calculate_account_field_offset(&account_type, field)?;
+                let field_offset =
+                    self.calculate_account_field_offset(&account_type, field, account_name)?;
 
                 // Debug logging for zero-copy account access
                 #[cfg(debug_assertions)]

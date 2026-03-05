@@ -326,6 +326,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
                 authority: payerKeypair.publicKey,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payerKeypair.publicKey)
             .instruction();
 
         success('Instruction built');
@@ -457,6 +458,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
                 mint: mint,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payerKeypair.publicKey)
             .instruction();
 
         success('Instruction built');
@@ -491,6 +493,160 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
 }
 
 // ============================================================================
+// TEST 3: SPL STATE ACCESS (MINT + TOKEN ACCOUNT)
+// ============================================================================
+
+async function testSPLStateAccess(connection, payerKeypair) {
+    header('Test 3: SPL State Access via Typed Account Decode');
+
+    try {
+        info('Creating token mint...');
+        const mint = await createMint(
+            connection,
+            payerKeypair,
+            payerKeypair.publicKey,
+            null,
+            6
+        );
+        success(`Mint created: ${mint.toBase58()}`);
+
+        info('Creating token account...');
+        const tokenAccountPubkey = await createAccount(
+            connection,
+            payerKeypair,
+            mint,
+            payerKeypair.publicKey
+        );
+        success(`Token account created: ${tokenAccountPubkey.toBase58()}`);
+
+        const mintAmount = 4242n;
+        info(`Minting ${mintAmount} base units to token account...`);
+        const mintSig = await mintTo(
+            connection,
+            payerKeypair,
+            mint,
+            tokenAccountPubkey,
+            payerKeypair.publicKey,
+            mintAmount
+        );
+        success(`Mint tx: ${mintSig}`);
+
+        info('Compiling state-read test contract...');
+        const contractPath = path.join(__dirname, 'test-spl-state-read.v');
+        const { bytecode } = compileWithRustFiveCompiler(contractPath);
+        if (!bytecode) {
+            throw new Error('Compile failed: missing bytecode');
+        }
+        success('Contract compiled');
+
+        info('Deploying contract...');
+        const scriptAccount = await deployBytecodeToFiveVM(connection, payerKeypair, bytecode);
+        success(`Contract deployed: ${scriptAccount.toBase58()}`);
+
+        info('Building assert_spl_state instruction...');
+        const zeroPubkey = SystemProgram.programId;
+        const runtimeAbi = {
+            functions: [
+                {
+                    name: 'assert_spl_state',
+                    index: 0,
+                    parameters: [
+                        { name: 'mint', type: 'account', is_account: true, attributes: [] },
+                        { name: 'token', type: 'account', is_account: true, attributes: [] },
+                        { name: 'expected_mint_authority_option', type: 'u32', is_account: false, attributes: [] },
+                        { name: 'expected_mint_authority', type: 'pubkey', is_account: false, attributes: [] },
+                        { name: 'expected_decimals', type: 'u8', is_account: false, attributes: [] },
+                        { name: 'expected_is_initialized', type: 'bool', is_account: false, attributes: [] },
+                        { name: 'expected_freeze_authority_option', type: 'u32', is_account: false, attributes: [] },
+                        { name: 'expected_freeze_authority', type: 'pubkey', is_account: false, attributes: [] },
+                        { name: 'expected_amount', type: 'u64', is_account: false, attributes: [] },
+                        { name: 'expected_supply', type: 'u64', is_account: false, attributes: [] },
+                        { name: 'expected_token_mint', type: 'pubkey', is_account: false, attributes: [] },
+                        { name: 'expected_token_owner', type: 'pubkey', is_account: false, attributes: [] },
+                        { name: 'expected_delegate_option', type: 'u32', is_account: false, attributes: [] },
+                        { name: 'expected_delegate', type: 'pubkey', is_account: false, attributes: [] },
+                        { name: 'expected_state', type: 'u8', is_account: false, attributes: [] },
+                        { name: 'expected_is_native_option', type: 'u32', is_account: false, attributes: [] },
+                        { name: 'expected_is_native', type: 'u64', is_account: false, attributes: [] },
+                        { name: 'expected_delegated_amount', type: 'u64', is_account: false, attributes: [] },
+                        { name: 'expected_close_authority_option', type: 'u32', is_account: false, attributes: [] },
+                        { name: 'expected_close_authority', type: 'pubkey', is_account: false, attributes: [] }
+                    ]
+                }
+            ]
+        };
+        const program = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
+            fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
+            vmStateAccount: VM_STATE_PDA.toBase58(),
+            feeReceiverAccount: payerKeypair.publicKey.toBase58(),
+            debug: true
+        });
+
+        const assertIx = await program
+            .function('assert_spl_state')
+            .accounts({
+                mint: mint,
+                token: tokenAccountPubkey
+            })
+            .args({
+                expected_mint_authority_option: 1,
+                expected_mint_authority: payerKeypair.publicKey,
+                expected_decimals: 6,
+                expected_is_initialized: true,
+                expected_freeze_authority_option: 0,
+                expected_freeze_authority: zeroPubkey,
+                expected_amount: Number(mintAmount),
+                expected_supply: Number(mintAmount),
+                expected_token_mint: mint,
+                expected_token_owner: payerKeypair.publicKey,
+                expected_delegate_option: 0,
+                expected_delegate: zeroPubkey,
+                expected_state: 1,
+                expected_is_native_option: 0,
+                expected_is_native: 0,
+                expected_delegated_amount: 0,
+                expected_close_authority_option: 0,
+                expected_close_authority: zeroPubkey
+            })
+            .payer(payerKeypair.publicKey)
+            .instruction();
+
+        success('Instruction built');
+        logInstructionEnvelope('assert_spl_state', assertIx);
+
+        info('Sending state assertion transaction...');
+        const assertRes = await sendInstruction(connection, assertIx, [payerKeypair]);
+        if (!assertRes.success) {
+            error('State assertion transaction failed');
+            return false;
+        }
+        success(`Transaction: ${assertRes.signature}`);
+
+        info('Verifying expected SPL state from RPC...');
+        const mintInfo = await getMint(connection, mint);
+        const tokenInfo = await getAccount(connection, tokenAccountPubkey);
+        if (mintInfo.decimals !== 6) {
+            error(`Unexpected mint decimals from RPC: ${mintInfo.decimals}`);
+            return false;
+        }
+        if (tokenInfo.amount !== mintAmount) {
+            error(`Unexpected token amount from RPC: ${tokenInfo.amount.toString()}`);
+            return false;
+        }
+        if (mintInfo.supply !== mintAmount) {
+            error(`Unexpected mint supply from RPC: ${mintInfo.supply.toString()}`);
+            return false;
+        }
+        success('Typed state read assertion passed on-chain');
+        return true;
+    } catch (e) {
+        error(`Test failed: ${e.message}`);
+        console.error(e);
+        return false;
+    }
+}
+
+// ============================================================================
 // MAIN TEST RUNNER
 // ============================================================================
 
@@ -500,18 +656,21 @@ async function main() {
 
         const results = {
             test1: false,
-            test2: false
+            test2: false,
+            test3: false
         };
 
         // Run tests
         results.test1 = await testSPLTokenMint(connection, payerKeypair);
         results.test2 = await testSPLTokenBurnPDA(connection, payerKeypair);
+        results.test3 = await testSPLStateAccess(connection, payerKeypair);
 
         // Summary
         header('Test Summary');
 
         log(`Test 1 (SPL Token Mint):  ${results.test1 ? '✅ PASS' : '❌ FAIL'}`);
         log(`Test 2 (SPL Token Burn):  ${results.test2 ? '✅ PASS' : '❌ FAIL'}`);
+        log(`Test 3 (SPL State Access):  ${results.test3 ? '✅ PASS' : '❌ FAIL'}`);
 
         const passed = Object.values(results).filter(r => r).length;
         const total = Object.values(results).length;

@@ -148,6 +148,12 @@ impl TypeCheckerContext {
                             // Look up account fields with namespace-aware matching
                             let namespace_suffix = format!("::{}", account_type_name);
                             eprintln!("DEBUG: FieldAssignment on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", account_type_name, field, namespace_suffix);
+                            let is_external_interface_account =
+                                self.account_definitions.keys().any(|k| {
+                                    (k == account_type_name.as_str()
+                                        || k.ends_with(&namespace_suffix))
+                                        && k.contains("::interfaces::")
+                                });
                             let account_fields = self
                                 .account_definitions
                                 .get(&account_type_name)
@@ -167,6 +173,9 @@ impl TypeCheckerContext {
                                 if let Some(field_def) =
                                     account_fields.iter().find(|f| f.name == *field)
                                 {
+                                    if is_external_interface_account {
+                                        return Err(VMError::ImmutableField);
+                                    }
                                     if !field_def.is_mutable {
                                         // Permit mutation when the account parameter was declared with @mut
                                         let allow_via_account_mut = if let AstNode::Identifier(

@@ -194,6 +194,7 @@ pub enum AstNode {
     AccountDefinition {
         name: String,
         fields: Vec<StructField>,
+        serializer: Option<AccountSerializer>,
         visibility: Visibility, // pub for cross-module access
     },
 
@@ -507,7 +508,17 @@ pub struct InstructionParameter {
     pub attributes: Vec<Attribute>,      // Generalized attributes
     pub is_init: bool,                   // True if @init constraint is applied
     pub init_config: Option<InitConfig>, // Configuration for account initialization
+    pub serializer: Option<AccountSerializer>, // Optional account decoding override
     pub pda_config: Option<PdaConfig>,   // Configuration for PDA validation / signer derivation
+}
+
+/// Account serialization mode for external account decoding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AccountSerializer {
+    Raw,
+    Borsh,
+    Bincode,
+    Anchor,
 }
 
 /// Event field assignment for emit statements

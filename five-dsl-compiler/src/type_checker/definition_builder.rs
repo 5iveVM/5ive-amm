@@ -77,6 +77,7 @@ impl super::types::TypeCheckerContext {
         Definition::AccountDefinition(AccountDefinitionNode {
             name,
             fields,
+            serializer: None,
             visibility,
         })
     }

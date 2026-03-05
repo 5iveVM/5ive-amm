@@ -376,7 +376,12 @@ impl ASTGenerator {
                         0
                     };
                     if score > 0 {
-                        Some((score, iface_name.clone(), iface_info.clone(), method.clone()))
+                        Some((
+                            score,
+                            iface_name.clone(),
+                            iface_info.clone(),
+                            method.clone(),
+                        ))
                     } else {
                         None
                     }
@@ -404,9 +409,7 @@ impl ASTGenerator {
         let effective_name = match effective_name {
             "SystemProgram::transfer"
             | "system_program::transfer"
-            | "std::interfaces::system_program::SystemProgram::transfer" => {
-                "transfer_lamports"
-            }
+            | "std::interfaces::system_program::SystemProgram::transfer" => "transfer_lamports",
             _ => effective_name,
         };
 
@@ -748,7 +751,8 @@ impl ASTGenerator {
                             .account_system
                             .as_ref()
                             .map(|system| system.get_account_registry());
-                        types.iter()
+                        types
+                            .iter()
                             .filter(|param_type| {
                                 !crate::bytecode_generator::account_utils::is_account_parameter(
                                     param_type,
@@ -1096,14 +1100,6 @@ impl ASTGenerator {
         Ok(())
     }
 
-    /// Check if a TypeNode represents an account-meta parameter.
-    /// Only explicit `Account` parameters are emitted as account metas.
-    /// `pubkey` parameters are serialized into instruction data.
-    fn is_account_meta_type(type_node: &TypeNode) -> bool {
-        matches!(type_node, TypeNode::Account)
-            || matches!(type_node, TypeNode::Named(name) if name.eq_ignore_ascii_case("account"))
-    }
-
     /// Check if a field_type string represents an account type
     fn is_account_type_str(field_type: &str) -> bool {
         field_type == "Account" || field_type == "account" || field_type.starts_with("Account<")
@@ -1204,7 +1200,15 @@ impl ASTGenerator {
             .zip(args.iter())
             .enumerate()
         {
-            if Self::is_account_meta_type(&param.param_type) {
+            let account_registry = self
+                .account_system
+                .as_ref()
+                .map(|system| system.get_account_registry());
+            if super::super::account_utils::is_account_parameter(
+                &param.param_type,
+                &param.attributes,
+                account_registry,
+            ) {
                 // This is an account parameter - resolve to index
                 let param_idx = self.resolve_account_argument(arg)?;
                 account_indices.push(param_idx);
@@ -1590,6 +1594,7 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            serializer: None,
             pda_config: None,
         }]);
         gen.register_external_import(
@@ -1626,6 +1631,7 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            serializer: None,
             pda_config: None,
         }]);
         let mut funcs = HashMap::new();
@@ -1675,6 +1681,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1688,6 +1695,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1701,6 +1709,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1711,6 +1720,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
         ]);
@@ -1745,6 +1755,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1758,6 +1769,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1771,6 +1783,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1781,6 +1794,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
         ]);
@@ -1814,6 +1828,7 @@ mod tests {
             }],
             is_init: false,
             init_config: None,
+            serializer: None,
             pda_config: None,
         }]);
 
@@ -1830,6 +1845,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    serializer: None,
                     pda_config: None,
                 },
                 InstructionParameter {
@@ -1843,6 +1859,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    serializer: None,
                     pda_config: None,
                 },
             ],
@@ -1874,21 +1891,20 @@ mod tests {
     #[test]
     fn interface_variable_u32_argument_emits_cast_before_serialization() {
         let mut gen = ASTGenerator::new();
-        gen.current_function_parameters = Some(vec![
-            InstructionParameter {
-                name: "authority".to_string(),
-                param_type: TypeNode::Account,
-                is_optional: false,
-                default_value: None,
-                attributes: vec![Attribute {
-                    name: "signer".to_string(),
-                    args: vec![],
-                }],
-                is_init: false,
-                init_config: None,
-                pda_config: None,
-            },
-        ]);
+        gen.current_function_parameters = Some(vec![InstructionParameter {
+            name: "authority".to_string(),
+            param_type: TypeNode::Account,
+            is_optional: false,
+            default_value: None,
+            attributes: vec![Attribute {
+                name: "signer".to_string(),
+                args: vec![],
+            }],
+            is_init: false,
+            init_config: None,
+            serializer: None,
+            pda_config: None,
+        }]);
 
         let method = InterfaceMethod {
             discriminator: 42,
@@ -1903,6 +1919,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    serializer: None,
                     pda_config: None,
                 },
                 InstructionParameter {
@@ -1913,6 +1930,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    serializer: None,
                     pda_config: None,
                 },
             ],
@@ -1960,6 +1978,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1973,6 +1992,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1986,6 +2006,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1996,6 +2017,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
         ]);
@@ -2016,6 +2038,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                     InstructionParameter {
@@ -2026,6 +2049,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                     InstructionParameter {
@@ -2039,6 +2063,7 @@ mod tests {
                         }],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                     InstructionParameter {
@@ -2049,6 +2074,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                 ],

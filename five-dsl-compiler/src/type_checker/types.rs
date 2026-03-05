@@ -1,6 +1,6 @@
 // Type definitions for the type checker
 
-use crate::ast::{InstructionParameter, SourceLocation, StructField, TypeNode};
+use crate::ast::{AccountSerializer, InstructionParameter, SourceLocation, StructField, TypeNode};
 use crate::type_checker::ModuleScope;
 use five_vm_mito::error::VMError;
 use std::collections::{HashMap, HashSet};
@@ -46,6 +46,7 @@ pub struct TypeCheckerContext {
     /// Symbol definitions with source location for go-to-definition and hover
     pub(crate) symbol_definitions: HashMap<String, SymbolDefinition>,
     pub(crate) account_definitions: HashMap<String, Vec<StructField>>,
+    pub(crate) account_serializers: HashMap<String, AccountSerializer>,
     pub(crate) type_definitions: HashMap<String, TypeNode>,
     pub(crate) interface_registry: HashMap<String, InterfaceInfo>,
     /// Tracks which account parameters are writable (@mut) for the current function
@@ -130,6 +131,7 @@ impl TypeCheckerContext {
             symbol_table: HashMap::new(),
             symbol_definitions: HashMap::new(),
             account_definitions: HashMap::new(),
+            account_serializers: HashMap::new(),
             type_definitions: HashMap::new(),
             interface_registry: HashMap::new(),
             current_writable_accounts: None,

@@ -18,7 +18,10 @@ fn parses_type_record_and_alias() {
     let mut parser = DslParser::new(tokens);
     let ast = parser.parse().expect("parse");
 
-    let AstNode::Program { type_definitions, .. } = ast else {
+    let AstNode::Program {
+        type_definitions, ..
+    } = ast
+    else {
         panic!("expected program");
     };
 

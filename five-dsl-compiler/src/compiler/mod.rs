@@ -73,7 +73,8 @@ impl DslCompiler {
         let ast = pipeline.parse(tokens)?;
         eprintln!("DEBUG_COMPILER: starting type_check");
         let interface_registry = pipeline.type_check_with_interfaces(&ast)?;
-        let bytecode = pipeline.generate_bytecode_with_interfaces(&ast, config, interface_registry)?;
+        let bytecode =
+            pipeline.generate_bytecode_with_interfaces(&ast, config, interface_registry)?;
 
         // Finalize metrics
         pipeline.finalize_metrics(&bytecode);
@@ -655,7 +656,8 @@ impl DslCompiler {
 
                 for item in items {
                     let symbol_name = item.name();
-                    if let Some(symbol) = scope.resolve_symbol_in_module(&module_path, symbol_name) {
+                    if let Some(symbol) = scope.resolve_symbol_in_module(&module_path, symbol_name)
+                    {
                         scope.add_symbol_to_current(
                             symbol_name.to_string(),
                             ModuleSymbol {
@@ -1397,5 +1399,245 @@ pub probe(mint: account, vault: account) -> u64 {
         let inspector = BytecodeInspector::new(&bytecode);
 
         assert!(inspector.contains_opcode(opcodes::LOAD_EXTERNAL_FIELD));
+    }
+
+    fn first_load_field_offset(bytecode: &[u8]) -> Option<u32> {
+        let opcode = opcodes::LOAD_FIELD;
+        for (i, byte) in bytecode.iter().enumerate() {
+            if *byte != opcode {
+                continue;
+            }
+            if i + 5 >= bytecode.len() {
+                continue;
+            }
+            let offset = u32::from_le_bytes([
+                bytecode[i + 2],
+                bytecode[i + 3],
+                bytecode[i + 4],
+                bytecode[i + 5],
+            ]);
+            return Some(offset);
+        }
+        None
+    }
+
+    fn all_load_field_offsets(bytecode: &[u8]) -> Vec<u32> {
+        let opcode = opcodes::LOAD_FIELD;
+        let mut offsets = Vec::new();
+        for (i, byte) in bytecode.iter().enumerate() {
+            if *byte != opcode {
+                continue;
+            }
+            if i + 5 >= bytecode.len() {
+                continue;
+            }
+            offsets.push(u32::from_le_bytes([
+                bytecode[i + 2],
+                bytecode[i + 3],
+                bytecode[i + 4],
+                bytecode[i + 5],
+            ]));
+        }
+        offsets
+    }
+
+    #[test]
+    fn account_serializer_defaults_to_raw_offset() {
+        let source = r#"
+account Mint {
+    supply: u64;
+}
+
+pub read_supply(mint: Mint) -> u64 {
+    return mint.supply;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
+        assert_eq!(offset, 0);
+    }
+
+    #[test]
+    fn account_serializer_anchor_adds_discriminator_offset() {
+        let source = r#"
+account Mint @serializer("anchor") {
+    supply: u64;
+}
+
+pub read_supply(mint: Mint) -> u64 {
+    return mint.supply;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
+        assert_eq!(offset, 8);
+    }
+
+    #[test]
+    fn parameter_serializer_override_takes_precedence() {
+        let source = r#"
+account Mint @serializer("anchor") {
+    supply: u64;
+}
+
+pub read_supply(mint: Mint @serializer("raw")) -> u64 {
+    return mint.supply;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
+        assert_eq!(offset, 0);
+    }
+
+    #[test]
+    fn parameter_serializer_anchor_override_takes_precedence() {
+        let source = r#"
+account Mint @serializer("raw") {
+    supply: u64;
+}
+
+pub read_supply(mint: Mint @serializer("anchor")) -> u64 {
+    return mint.supply;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
+        assert_eq!(offset, 8);
+    }
+
+    #[test]
+    fn mixed_account_serializers_resolve_per_parameter_instance() {
+        let source = r#"
+account A @serializer("anchor") {
+    value: u64;
+}
+
+account B @serializer("anchor") {
+    value: u64;
+}
+
+pub probe(a: A @serializer("raw"), b: B) -> u64 {
+    return a.value + b.value;
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let offsets = all_load_field_offsets(&bytecode);
+        assert!(
+            offsets.contains(&0),
+            "expected at least one raw field access offset"
+        );
+        assert!(
+            offsets.contains(&8),
+            "expected at least one anchor field access offset"
+        );
+    }
+
+    #[test]
+    fn typed_state_read_and_cpi_emit_expected_opcodes() {
+        let source = r#"
+account Mint @serializer("raw") {
+    supply: u64;
+}
+
+interface TokenLike @program("11111111111111111111111111111111") @serializer(raw) {
+    mint_to @discriminator(7) (
+        mint: Mint,
+        destination: account,
+        authority: account @authority,
+        amount: u64
+    );
+}
+
+pub mint_and_assert(
+    mint: Mint @mut,
+    destination: account @mut,
+    authority: account @signer
+) {
+    require(mint.supply >= 0);
+    TokenLike::mint_to(mint, destination, authority, 1);
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+        assert!(inspector.contains_opcode(opcodes::LOAD_FIELD));
+        assert!(inspector.contains_opcode(opcodes::INVOKE));
+    }
+
+    #[test]
+    fn invalid_account_serializer_value_is_rejected() {
+        let source = r#"
+account Mint @serializer("yaml") {
+    supply: u64;
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
+    }
+
+    #[test]
+    fn invalid_parameter_serializer_value_is_rejected() {
+        let source = r#"
+account Mint {
+    supply: u64;
+}
+
+pub read_supply(mint: Mint @serializer("yaml")) -> u64 {
+    return mint.supply;
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
+    }
+
+    #[test]
+    fn serializer_attribute_rejected_for_non_account_parameters() {
+        let source = r#"
+pub probe(amount: u64 @serializer("raw")) {
+    let x = amount;
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
+    }
+
+    #[test]
+    fn interface_named_account_params_compile_to_invoke() {
+        let source = r#"
+account Mint {
+    supply: u64;
+}
+
+account TokenAccount {
+    amount: u64;
+}
+
+interface TokenLike @program("11111111111111111111111111111111") @serializer(raw) {
+    mint_to @discriminator(7) (
+        mint: Mint,
+        destination: TokenAccount,
+        authority: account @authority,
+        amount: u64
+    );
+}
+
+pub mint_tokens(
+    mint: Mint @mut,
+    destination: TokenAccount @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    TokenLike::mint_to(mint, destination, authority, amount);
+}
+"#;
+
+        let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
+        let inspector = BytecodeInspector::new(&bytecode);
+        assert!(inspector.contains_opcode(opcodes::INVOKE));
     }
 }

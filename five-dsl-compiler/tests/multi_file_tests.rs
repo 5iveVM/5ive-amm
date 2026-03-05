@@ -332,8 +332,8 @@ fn test_ambiguous_unqualified_call_fails() -> Result<(), Box<dyn std::error::Err
 }
 
 #[test]
-fn test_bundled_stdlib_extended_builtin_wrappers_compile(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn test_bundled_stdlib_extended_builtin_wrappers_compile() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -519,8 +519,8 @@ fn test_local_module_namespace_import_with_explicit_interface_path_compile(
 }
 
 #[test]
-fn test_local_module_value_symbol_import_and_call_compile(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn test_local_module_value_symbol_import_and_call_compile() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -548,8 +548,8 @@ fn test_local_module_value_symbol_import_and_call_compile(
 }
 
 #[test]
-fn test_local_module_brace_type_and_value_import_compile(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn test_local_module_brace_type_and_value_import_compile() -> Result<(), Box<dyn std::error::Error>>
+{
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
@@ -613,7 +613,9 @@ fn test_duplicate_imported_type_symbol_in_same_namespace_fails() {
         .expect_err("duplicate type imports should fail");
     let err_text = err.to_string();
     assert!(err_text.contains("duplicate imported type symbol `Pool`"));
-    let loc = err.location.expect("duplicate type import should have a location");
+    let loc = err
+        .location
+        .expect("duplicate type import should have a location");
     assert_eq!(loc.line, 3, "location should point at the second import");
 }
 
@@ -649,7 +651,9 @@ fn test_duplicate_imported_value_symbol_in_same_namespace_fails() {
         .expect_err("duplicate value imports should fail");
     let err_text = err.to_string();
     assert!(err_text.contains("duplicate imported value symbol `submit`"));
-    let loc = err.location.expect("duplicate value import should have a location");
+    let loc = err
+        .location
+        .expect("duplicate value import should have a location");
     assert_eq!(loc.line, 3, "location should point at the second import");
 }
 
@@ -705,8 +709,7 @@ fn test_old_explicit_interface_import_syntax_rejected() {
 }
 
 #[test]
-fn test_bundled_stdlib_interface_symbol_import_compile(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn test_bundled_stdlib_interface_symbol_import_compile() -> Result<(), Box<dyn std::error::Error>> {
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),

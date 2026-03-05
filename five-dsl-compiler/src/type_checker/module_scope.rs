@@ -204,7 +204,11 @@ impl ModuleScope {
             .unwrap_or(false)
     }
 
-    pub fn resolve_symbol_in_module(&self, module_name: &str, symbol_name: &str) -> Option<ModuleSymbol> {
+    pub fn resolve_symbol_in_module(
+        &self,
+        module_name: &str,
+        symbol_name: &str,
+    ) -> Option<ModuleSymbol> {
         self.module_tables
             .get(module_name)
             .and_then(|table| table.lookup(symbol_name).cloned())

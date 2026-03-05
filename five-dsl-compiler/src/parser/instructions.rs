@@ -1,7 +1,34 @@
-use crate::ast::{AstNode, Attribute, BlockKind, InstructionParameter, PdaConfig, TestAttribute};
+use crate::ast::{
+    AccountSerializer, AstNode, Attribute, BlockKind, InstructionParameter, PdaConfig,
+    TestAttribute,
+};
 use crate::parser::{types, DslParser};
 use crate::tokenizer::Token;
 use five_vm_mito::error::VMError;
+
+fn parse_account_serializer(parser: &mut DslParser) -> Result<AccountSerializer, VMError> {
+    let serializer = match &parser.current_token {
+        Token::StringLiteral(s) => {
+            let out = s.clone();
+            parser.advance();
+            out
+        }
+        Token::Identifier(s) => {
+            let out = s.clone();
+            parser.advance();
+            out
+        }
+        _ => return Err(parser.parse_error("serializer name (identifier or string literal)")),
+    };
+
+    match serializer.as_str() {
+        "raw" => Ok(AccountSerializer::Raw),
+        "borsh" => Ok(AccountSerializer::Borsh),
+        "bincode" => Ok(AccountSerializer::Bincode),
+        "anchor" => Ok(AccountSerializer::Anchor),
+        _ => Err(parser.parse_error("valid serializer: raw, borsh, bincode, or anchor")),
+    }
+}
 
 fn is_reserved_function_name_token(token: &Token) -> bool {
     matches!(
@@ -239,6 +266,7 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
         parser.advance(); // consume ':'
 
         let param_type = types::parse_type(parser)?;
+        let mut param_serializer: Option<AccountSerializer> = None;
 
         // Parse optional account attributes after type: @signer, @mut, @init
         let mut trailing_attributes: Vec<Attribute> = Vec::new();
@@ -325,6 +353,17 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                         let (seeds, bump) = parse_pda_arguments(parser)?;
                         pda_config = Some(PdaConfig { seeds, bump });
                         continue;
+                    } else if name == "serializer" {
+                        if !matches!(parser.current_token, Token::LeftParen) {
+                            return Err(parser.parse_error("'(' after serializer attribute"));
+                        }
+                        parser.advance(); // consume '('
+                        param_serializer = Some(parse_account_serializer(parser)?);
+                        if !matches!(parser.current_token, Token::RightParen) {
+                            return Err(parser.parse_error("')' to close serializer arguments"));
+                        }
+                        parser.advance(); // consume ')'
+                        continue;
                     }
                     let mut args = Vec::new();
 
@@ -372,6 +411,7 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
             attributes: final_attributes,
             is_init,
             init_config,
+            serializer: param_serializer,
             pda_config,
         });
 

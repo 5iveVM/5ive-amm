@@ -304,6 +304,7 @@ mod tests {
                     attributes: vec![],
                     is_init: false,
                     init_config: None,
+                    serializer: None,
                     pda_config: None,
                 }],
                 return_type: Some(Box::new(TypeNode::Primitive("bool".to_string()))),
@@ -357,6 +358,7 @@ mod tests {
                         }],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                     InstructionParameter {
@@ -367,6 +369,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     },
                 ],

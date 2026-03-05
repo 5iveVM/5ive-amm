@@ -194,7 +194,8 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
-                    pda_config: None,
+                    serializer: None,
+            pda_config: None,
             }
         ];
 
@@ -220,7 +221,8 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
-                    pda_config: None,
+                    serializer: None,
+            pda_config: None,
             },
             InstructionParameter {
                 name: "b".to_string(),
@@ -230,7 +232,8 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
-                    pda_config: None,
+                    serializer: None,
+            pda_config: None,
             }
         ];
 
@@ -256,7 +259,8 @@ mod tests {
             attributes: vec![],
             is_init: false,
             init_config: None,
-                    pda_config: None,
+                    serializer: None,
+            pda_config: None,
         };
 
         let regular_param = InstructionParameter {
@@ -267,7 +271,8 @@ mod tests {
             attributes: vec![],
             is_init: false,
             init_config: None,
-                    pda_config: None,
+                    serializer: None,
+            pda_config: None,
         };
 
         assert!(!has_account_parameters(&[]));

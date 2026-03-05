@@ -397,17 +397,16 @@ impl ASTGenerator {
                         AstNode::FunctionCall { name, .. } => {
                             name == "get_clock" || name == "get_clock_sysvar"
                         }
-                        AstNode::Identifier(name) => {
-                            self.local_symbol_table
-                                .get(name)
-                                .map(|f| f.field_type == "Clock")
-                                .or_else(|| {
-                                    self.global_symbol_table
-                                        .get(name)
-                                        .map(|f| f.field_type == "Clock")
-                                })
-                                .unwrap_or(false)
-                        }
+                        AstNode::Identifier(name) => self
+                            .local_symbol_table
+                            .get(name)
+                            .map(|f| f.field_type == "Clock")
+                            .or_else(|| {
+                                self.global_symbol_table
+                                    .get(name)
+                                    .map(|f| f.field_type == "Clock")
+                            })
+                            .unwrap_or(false),
                         _ => false,
                     };
 
@@ -476,7 +475,7 @@ impl ASTGenerator {
 
                         // Calculate field offset within account using the account type
                         let field_offset =
-                            self.calculate_account_field_offset(account_type, field)?;
+                            self.calculate_account_field_offset(account_type, field, account_name)?;
 
                         // Generate zero-copy account field load operation using MitoVM
                         if is_pubkey {

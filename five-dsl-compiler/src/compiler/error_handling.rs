@@ -185,9 +185,7 @@ pub fn convert_vm_error_to_compiler_error(
             return builder.build();
         }
         VMError::DuplicateImport {
-            symbol,
-            namespace,
-            ..
+            symbol, namespace, ..
         } => {
             let symbol_text = symbol.to_string();
             let namespace_text = namespace.to_string();
@@ -259,8 +257,9 @@ pub fn convert_vm_error_to_compiler_error_with_ast(
         let file_path = PathBuf::from(filename.unwrap_or("input.v"));
         let symbol_text = symbol.to_string();
         let namespace_text = namespace.to_string();
-        let location = find_import_location_in_ast(ast, import_ordinal as usize, source, &file_path)
-            .or_else(|| find_identifier_location(source, &symbol_text, &file_path));
+        let location =
+            find_import_location_in_ast(ast, import_ordinal as usize, source, &file_path)
+                .or_else(|| find_identifier_location(source, &symbol_text, &file_path));
 
         return build_duplicate_import_error(
             symbol_text,
@@ -362,7 +361,9 @@ fn find_import_location_in_ast(
         return None;
     };
 
-    Some(ast_location_to_compiler_location(*location, source, file_path))
+    Some(ast_location_to_compiler_location(
+        *location, source, file_path,
+    ))
 }
 
 fn ast_location_to_compiler_location(

@@ -125,6 +125,7 @@ pub struct InterfaceFunctionNode {
 pub struct AccountDefinitionNode {
     pub fields: Vec<StructField>,
     pub name: String,
+    pub serializer: Option<String>,
     pub visibility: Visibility,
 }
 
@@ -628,6 +629,13 @@ impl From<Definition> for AstNode {
             Definition::AccountDefinition(node) => AstNode::AccountDefinition {
                 fields: node.fields,
                 name: node.name,
+                serializer: node.serializer.and_then(|value| match value.as_str() {
+                    "raw" => Some(crate::ast::AccountSerializer::Raw),
+                    "borsh" => Some(crate::ast::AccountSerializer::Borsh),
+                    "bincode" => Some(crate::ast::AccountSerializer::Bincode),
+                    "anchor" => Some(crate::ast::AccountSerializer::Anchor),
+                    _ => None,
+                }),
                 visibility: node.visibility,
             },
             Definition::TypeDefinition(node) => AstNode::TypeDefinition {

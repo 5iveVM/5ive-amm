@@ -26,7 +26,10 @@ pub fn find_bundled_stdlib_root(project_root: &Path) -> Option<PathBuf> {
     let mut cursor = Some(project_root.to_path_buf());
     while let Some(dir) = cursor {
         let candidates = [
-            dir.join("five-cli").join("dist").join("assets").join("stdlib"),
+            dir.join("five-cli")
+                .join("dist")
+                .join("assets")
+                .join("stdlib"),
             dir.join("five-cli").join("assets").join("stdlib"),
             dir.join("five-stdlib"),
         ];
@@ -43,7 +46,10 @@ pub fn find_bundled_stdlib_root(project_root: &Path) -> Option<PathBuf> {
     let workspace_root = manifest_dir.parent().map(|p| p.to_path_buf());
     if let Some(root) = workspace_root {
         let candidates = [
-            root.join("five-cli").join("dist").join("assets").join("stdlib"),
+            root.join("five-cli")
+                .join("dist")
+                .join("assets")
+                .join("stdlib"),
             root.join("five-cli").join("assets").join("stdlib"),
             root.join("five-stdlib"),
         ];

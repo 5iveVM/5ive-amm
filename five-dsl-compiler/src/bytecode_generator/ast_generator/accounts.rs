@@ -5,10 +5,64 @@ use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::InstructionParameter;
 use crate::ast::{AstNode, TypeNode};
+use crate::bytecode_generator::types::AccountDecodingSerializer;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn account_serializer_base_offset(serializer: AccountDecodingSerializer) -> u32 {
+        match serializer {
+            AccountDecodingSerializer::Anchor => 8,
+            AccountDecodingSerializer::Raw
+            | AccountDecodingSerializer::Borsh
+            | AccountDecodingSerializer::Bincode => 0,
+        }
+    }
+
+    pub(crate) fn resolve_account_serializer_for_param(
+        &self,
+        account_name: &str,
+        account_type: &str,
+    ) -> AccountDecodingSerializer {
+        if let Some(params) = &self.current_function_parameters {
+            if let Some(param) = params.iter().find(|param| param.name == account_name) {
+                if let Some(serializer) = param.serializer {
+                    return match serializer {
+                        crate::ast::AccountSerializer::Raw => AccountDecodingSerializer::Raw,
+                        crate::ast::AccountSerializer::Borsh => AccountDecodingSerializer::Borsh,
+                        crate::ast::AccountSerializer::Bincode => {
+                            AccountDecodingSerializer::Bincode
+                        }
+                        crate::ast::AccountSerializer::Anchor => AccountDecodingSerializer::Anchor,
+                    };
+                }
+            }
+        }
+
+        if let Some(account_system) = &self.account_system {
+            let namespace_suffix = format!("::{}", account_type);
+            if let Some(info) = account_system
+                .get_account_registry()
+                .account_types
+                .get(account_type)
+                .or_else(|| {
+                    account_system
+                        .get_account_registry()
+                        .account_types
+                        .iter()
+                        .find(|(k, _)| k.ends_with(&namespace_suffix))
+                        .map(|(_, v)| v)
+                })
+            {
+                if let Some(serializer) = info.serializer {
+                    return serializer;
+                }
+            }
+        }
+
+        AccountDecodingSerializer::Raw
+    }
+
     fn resolve_account_param_index(&self, param_name: &str, fallback_param_index: usize) -> u8 {
         if let Some(params) = self.current_function_parameters.as_ref() {
             let registry = self
@@ -123,12 +177,13 @@ impl ASTGenerator {
     /// Now properly integrates with AccountSystem registry for dynamic field resolution
     pub(super) fn calculate_account_field_offset(
         &self,
-        account_name: &str,
+        account_type: &str,
         field_name: &str,
+        account_param_name: &str,
     ) -> Result<u32, VMError> {
         println!(
             "AST Generator: Calculating field offset for account '{}' field '{}'",
-            account_name, field_name
+            account_type, field_name
         );
 
         // Use AccountSystem.account_registry to get proper field offsets
@@ -145,19 +200,18 @@ impl ASTGenerator {
             }
 
             // Look up the account type in the registry with namespace-aware matching
-            let namespace_suffix = format!("::{}", account_name);
-            let account_info = registry.account_types.get(account_name).or_else(|| {
+            let account_info = registry.account_types.get(account_type).or_else(|| {
                 registry
                     .account_types
                     .iter()
-                    .find(|(k, _)| k.ends_with(&namespace_suffix))
+                    .find(|(k, _)| k.ends_with(&format!("::{}", account_type)))
                     .map(|(_, v)| v)
             });
 
             if let Some(account_info) = account_info {
                 println!(
                     "AST Generator: Found account type '{}' with {} fields",
-                    account_name,
+                    account_type,
                     account_info.fields.len()
                 );
 
@@ -165,7 +219,7 @@ impl ASTGenerator {
                 for (fname, finfo) in &account_info.fields {
                     println!(
                         "AST Generator: Account '{}' has field '{}' at offset {}",
-                        account_name, fname, finfo.offset
+                        account_type, fname, finfo.offset
                     );
                 }
 
@@ -175,12 +229,15 @@ impl ASTGenerator {
                         "AST Generator: Found field '{}' at offset {}",
                         field_name, field_info.offset
                     );
-                    return Ok(field_info.offset);
+                    let serializer =
+                        self.resolve_account_serializer_for_param(account_param_name, account_type);
+                    let base_offset = Self::account_serializer_base_offset(serializer);
+                    return Ok(base_offset.saturating_add(field_info.offset));
                 } else {
                     // Field not found in account definition
                     println!(
                         "AST Generator: ERROR - Field '{}' not found in account '{}'",
-                        field_name, account_name
+                        field_name, account_type
                     );
                     return Err(VMError::UndefinedAccountField);
                 }
@@ -188,7 +245,7 @@ impl ASTGenerator {
                 // Account type not found in registry
                 println!(
                     "AST Generator: ERROR - Account type '{}' not found in registry",
-                    account_name
+                    account_type
                 );
                 return Err(VMError::UndefinedAccountField);
             }
@@ -203,7 +260,7 @@ impl ASTGenerator {
         // These silent bugs caused functions to read/write wrong account fields at runtime.
         // Now all account types must be properly registered in AccountSystem for correct offsets.
         println!("DSL Compiler ERROR: Cannot resolve field offset without AccountSystem");
-        println!("  Account: '{}'", account_name);
+        println!("  Account: '{}'", account_type);
         println!("  Field: '{}'", field_name);
         println!("  Fix: Ensure the account type is defined in your Five script");
 

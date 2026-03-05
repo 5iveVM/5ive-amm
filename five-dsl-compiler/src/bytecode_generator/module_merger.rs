@@ -245,10 +245,12 @@ impl ModuleMerger {
                 name,
                 visibility,
                 fields,
+                serializer,
             } => Ok(AstNode::AccountDefinition {
                 name: format!("{}::{}", module_name, name),
                 visibility: *visibility,
                 fields: fields.clone(),
+                serializer: *serializer,
             }),
             AstNode::TypeDefinition {
                 name,

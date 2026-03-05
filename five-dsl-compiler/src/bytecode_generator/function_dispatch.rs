@@ -473,19 +473,17 @@ impl FunctionDispatcher {
                                 {
                                     return Err(VMError::InvalidScript);
                                 }
-                            for verify_name in verify_names {
-                                if let Some(seed_bytes) = &namespace_seed {
-                                    self.import_table.add_import_by_seeds(
-                                        vec![seed_bytes.clone()],
-                                        verify_name,
-                                    );
-                                } else {
-                                    self.import_table.add_import_by_address(
-                                        &account_address,
-                                        verify_name,
-                                    );
+                                for verify_name in verify_names {
+                                    if let Some(seed_bytes) = &namespace_seed {
+                                        self.import_table.add_import_by_seeds(
+                                            vec![seed_bytes.clone()],
+                                            verify_name,
+                                        );
+                                    } else {
+                                        self.import_table
+                                            .add_import_by_address(&account_address, verify_name);
+                                    }
                                 }
-                            }
                                 continue;
                             }
 
@@ -514,10 +512,8 @@ impl FunctionDispatcher {
                             // Only external imports are eligible for on-chain import verification metadata.
                             for verify_name in verify_names {
                                 if let Some(seed_bytes) = &namespace_seed {
-                                    self.import_table.add_import_by_seeds(
-                                        vec![seed_bytes.clone()],
-                                        verify_name,
-                                    );
+                                    self.import_table
+                                        .add_import_by_seeds(vec![seed_bytes.clone()], verify_name);
                                 } else {
                                     self.import_table
                                         .add_import_by_address(&account_address, verify_name);
@@ -545,10 +541,8 @@ impl FunctionDispatcher {
                                 "import_all".to_string(),
                             );
                         } else {
-                            self.import_table.add_import_by_address(
-                                &account_address,
-                                "import_all".to_string(),
-                            );
+                            self.import_table
+                                .add_import_by_address(&account_address, "import_all".to_string());
                         }
 
                         println!(
@@ -852,10 +846,8 @@ impl FunctionDispatcher {
                         if should_register_alias {
                             ast_generator
                                 .register_module_path_alias(alias.clone(), full_path.clone());
-                            ast_generator.register_module_path_alias(
-                                full_path.clone(),
-                                full_path.clone(),
-                            );
+                            ast_generator
+                                .register_module_path_alias(full_path.clone(), full_path.clone());
                         }
                     }
                 }
@@ -951,7 +943,6 @@ impl FunctionDispatcher {
                             }
                         }
                     }
-
                 }
 
                 if is_external_import {
@@ -1555,6 +1546,7 @@ mod tests {
                         attributes: vec![],
                         is_init: false,
                         init_config: None,
+                        serializer: None,
                         pda_config: None,
                     }],
                     return_type: None,
@@ -1614,6 +1606,7 @@ mod tests {
                 }],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
             InstructionParameter {
@@ -1624,6 +1617,7 @@ mod tests {
                 attributes: vec![],
                 is_init: false,
                 init_config: None,
+                serializer: None,
                 pda_config: None,
             },
         ];

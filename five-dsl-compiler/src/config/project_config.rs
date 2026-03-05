@@ -197,7 +197,9 @@ impl ProjectConfig {
         }
     }
 
-    pub fn normalized_dependencies(&self) -> Result<HashMap<String, NormalizedDependency>, VMError> {
+    pub fn normalized_dependencies(
+        &self,
+    ) -> Result<HashMap<String, NormalizedDependency>, VMError> {
         self.validate_schema_version()?;
 
         let mut out = HashMap::new();
@@ -206,7 +208,11 @@ impl ProjectConfig {
         let mut moat_targets = HashSet::new();
 
         for (alias, dep) in self.dependencies.as_ref().into_iter().flatten() {
-            let package = dep.package.as_ref().ok_or(VMError::InvalidOperation)?.trim();
+            let package = dep
+                .package
+                .as_ref()
+                .ok_or(VMError::InvalidOperation)?
+                .trim();
             if package.is_empty() {
                 return Err(VMError::InvalidOperation);
             }
@@ -214,7 +220,11 @@ impl ProjectConfig {
             let source = dep.source.ok_or(VMError::InvalidOperation)?;
             let link = dep.link.ok_or(VMError::InvalidOperation)?;
 
-            let has_path = dep.path.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false);
+            let has_path = dep
+                .path
+                .as_ref()
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false);
             let has_namespace = dep
                 .namespace
                 .as_ref()
@@ -306,7 +316,9 @@ impl ProjectConfig {
                     return Err(VMError::InvalidOperation);
                 }
             }
-            if let (Some(moat_account), Some(module)) = (dep.moat_account.as_ref(), dep.module.as_ref()) {
+            if let (Some(moat_account), Some(module)) =
+                (dep.moat_account.as_ref(), dep.module.as_ref())
+            {
                 let moat_target = format!("{}::{}", moat_account.trim(), module.trim());
                 if !moat_target.is_empty() && !moat_targets.insert(moat_target) {
                     return Err(VMError::InvalidOperation);

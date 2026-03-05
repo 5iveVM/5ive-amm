@@ -3,6 +3,15 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Account decoding serializer for external/interface state access.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AccountDecodingSerializer {
+    Raw,
+    Borsh,
+    Bincode,
+    Anchor,
+}
+
 /// Information about a field/variable in the symbol table
 #[derive(Debug, Clone)]
 pub struct FieldInfo {
@@ -102,6 +111,7 @@ pub struct AccountTypeInfo {
     pub name: String,
     pub fields: HashMap<String, FieldInfo>,
     pub total_size: u32,
+    pub serializer: Option<AccountDecodingSerializer>,
 }
 
 /// Account registry for storing account type definitions

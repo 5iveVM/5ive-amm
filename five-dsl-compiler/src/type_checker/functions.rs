@@ -162,6 +162,11 @@ impl TypeCheckerContext {
                             {
                                 return Err(VMError::TypeMismatch);
                             }
+                            if param.serializer.is_some()
+                                && !self.is_account_param_type(&param.param_type)
+                            {
+                                return Err(VMError::TypeMismatch);
+                            }
                         }
 
                         let return_type_node = return_type.as_ref().map(|rt| (**rt).clone());
@@ -417,6 +422,10 @@ impl TypeCheckerContext {
                 self.init_bump_accounts.insert(param.name.clone());
             }
 
+            if param.serializer.is_some() && !self.is_account_param_type(&param.param_type) {
+                return Err(VMError::TypeMismatch);
+            }
+
             // For account parameters, store them as Account type so field access works
             let param_type = if param.param_type.is_account_type() {
                 TypeNode::Account
@@ -627,10 +636,15 @@ impl TypeCheckerContext {
         &mut self,
         name: &str,
         fields: &[crate::ast::StructField],
+        serializer: Option<crate::ast::AccountSerializer>,
         visibility: crate::ast::Visibility,
     ) -> Result<(), VMError> {
         self.account_definitions
             .insert(name.to_string(), fields.to_vec());
+        if let Some(serializer) = serializer {
+            self.account_serializers
+                .insert(name.to_string(), serializer);
+        }
 
         // Add to module scope for cross-module resolution
         self.add_to_module_scope(name.to_string(), TypeNode::Account, false, visibility);
