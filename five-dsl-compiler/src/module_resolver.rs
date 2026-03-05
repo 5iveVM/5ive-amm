@@ -3,9 +3,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 // use five_vm_mito::error::VMError;
 use crate::ast::AstNode;
+use crate::config::{DependencyLink, DependencySource, NormalizedDependency, ProjectConfig};
 use crate::error::ModuleResolutionError;
 use crate::parser::DslParser;
-use crate::stdlib_registry::{bundled_stdlib_source, bundled_stdlib_virtual_path};
+use crate::stdlib_registry::{
+    bundled_stdlib_module_path, find_bundled_stdlib_root, STDLIB_DEFAULT_ALIAS,
+    STDLIB_PACKAGE_NAME,
+};
 use crate::tokenizer::DslTokenizer;
 
 /// Represents a single module in the project.
@@ -230,6 +234,20 @@ pub struct ModuleDiscoverer {
     source_dir: PathBuf,
 }
 
+#[derive(Debug, Clone)]
+struct DependencyContext {
+    project_root: PathBuf,
+    dependencies: HashMap<String, NormalizedDependency>,
+    stdlib_root: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedDependencyModule {
+    module_path: String,
+    file_path: PathBuf,
+    source_code: String,
+}
+
 impl ModuleDiscoverer {
     /// Create a new discoverer for a source directory
     pub fn new(source_dir: PathBuf) -> Self {
@@ -241,9 +259,9 @@ impl ModuleDiscoverer {
         &self,
         entry_point: &Path,
     ) -> Result<ModuleGraph, ModuleResolutionError> {
+        let dep_ctx = self.load_dependency_context()?;
         let mut graph = ModuleGraph::new();
         let mut visited_files = HashSet::new();
-        let mut warned_local_stdlib = false;
         let mut to_process = VecDeque::new();
 
         // Start with entry point
@@ -263,10 +281,29 @@ impl ModuleDiscoverer {
                 }
             })?;
 
+            if self.source_mentions_std_import(&source_code) {
+                let std_dep = dep_ctx.dependencies.get(STDLIB_DEFAULT_ALIAS).ok_or_else(|| {
+                    ModuleResolutionError::Generic(
+                        "Missing required std dependency. Add to five.toml:\n[dependencies]\nstd = { package = \"@5ive/std\", version = \"0.1.0\", source = \"bundled\", link = \"inline\" }".to_string(),
+                    )
+                })?;
+                if std_dep.package != STDLIB_PACKAGE_NAME {
+                    return Err(ModuleResolutionError::Generic(format!(
+                        "Dependency '{}' must map to package '{}'",
+                        STDLIB_DEFAULT_ALIAS, STDLIB_PACKAGE_NAME
+                    )));
+                }
+                if std_dep.source != DependencySource::Bundled || std_dep.link != DependencyLink::Inline {
+                    return Err(ModuleResolutionError::Generic(
+                        "Dependency 'std' is declared but not enabled for this phase. Use source='bundled' and link='inline'.".to_string(),
+                    ));
+                }
+            }
+
             let module_path = self.file_path_to_module_path(&file_path)?;
 
             // Extract dependencies from use/import statements
-            let dependencies = self.extract_dependencies(&source_code);
+            let dependencies = self.extract_dependencies(&source_code, &dep_ctx);
 
             let descriptor = ModuleDescriptor {
                 module_path: module_path.clone(),
@@ -285,37 +322,30 @@ impl ModuleDiscoverer {
                     continue;
                 }
 
-                if bundled_stdlib_source(&dep).is_some() {
-                    if graph.get_module(&dep).is_none() {
-                        if let Some(src) = bundled_stdlib_source(&dep) {
-                            let local_candidate = self
-                                .source_dir
-                                .join(dep.replace("::", "/"))
-                                .with_extension("v");
-                            if local_candidate.exists() && !warned_local_stdlib {
-                                warned_local_stdlib = true;
-                                eprintln!(
-                                    "warning: local src/std modules are ignored; using bundled stdlib sources"
-                                );
-                            }
-                            let std_deps = self.extract_dependencies(src);
-                            graph.add_module(ModuleDescriptor {
-                                module_path: dep.clone(),
-                                file_path: bundled_stdlib_virtual_path(&dep),
-                                source_code: src.to_string(),
-                                dependencies: std_deps.clone(),
-                                is_entry_point: false,
-                            });
-                            for d in std_deps {
-                                if !d.starts_with('"') {
-                                    graph.add_dependency(dep.clone(), d);
-                                }
-                            }
-                        } else {
-                            return Err(ModuleResolutionError::ModuleNotFound {
-                                module_path: dep.clone(),
-                                searched_paths: vec![bundled_stdlib_virtual_path(&dep)],
-                            });
+                if (dep == STDLIB_DEFAULT_ALIAS || dep.starts_with("std::"))
+                    && !dep_ctx.dependencies.contains_key(STDLIB_DEFAULT_ALIAS)
+                {
+                    return Err(ModuleResolutionError::Generic(
+                        "Missing required std dependency. Add to five.toml:\n[dependencies]\nstd = { package = \"@5ive/std\", version = \"0.1.0\", source = \"bundled\", link = \"inline\" }".to_string(),
+                    ));
+                }
+
+                if graph.get_module(&dep).is_some() {
+                    continue;
+                }
+
+                if let Some(resolved) = self.resolve_dependency_module(&dep, &dep_ctx)? {
+                    let dep_deps = self.extract_dependencies(&resolved.source_code, &dep_ctx);
+                    graph.add_module(ModuleDescriptor {
+                        module_path: resolved.module_path.clone(),
+                        file_path: resolved.file_path,
+                        source_code: resolved.source_code,
+                        dependencies: dep_deps.clone(),
+                        is_entry_point: false,
+                    });
+                    for d in dep_deps {
+                        if !d.starts_with('"') {
+                            graph.add_dependency(dep.clone(), d);
                         }
                     }
                     continue;
@@ -394,78 +424,310 @@ impl ModuleDiscoverer {
     }
 
     /// Extract use/import dependencies from source code.
-    fn extract_dependencies(&self, source_code: &str) -> Vec<String> {
+    fn extract_dependencies(&self, source_code: &str, dep_ctx: &DependencyContext) -> Vec<String> {
         let mut tokenizer = DslTokenizer::new(source_code);
-        let Ok(tokens) = tokenizer.tokenize() else {
-            return Vec::new();
-        };
-
-        let Ok(ast) = DslParser::new(tokens).parse() else {
-            return Vec::new();
-        };
-
         let mut out = Vec::new();
-        if let AstNode::Program {
-            import_statements, ..
-        } = ast
-        {
-            for import in import_statements {
-                if let AstNode::ImportStatement {
-                    module_specifier,
-                    imported_items,
-                    ..
-                } = import
+        if let Ok(tokens) = tokenizer.tokenize() {
+            if let Ok(ast) = DslParser::new(tokens).parse() {
+                if let AstNode::Program {
+                    import_statements, ..
+                } = ast
                 {
-                    match module_specifier {
-                        crate::ast::ModuleSpecifier::Local(name) => out.push(name),
-                        crate::ast::ModuleSpecifier::Nested(path) => {
-                            if let Some(items) = imported_items {
-                                if !items.is_empty() {
-                                    out.push(path.join("::"));
-                                    continue;
+                    for import in import_statements {
+                        if let AstNode::ImportStatement {
+                            module_specifier,
+                            imported_items,
+                            ..
+                        } = import
+                        {
+                            match module_specifier {
+                                crate::ast::ModuleSpecifier::Local(name) => out.push(name),
+                                crate::ast::ModuleSpecifier::Nested(path) => {
+                                    if let Some(items) = imported_items {
+                                        if !items.is_empty() {
+                                            out.push(path.join("::"));
+                                            continue;
+                                        }
+                                    }
+
+                                    let full = path.join("::");
+                                    let alias = path.first().cloned().unwrap_or_default();
+                                    let full_is_dependency_alias =
+                                        dep_ctx.dependencies.contains_key(&alias);
+                                    let full_is_module = full_is_dependency_alias
+                                        || self
+                                            .module_path_to_file_path(&full)
+                                            .map(|p| p.exists())
+                                            .unwrap_or(false);
+
+                                    if full_is_module {
+                                        out.push(full);
+                                        continue;
+                                    }
+
+                                    if path.len() > 1 {
+                                        let parent = path[..path.len() - 1].join("::");
+                                        let parent_alias = path.first().cloned().unwrap_or_default();
+                                        let parent_is_module = dep_ctx
+                                            .dependencies
+                                            .contains_key(&parent_alias)
+                                            || self
+                                                .module_path_to_file_path(&parent)
+                                                .map(|p| p.exists())
+                                                .unwrap_or(false);
+                                        if parent_is_module {
+                                            out.push(parent);
+                                            continue;
+                                        }
+                                    }
+
+                                    out.push(full);
+                                }
+                                crate::ast::ModuleSpecifier::External(addr) => {
+                                    out.push(format!("\"{}\"", addr))
+                                }
+                                crate::ast::ModuleSpecifier::Namespace(ns) => {
+                                    out.push(format!("\"{}\"", ns.import_key()))
                                 }
                             }
-
-                            let full = path.join("::");
-                            let full_is_module = bundled_stdlib_source(&full).is_some()
-                                || self
-                                    .module_path_to_file_path(&full)
-                                    .map(|p| p.exists())
-                                    .unwrap_or(false);
-
-                            if full_is_module {
-                                out.push(full);
-                                continue;
-                            }
-
-                            if path.len() > 1 {
-                                let parent = path[..path.len() - 1].join("::");
-                                let parent_is_module = bundled_stdlib_source(&parent).is_some()
-                                    || self
-                                        .module_path_to_file_path(&parent)
-                                        .map(|p| p.exists())
-                                        .unwrap_or(false);
-                                if parent_is_module {
-                                    out.push(parent);
-                                    continue;
-                                }
-                            }
-
-                            out.push(full);
-                        }
-                        crate::ast::ModuleSpecifier::External(addr) => {
-                            out.push(format!("\"{}\"", addr))
-                        }
-                        crate::ast::ModuleSpecifier::Namespace(ns) => {
-                            out.push(format!("\"{}\"", ns.import_key()))
                         }
                     }
                 }
             }
         }
+
+        out.extend(self.extract_use_paths_from_source(source_code));
+
         out.sort();
         out.dedup();
         out
+    }
+
+    fn extract_use_paths_from_source(&self, source_code: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        for raw_line in source_code.lines() {
+            let line = raw_line.trim();
+            let (prefix, body) = if let Some(rest) = line.strip_prefix("use ") {
+                ("use", rest)
+            } else if let Some(rest) = line.strip_prefix("import ") {
+                ("import", rest)
+            } else {
+                continue;
+            };
+
+            if prefix.is_empty() {
+                continue;
+            }
+
+            let mut target = body.split(';').next().unwrap_or("").trim();
+            if target.is_empty() {
+                continue;
+            }
+            if let Some((lhs, _)) = target.split_once(" as ") {
+                target = lhs.trim();
+            }
+            if let Some((lhs, _)) = target.split_once("::{") {
+                target = lhs.trim();
+            }
+            if target.is_empty() {
+                continue;
+            }
+            out.push(target.to_string());
+        }
+        out
+    }
+
+    fn source_mentions_std_import(&self, source_code: &str) -> bool {
+        self.extract_use_paths_from_source(source_code)
+            .iter()
+            .any(|path| path == STDLIB_DEFAULT_ALIAS || path.starts_with("std::"))
+    }
+
+    fn find_project_config_path(&self) -> Option<PathBuf> {
+        let mut cursor = Some(self.source_dir.clone());
+        while let Some(dir) = cursor {
+            let candidate = dir.join("five.toml");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+            cursor = dir.parent().map(|p| p.to_path_buf());
+        }
+        None
+    }
+
+    fn load_dependency_context(&self) -> Result<DependencyContext, ModuleResolutionError> {
+        let Some(config_path) = self.find_project_config_path() else {
+            return Ok(DependencyContext {
+                project_root: self.source_dir.clone(),
+                dependencies: HashMap::new(),
+                stdlib_root: None,
+            });
+        };
+
+        let project_root = config_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| self.source_dir.clone());
+        let config = ProjectConfig::load(&config_path).map_err(|_| {
+            ModuleResolutionError::Generic(format!(
+                "Failed to parse project configuration at {}",
+                config_path.display()
+            ))
+        })?;
+        let dependencies = config.normalized_dependencies().map_err(|_| {
+            ModuleResolutionError::Generic(format!(
+                "Invalid dependency configuration in {}",
+                config_path.display()
+            ))
+        })?;
+        let stdlib_root = find_bundled_stdlib_root(&project_root);
+
+        Ok(DependencyContext {
+            project_root,
+            dependencies,
+            stdlib_root,
+        })
+    }
+
+    fn resolve_dependency_module(
+        &self,
+        module_path: &str,
+        dep_ctx: &DependencyContext,
+    ) -> Result<Option<ResolvedDependencyModule>, ModuleResolutionError> {
+        let mut parts = module_path.split("::");
+        let alias = match parts.next() {
+            Some(value) if !value.is_empty() => value,
+            _ => return Ok(None),
+        };
+
+        let Some(dep) = dep_ctx.dependencies.get(alias) else {
+            return Ok(None);
+        };
+
+        let tail = parts.collect::<Vec<_>>().join("::");
+
+        match (dep.source, dep.link) {
+            (DependencySource::Bundled, DependencyLink::Inline) => {
+                if dep.package != STDLIB_PACKAGE_NAME {
+                    return Err(ModuleResolutionError::Generic(format!(
+                        "Bundled dependency '{}' is unsupported (only package '{}' is currently supported)",
+                        alias, STDLIB_PACKAGE_NAME
+                    )));
+                }
+                let stdlib_root = dep_ctx.stdlib_root.as_ref().ok_or_else(|| {
+                    ModuleResolutionError::Generic(
+                        "Unable to resolve bundled stdlib root. Set FIVE_STDLIB_ROOT or use five-cli bundled assets."
+                            .to_string(),
+                    )
+                })?;
+                let effective_tail = if tail.is_empty() {
+                    "prelude".to_string()
+                } else {
+                    tail
+                };
+                let module_file = bundled_stdlib_module_path(stdlib_root, &effective_tail);
+                let source_code = std::fs::read_to_string(&module_file).map_err(|_| {
+                    ModuleResolutionError::ModuleNotFound {
+                        module_path: module_path.to_string(),
+                        searched_paths: vec![module_file.clone()],
+                    }
+                })?;
+                Ok(Some(ResolvedDependencyModule {
+                    module_path: module_path.to_string(),
+                    file_path: module_file,
+                    source_code,
+                }))
+            }
+            (DependencySource::Path, DependencyLink::Inline) => {
+                let dep_path = dep.path.as_ref().ok_or_else(|| {
+                    ModuleResolutionError::Generic(format!(
+                        "Dependency '{}' with source=path is missing 'path'",
+                        alias
+                    ))
+                })?;
+                let dep_root = {
+                    let candidate = PathBuf::from(dep_path);
+                    if candidate.is_absolute() {
+                        candidate
+                    } else {
+                        dep_ctx.project_root.join(candidate)
+                    }
+                };
+
+                let dep_config_path = dep_root.join("five.toml");
+                let dep_project = if dep_config_path.exists() {
+                    Some(ProjectConfig::load(&dep_config_path).map_err(|_| {
+                        ModuleResolutionError::Generic(format!(
+                            "Failed to parse dependency project configuration at {}",
+                            dep_config_path.display()
+                        ))
+                    })?)
+                } else {
+                    None
+                };
+
+                let module_file = if tail.is_empty() {
+                    let Some(dep_project) = dep_project.as_ref() else {
+                        return Err(ModuleResolutionError::Generic(format!(
+                            "Dependency '{}' imported without module tail requires a five.toml entry_point",
+                            alias
+                        )));
+                    };
+                    let entry_point = dep_project.get_entry_point().ok_or_else(|| {
+                        ModuleResolutionError::Generic(format!(
+                            "Dependency '{}' imported without module tail requires entry_point",
+                            alias
+                        ))
+                    })?;
+                    dep_root.join(entry_point)
+                } else {
+                    let dep_source_dir = dep_project
+                        .as_ref()
+                        .map(|cfg| cfg.get_source_dir())
+                        .unwrap_or_else(|| PathBuf::from("src"));
+                    dep_root
+                        .join(dep_source_dir)
+                        .join(tail.replace("::", "/"))
+                        .with_extension("v")
+                };
+
+                let source_code = std::fs::read_to_string(&module_file).map_err(|_| {
+                    ModuleResolutionError::ModuleNotFound {
+                        module_path: module_path.to_string(),
+                        searched_paths: vec![module_file.clone()],
+                    }
+                })?;
+
+                Ok(Some(ResolvedDependencyModule {
+                    module_path: module_path.to_string(),
+                    file_path: module_file,
+                    source_code,
+                }))
+            }
+            (DependencySource::Namespace, DependencyLink::External)
+            | (DependencySource::Address, DependencyLink::External)
+            | (DependencySource::Moat, DependencyLink::External) => {
+                Err(ModuleResolutionError::Generic(format!(
+                    "Dependency '{}' is declared with source='{}' and link='{}', but external dependency resolution is not enabled yet",
+                    alias,
+                    match dep.source {
+                        DependencySource::Bundled => "bundled",
+                        DependencySource::Path => "path",
+                        DependencySource::Namespace => "namespace",
+                        DependencySource::Address => "address",
+                        DependencySource::Moat => "moat",
+                    },
+                    match dep.link {
+                        DependencyLink::Inline => "inline",
+                        DependencyLink::External => "external",
+                    }
+                )))
+            }
+            _ => Err(ModuleResolutionError::Generic(format!(
+                "Dependency '{}' has unsupported source/link combination",
+                alias
+            ))),
+        }
     }
 }
 

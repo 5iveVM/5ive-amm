@@ -51,3 +51,5 @@ test-ledger*/
 /.localnet-vm-parity-ledger
 /.localnet-cu-ledger
 /.codex-local-validator-ledger
+/.ledger-localnet
+/.reports

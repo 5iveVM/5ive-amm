@@ -1,0 +1,19 @@
+version = 1
+
+[[packages]]
+name = "five-counter-template"
+version = "0.0.0"
+address = "3h8URir3HJPe7aKERopDSLen2PVutDCEsX2UC148jDpe"
+bytecode_hash = "ebaa079dd3f5258fc9c367b67644c3a44efd0abae4ec8941cca9a4a7c56aad56"
+deployed_at = "2026-03-04T18:47:47.189Z"
+
+  [packages.exports]
+  methods = [
+  "initialize",
+  "increment",
+  "decrement",
+  "add_amount",
+  "get_count",
+  "reset"
+]
+  interfaces = [ ]

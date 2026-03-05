@@ -50,6 +50,26 @@ import * as Admin from "./modules/admin.js";
 import { parseToml } from "./project/toml.js";
 import { parseProjectConfig } from "./project/config.js";
 
+export type ExecuteAccountMetadata = Map<
+  string,
+  { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }
+>;
+
+export interface ExecuteOnSolanaOptions {
+  debug?: boolean;
+  network?: string;
+  computeUnitLimit?: number;
+  computeUnitPrice?: number;
+  maxRetries?: number;
+  skipPreflight?: boolean;
+  vmStateAccount?: string;
+  fiveVMProgramId?: string;
+  abi?: any;
+  accountMetadata?: ExecuteAccountMetadata;
+  feeShardIndex?: number;
+  payerAccount?: string;
+}
+
 /**
  * Main Five SDK class - entry point for all Five VM interactions
  */
@@ -612,7 +632,7 @@ export class FiveSDK {
     functionName: string | number,
     parameters: any[] = [],
     accounts: string[] = [],
-    options: any = {},
+    options: ExecuteOnSolanaOptions = {},
   ) {
     return Execute.executeOnSolana(
       scriptAccount,

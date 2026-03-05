@@ -1,13 +1,15 @@
+schema_version = 1
+
 # Token mint/transfer template
 
 [project]
 name = "five-token-template"
 version = "1.0.0"
 description = "Token mint/transfer template"
-source_dir = "src"
+source_dir = "contract"
 build_dir = "build"
 target = "vm"
-entry_point = "src/token.v"
+entry_point = "contract/token.v"
 
 [optimizations]
 enable_compression = true

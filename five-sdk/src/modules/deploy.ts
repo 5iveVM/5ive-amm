@@ -12,6 +12,7 @@ import {
   confirmTransactionRobust,
   getAccountInfoWithRetry,
   pollForConfirmation,
+  sendAndConfirmRawTransactionRobust,
   SDK_COMMITMENTS,
 } from "../utils/transaction.js";
 import { ProgramIdResolver } from "../config/ProgramIdResolver.js";
@@ -198,24 +199,24 @@ async function initProgramFeeVaultShards(
         data: Buffer.from(createInitFeeVaultInstructionData(shardIndex, vault.bump)),
       }),
     );
-    const { blockhash } = await connection.getLatestBlockhash("confirmed");
-    tx.recentBlockhash = blockhash;
+    const latestBlockhash = await connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = latestBlockhash.blockhash;
     tx.feePayer = payer.publicKey;
     tx.partialSign(payer);
-    const sig = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: true,
-      preflightCommitment: "confirmed",
-      maxRetries: options.maxRetries || 3,
-    });
-    const shardConfirm = await confirmTransactionRobust(connection, sig, {
+    const shardSend = await sendAndConfirmRawTransactionRobust(connection, tx.serialize(), {
       commitment: bootstrapCommitment,
       timeoutMs: 120000,
       debug: options.debug,
+      maxRetries: options.maxRetries || 3,
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
     });
-    if (!shardConfirm.success) {
-      throw new Error(`Fee vault shard init failed: ${shardConfirm.error || "unconfirmed"}`);
+    if (!shardSend.success || !shardSend.signature) {
+      throw new Error(`Fee vault shard init failed: ${shardSend.error || "unconfirmed"}`);
     }
-    signatures.push(sig);
+    signatures.push(shardSend.signature);
     if (options.debug) {
       console.log(`[FiveSDK] Initialized fee vault shard ${shardIndex}: ${vault.address}`);
     }
@@ -670,27 +671,22 @@ export async function deployToSolana(
       console.log(`[FiveSDK] Transaction serialized: ${txSerialized.length} bytes`);
     }
 
-    const signature = await connection.sendRawTransaction(txSerialized, {
-      skipPreflight: true,
-      preflightCommitment: "confirmed",
+    const sendResult = await sendAndConfirmRawTransactionRobust(connection, txSerialized, {
+      commitment: "confirmed",
+      timeoutMs: 120000,
+      debug: options.debug,
       maxRetries: options.maxRetries || 3,
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
     });
+    const signature = sendResult.signature;
 
     if (options.debug) {
       console.log(`[FiveSDK] sendRawTransaction completed, returned signature: ${signature}`);
     }
 
-    // Custom confirmation polling with extended timeout (120 seconds)
-    const confirmationResult = await pollForConfirmation(
-      connection,
-      signature,
-      "confirmed",
-      120000, // 120 second timeout
-      options.debug
-    );
-
-    if (!confirmationResult.success) {
-      const errorMessage = `Deployment confirmation failed: ${confirmationResult.error || "Unknown error"}`;
+    if (!sendResult.success || !signature) {
+      const errorMessage = `Deployment confirmation failed: ${sendResult.error || "Unknown error"}`;
       if (options.debug) console.log(`[FiveSDK] ${errorMessage}`);
       return {
         success: false,
@@ -699,8 +695,8 @@ export async function deployToSolana(
       };
     }
 
-    if (confirmationResult.err) {
-      const errorMessage = `Combined deployment failed: ${JSON.stringify(confirmationResult.err)}`;
+    if (sendResult.err) {
+      const errorMessage = `Combined deployment failed: ${JSON.stringify(sendResult.err)}`;
       if (options.debug) console.log(`[FiveSDK] ${errorMessage}`);
       return {
         success: false,
@@ -916,7 +912,7 @@ export async function deployLargeProgramToSolana(
         {
           pubkey: vmStatePubkey,
           isSigner: false,
-          isWritable: false,
+          isWritable: true,
         },
         ...feeVaultKeys,
       ],
@@ -927,28 +923,25 @@ export async function deployLargeProgramToSolana(
 
     // Sign and send initialization transaction
     initTransaction.feePayer = deployerKeypair.publicKey;
-    const { blockhash } = await connection.getLatestBlockhash("confirmed");
-    initTransaction.recentBlockhash = blockhash;
+    const initBlockhash = await connection.getLatestBlockhash("confirmed");
+    initTransaction.recentBlockhash = initBlockhash.blockhash;
     initTransaction.partialSign(deployerKeypair);
     initTransaction.partialSign(scriptKeypair);
 
-    const initSignature = await connection.sendRawTransaction(
-      initTransaction.serialize(),
-      {
-        skipPreflight: true,
-        preflightCommitment: "confirmed",
-        maxRetries: options.maxRetries || 3,
-      },
-    );
-
-    const initConfirm = await confirmTransactionRobust(connection, initSignature, {
+    const initSend = await sendAndConfirmRawTransactionRobust(connection, initTransaction.serialize(), {
       commitment: bootstrapCommitment,
       timeoutMs: 120000,
       debug: options.debug,
+      maxRetries: options.maxRetries || 3,
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+      blockhash: initBlockhash.blockhash,
+      lastValidBlockHeight: initBlockhash.lastValidBlockHeight,
     });
-    if (!initConfirm.success) {
-      throw new Error(`Initialization confirmation failed: ${initConfirm.error || "unconfirmed"}`);
+    if (!initSend.success || !initSend.signature) {
+      throw new Error(`Initialization confirmation failed: ${initSend.error || "unconfirmed"}`);
     }
+    const initSignature = initSend.signature;
     transactionIds.push(initSignature);
 
     if (options.debug) {
@@ -1045,7 +1038,7 @@ export async function deployLargeProgramToSolana(
           {
             pubkey: vmStatePubkey,
             isSigner: false,
-            isWritable: false,
+            isWritable: true,
           },
           ...feeVaultKeys,
         ],
@@ -1061,23 +1054,20 @@ export async function deployLargeProgramToSolana(
       appendTransaction.recentBlockhash = appendBlockhash.blockhash;
       appendTransaction.partialSign(deployerKeypair);
 
-      const appendSignature = await connection.sendRawTransaction(
-        appendTransaction.serialize(),
-        {
-          skipPreflight: true,
-          preflightCommitment: "confirmed",
-          maxRetries: options.maxRetries || 3,
-        },
-      );
-
-      const appendConfirm = await confirmTransactionRobust(connection, appendSignature, {
+      const appendSend = await sendAndConfirmRawTransactionRobust(connection, appendTransaction.serialize(), {
         commitment: bootstrapCommitment,
         timeoutMs: 120000,
         debug: options.debug,
+        maxRetries: options.maxRetries || 3,
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        blockhash: appendBlockhash.blockhash,
+        lastValidBlockHeight: appendBlockhash.lastValidBlockHeight,
       });
-      if (!appendConfirm.success) {
-        throw new Error(`Append confirmation failed: ${appendConfirm.error || "unconfirmed"}`);
+      if (!appendSend.success || !appendSend.signature) {
+        throw new Error(`Append confirmation failed: ${appendSend.error || "unconfirmed"}`);
       }
+      const appendSignature = appendSend.signature;
       transactionIds.push(appendSignature);
 
       if (options.debug) {
@@ -1342,29 +1332,24 @@ export async function deployLargeProgramOptimizedToSolana(
     initTransaction.partialSign(deployerKeypair);
     initTransaction.partialSign(scriptKeypair);
 
-    const initSignature = await connection.sendRawTransaction(
-      initTransaction.serialize(),
-      {
-        skipPreflight: true,
-        preflightCommitment: "confirmed",
-        maxRetries: options.maxRetries || 3,
-      },
-    );
-
-    const initConfirmation = await pollForConfirmation(
-      connection,
-      initSignature,
-      "confirmed",
-      120000,
-      options.debug
-    );
-    if (!initConfirmation.success) {
+    const initSend = await sendAndConfirmRawTransactionRobust(connection, initTransaction.serialize(), {
+      commitment: "confirmed",
+      timeoutMs: 120000,
+      debug: options.debug,
+      maxRetries: options.maxRetries || 3,
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+      blockhash: blockhash,
+      lastValidBlockHeight: undefined,
+    });
+    if (!initSend.success || !initSend.signature) {
       return {
         success: false,
-        error: `Initialization confirmation failed: ${initConfirmation.error}`,
+        error: `Initialization confirmation failed: ${initSend.error}`,
         transactionIds
       };
     }
+    const initSignature = initSend.signature;
     transactionIds.push(initSignature);
 
     if (options.debug) {
@@ -1478,29 +1463,24 @@ export async function deployLargeProgramOptimizedToSolana(
         appendTransaction.recentBlockhash = appendBlockhash.blockhash;
         appendTransaction.partialSign(deployerKeypair);
 
-        const appendSignature = await connection.sendRawTransaction(
-          appendTransaction.serialize(),
-          {
-            skipPreflight: true,
-            preflightCommitment: "confirmed",
-            maxRetries: options.maxRetries || 3,
-          },
-        );
-
-        const appendConfirmation = await pollForConfirmation(
-          connection,
-          appendSignature,
-          bootstrapCommitment,
-          120000,
-          options.debug
-        );
-        if (!appendConfirmation.success) {
+        const appendSend = await sendAndConfirmRawTransactionRobust(connection, appendTransaction.serialize(), {
+          commitment: bootstrapCommitment,
+          timeoutMs: 120000,
+          debug: options.debug,
+          maxRetries: options.maxRetries || 3,
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+          blockhash: appendBlockhash.blockhash,
+          lastValidBlockHeight: appendBlockhash.lastValidBlockHeight,
+        });
+        if (!appendSend.success || !appendSend.signature) {
           return {
             success: false,
-            error: `Append confirmation failed: ${appendConfirmation.error}`,
+            error: `Append confirmation failed: ${appendSend.error}`,
             transactionIds
           };
         }
+        const appendSignature = appendSend.signature;
         transactionIds.push(appendSignature);
 
         if (options.debug) {
@@ -1543,25 +1523,20 @@ export async function deployLargeProgramOptimizedToSolana(
     finalizeTransaction.recentBlockhash = finalizeBlockhash.blockhash;
     finalizeTransaction.partialSign(deployerKeypair);
 
-    const finalizeSignature = await connection.sendRawTransaction(
-      finalizeTransaction.serialize(),
-      {
-        skipPreflight: true,
-        preflightCommitment: "confirmed",
-        maxRetries: options.maxRetries || 3,
-      },
-    );
-    // Use custom polling for finalize to handle validator latency
-    const finalizeConfirmation = await pollForConfirmation(
-      connection,
-      finalizeSignature,
-      bootstrapCommitment,
-      120000, // 120 second timeout
-      options.debug
-    );
-    if (!finalizeConfirmation.success) {
-      console.error(`[FiveSDK] FinalizeScript confirmation failed: ${finalizeConfirmation.error}`);
+    const finalizeSend = await sendAndConfirmRawTransactionRobust(connection, finalizeTransaction.serialize(), {
+      commitment: bootstrapCommitment,
+      timeoutMs: 120000,
+      debug: options.debug,
+      maxRetries: options.maxRetries || 3,
+      skipPreflight: false,
+      preflightCommitment: "confirmed",
+      blockhash: finalizeBlockhash.blockhash,
+      lastValidBlockHeight: finalizeBlockhash.lastValidBlockHeight,
+    });
+    if (!finalizeSend.success || !finalizeSend.signature) {
+      console.error(`[FiveSDK] FinalizeScript confirmation failed: ${finalizeSend.error}`);
     }
+    const finalizeSignature = finalizeSend.signature;
     transactionIds.push(finalizeSignature);
     if (options.debug) {
       console.log(`[FiveSDK] ✅ FinalizeScript completed: ${finalizeSignature}`);
@@ -1771,24 +1746,19 @@ async function ensureCanonicalVmStateAccount(
   initTransaction.recentBlockhash = initBlockhash.blockhash;
   initTransaction.partialSign(deployerKeypair);
 
-  const initSignature = await connection.sendRawTransaction(
-    initTransaction.serialize(),
-    {
-      skipPreflight: true,
-      preflightCommitment: "confirmed",
-      maxRetries: options.maxRetries || 3,
-    },
-  );
-  const initConfirmation = await pollForConfirmation(
-    connection,
-    initSignature,
-    "confirmed",
-    120000,
-    options.debug,
-  );
-  if (!initConfirmation.success || initConfirmation.err) {
+  const initSend = await sendAndConfirmRawTransactionRobust(connection, initTransaction.serialize(), {
+    commitment: "confirmed",
+    timeoutMs: 120000,
+    debug: options.debug,
+    maxRetries: options.maxRetries || 3,
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    blockhash: initBlockhash.blockhash,
+    lastValidBlockHeight: initBlockhash.lastValidBlockHeight,
+  });
+  if (!initSend.success || initSend.err) {
     throw new Error(
-      `canonical VM state initialization failed: ${initConfirmation.error || JSON.stringify(initConfirmation.err)}`,
+      `canonical VM state initialization failed: ${initSend.error || JSON.stringify(initSend.err)}`,
     );
   }
 

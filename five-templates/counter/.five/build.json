@@ -1,13 +1,12 @@
 {
-  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/build/five-counter-template.five",
+  "artifact_path": "/Users/ivmidable/Development/five-mono/five-templates/counter/build/five-counter-template.five",
   "compiler_version": "unknown",
   "source_files": [
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/src/counter.v",
-    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/counter/src/cpi_test.v"
+    "/Users/ivmidable/Development/five-mono/five-templates/counter/src/counter.v"
   ],
   "target": "vm",
-  "timestamp": "2026-01-13T05:21:26.809Z",
-  "hash": "3690afdc4bd1e3f72d4d5eba613e20999052098daa33b3835f10315b5db4a498",
+  "timestamp": "2026-03-04T18:47:45.816Z",
+  "hash": "bbef45b208b21a2a93b5c5569b1707184164bf1b5dfd755ac1ef08b6ca02fe41",
   "format": "five",
   "entry_point": "src/counter.v",
   "source_dir": "src"

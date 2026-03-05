@@ -439,65 +439,103 @@ export async function generateExecuteInstruction(
   const feeVault = await deriveProgramFeeVault(programId, feeShardIndex);
 
   const instructionAccounts = [
-    { pubkey: scriptAccount, isSigner: false, isWritable: true },
-    { pubkey: vmState, isSigner: false, isWritable: true },
+    // Execute runtime reads script/vm_state; keep them readonly.
+    { pubkey: scriptAccount, isSigner: false, isWritable: false },
+    { pubkey: vmState, isSigner: false, isWritable: false },
   ];
 
   const abiAccountMetadata = new Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>();
 
-  const hasFullParameterList =
-    !!funcDef &&
-    Array.isArray(funcDef.parameters) &&
-    parameters.length === funcDef.parameters.length;
+  const normalizeAccountPubkey = (value: any): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === "string") return value;
+    if (typeof value.toBase58 === "function") return value.toBase58();
+    if (typeof value.toString === "function") {
+      const str = value.toString();
+      if (str && str !== "[object Object]") return str;
+    }
+    return undefined;
+  };
+  const isAccountParam = (param: any): boolean => {
+    if (!param) return false;
+    if (param.is_account || param.isAccount) return true;
+    const type = (param.type || param.param_type || "").toString().trim().toLowerCase();
+    return type === "account" || type === "mint" || type === "tokenaccount";
+  };
 
-  if (funcDef && funcDef.parameters && hasFullParameterList) {
-    // First pass: detect if there's an @init constraint and find the payer
+  const allParams = funcDef && Array.isArray(funcDef.parameters) ? funcDef.parameters : [];
+  const accountParams = allParams.filter((param: any) => isAccountParam(param));
+  const hasFullParameterList = allParams.length > 0 && parameters.length === allParams.length;
+
+  if (accountParams.length > 0) {
+    // First pass: detect if there's an @init constraint and identify payer param.
     let hasInit = false;
-    let payerPubkey: string | undefined;
-    for (let i = 0; i < funcDef.parameters.length; i++) {
-      const param = funcDef.parameters[i];
-      if (param.is_account || param.isAccount) {
-        const attributes = param.attributes || [];
-        if (attributes.includes('init')) {
-          hasInit = true;
-          for (let j = 0; j < funcDef.parameters.length; j++) {
-            const payerParam = funcDef.parameters[j];
-            if (
-              i !== j &&
-              (payerParam.is_account || payerParam.isAccount) &&
-              (payerParam.attributes || []).includes('signer')
-            ) {
-              const payerValue = parameters[j];
-              payerPubkey = payerValue?.toString();
-              break;
-            }
-          }
+    let initParamName: string | undefined;
+    let payerParamName: string | undefined;
+    for (const param of accountParams) {
+      const attributes = param.attributes || [];
+      if (attributes.includes("init")) {
+        hasInit = true;
+        initParamName = param.name;
+        break;
+      }
+    }
+    if (hasInit) {
+      for (const param of accountParams) {
+        if (
+          param.name !== initParamName &&
+          (param.attributes || []).includes("signer")
+        ) {
+          payerParamName = param.name;
           break;
         }
       }
     }
 
-    funcDef.parameters.forEach((param: any, paramIndex: number) => {
-      if (param.is_account || param.isAccount) {
-        const value = parameters[paramIndex];
-        const pubkey = value?.toString();
+    // Resolve pubkeys for account params in either full-param mode or args-only mode.
+    const accountPubkeysByParamName = new Map<string, string>();
+    if (hasFullParameterList) {
+      allParams.forEach((param: any, paramIndex: number) => {
+        if (!isAccountParam(param)) return;
+        const pubkey = normalizeAccountPubkey(parameters[paramIndex]);
         if (pubkey) {
-          const attributes = param.attributes || [];
-          const isSigner = attributes.includes('signer');
-          const isWritable = attributes.includes('mut') ||
-            attributes.includes('init') ||
-            (hasInit && pubkey === payerPubkey);
-
-          const existing = abiAccountMetadata.get(pubkey) || { isSigner: false, isWritable: false };
-          abiAccountMetadata.set(pubkey, {
-            isSigner: existing.isSigner || isSigner,
-            isWritable: existing.isWritable || isWritable
-          });
+          accountPubkeysByParamName.set(param.name, pubkey);
+        }
+      });
+    } else {
+      const count = Math.min(accountParams.length, accounts.length);
+      for (let i = 0; i < count; i++) {
+        const paramName = accountParams[i]?.name;
+        const pubkey = accounts[i];
+        if (paramName && pubkey) {
+          accountPubkeysByParamName.set(paramName, pubkey);
         }
       }
-    });
+    }
+
+    for (const param of accountParams) {
+      const pubkey = accountPubkeysByParamName.get(param.name);
+      if (!pubkey) continue;
+
+      const attributes = param.attributes || [];
+      const isSigner = attributes.includes("signer");
+      const isWritable =
+        attributes.includes("mut") ||
+        attributes.includes("init") ||
+        (hasInit && payerParamName === param.name);
+
+      const existing = abiAccountMetadata.get(pubkey) || {
+        isSigner: false,
+        isWritable: false,
+      };
+      abiAccountMetadata.set(pubkey, {
+        isSigner: existing.isSigner || isSigner,
+        isWritable: existing.isWritable || isWritable,
+      });
+    }
   }
 
+  const unknownAccounts: string[] = [];
   const userInstructionAccounts = accounts.map((acc) => {
     // Check both derived ABI metadata and passed-in metadata (from FunctionBuilder)
     const abiMetadata = abiAccountMetadata.get(acc);
@@ -506,7 +544,10 @@ export async function generateExecuteInstruction(
     const isSigner = metadata ? metadata.isSigner : false;
     const isWritable = metadata
       ? (metadata.isSystemAccount ? false : metadata.isWritable)
-      : true;
+      : false;
+    if (!metadata) {
+      unknownAccounts.push(acc);
+    }
 
     return {
       pubkey: acc,
@@ -514,6 +555,13 @@ export async function generateExecuteInstruction(
       isWritable
     };
   });
+
+  if (unknownAccounts.length > 0) {
+    const deduped = Array.from(new Set(unknownAccounts));
+    console.warn(
+      `[FiveSDK] Missing account metadata for ${deduped.join(", ")}; defaulting readonly. Pass accountMetadata or use FiveProgram.function(...).instruction().`,
+    );
+  }
 
   instructionAccounts.push(...userInstructionAccounts);
 
@@ -526,17 +574,26 @@ export async function generateExecuteInstruction(
   );
 
   // Runtime requires strict tail: [payer, fee_vault, system_program].
+  // Prefer explicit payer, otherwise infer from signer+writable account metadata only.
   const signerCandidates = instructionAccounts
     .filter((acc) => acc.isSigner)
     .map((acc) => acc.pubkey);
-  const inferredPayer =
-    options.payerAccount ||
-    (signerCandidates.length > 0
-      ? signerCandidates[signerCandidates.length - 1]
-      : accounts[0]);
+  const metadataFor = (pubkey: string) =>
+    options.accountMetadata?.get(pubkey) || abiAccountMetadata.get(pubkey);
+  const writableSignerCandidates = signerCandidates.filter((pubkey) => {
+    const metadata = metadataFor(pubkey);
+    if (!metadata) return false;
+    return !metadata.isSystemAccount && metadata.isWritable;
+  });
+  const inferredPayer = options.payerAccount || writableSignerCandidates[0];
   if (!inferredPayer) {
+    if (signerCandidates.length > 0) {
+      throw new Error(
+        "Could not infer execute fee payer account from writable signer metadata. Pass options.payerAccount or use FiveProgram.function(...).payer(...).instruction().",
+      );
+    }
     throw new Error(
-      "Could not infer execute fee payer account. Provide a signer account or set options.payerAccount.",
+      "Could not infer execute fee payer account. Provide options.payerAccount or include a writable signer account.",
     );
   }
   const feeTailAccounts = [
@@ -604,6 +661,7 @@ export async function executeOnSolana(
     vmStateAccount?: string;
     fiveVMProgramId?: string;
     abi?: any;
+    accountMetadata?: Map<string, { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }>;
     feeShardIndex?: number;
     payerAccount?: string;
   } = {},
@@ -640,6 +698,7 @@ export async function executeOnSolana(
           vmStateAccount: options.vmStateAccount,
           fiveVMProgramId: options.fiveVMProgramId,
           abi: options.abi,
+          accountMetadata: options.accountMetadata,
           feeShardIndex: options.feeShardIndex,
           payerAccount: options.payerAccount || signerKeypair.publicKey.toString(),
         },
@@ -671,7 +730,6 @@ export async function executeOnSolana(
     for (const meta of accountKeys) {
       if (meta.pubkey === signerPubkey) {
         meta.isSigner = true;
-        meta.isWritable = true;
         signerFound = true;
       }
     }
@@ -680,7 +738,7 @@ export async function executeOnSolana(
       accountKeys.push({
         pubkey: signerPubkey,
         isSigner: true,
-        isWritable: true,
+        isWritable: false,
       });
     }
 

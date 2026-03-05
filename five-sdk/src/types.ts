@@ -5,6 +5,7 @@
 // ==================== Project Configuration ====================
 
 export interface ProjectConfig {
+  schemaVersion: number;
   name: string;
   version: string;
   description?: string;
@@ -34,10 +35,18 @@ export interface ProjectOptimizations {
 }
 
 export interface ProjectDependency {
-  name: string;
-  version: string;
-  type: 'five' | 'wasm' | 'solana';
+  alias: string;
+  package: string;
+  version?: string;
+  source: 'bundled' | 'path' | 'namespace' | 'address' | 'moat';
+  link: 'inline' | 'external';
   path?: string;
+  namespace?: string;
+  address?: string;
+  moatAccount?: string;
+  module?: string;
+  pin?: string;
+  cluster?: string;
 }
 
 // ==================== Compilation Types ====================

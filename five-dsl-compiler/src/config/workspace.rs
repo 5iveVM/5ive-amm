@@ -162,6 +162,16 @@ pub struct LockEntry {
     pub bytecode_hash: String,
     pub deployed_at: Option<String>,
     #[serde(default)]
+    pub package: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub link: Option<String>,
+    #[serde(default)]
+    pub resolved_namespace: Option<String>,
+    #[serde(default)]
+    pub resolved_script_account: Option<String>,
+    #[serde(default)]
     pub exports: Option<ExportMetadata>,
 }
 
@@ -341,6 +351,11 @@ utils = "1.0.0"
             address: "11111111111111111111111111111111".to_string(),
             bytecode_hash: "abc123".to_string(),
             deployed_at: None,
+            package: None,
+            source: None,
+            link: None,
+            resolved_namespace: None,
+            resolved_script_account: None,
             exports: None,
         });
 

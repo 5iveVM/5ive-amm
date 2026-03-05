@@ -19,16 +19,16 @@ account Counter {
 
 // Initialize a new counter account
 // Uses @init constraint to create account via CPI
-// Counter is a PDA derived from ["counter", owner.key]
+// Counter is a PDA derived from ["counter", owner.ctx.key]
 pub initialize(
-    counter: Counter @mut @init(payer=owner, space=56, seeds=["counter", owner.key]),
+    counter: Counter @mut @init(payer=owner, space=56, seeds=["counter", owner.ctx.key]),
     owner: account @signer
 ) -> pubkey {
-    counter.authority = owner.key;
+    counter.authority = owner.ctx.key;
     counter.count = 0;
     counter.initialized = 1;
 
-    return counter.key;
+    return counter.ctx.key;
 }
 
 // Increment the counter by 1
@@ -37,7 +37,7 @@ pub increment(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.authority == owner.key);
+    require(counter.authority == owner.ctx.key);
     require(counter.initialized);
 
     // Increment the counter
@@ -50,7 +50,7 @@ pub decrement(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.authority == owner.key);
+    require(counter.authority == owner.ctx.key);
     require(counter.initialized);
 
     // Decrement the counter (with underflow protection)
@@ -66,7 +66,7 @@ pub add_amount(
     amount: u64
 ) {
     // Verify ownership
-    require(counter.authority == owner.key);
+    require(counter.authority == owner.ctx.key);
     require(counter.initialized);
 
     // Add amount to counter
@@ -84,7 +84,7 @@ pub reset(
     owner: account @signer
 ) {
     // Verify ownership
-    require(counter.authority == owner.key);
+    require(counter.authority == owner.ctx.key);
     require(counter.initialized);
 
     // Reset to zero

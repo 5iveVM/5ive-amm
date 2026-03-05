@@ -1,0 +1,24 @@
+version = 1
+
+[[packages]]
+name = "five-token-template"
+version = "0.0.0"
+address = "QFGMFAq7jA3bBVeYM187n8oSD87VeBhkMEfzpKDxf21"
+bytecode_hash = "c477e79eea22dd42ba368a4d201a4d2cf204cad9c4a0ddb1396dc1cdc347726b"
+deployed_at = "2026-03-04T19:47:29.531Z"
+
+  [packages.exports]
+  methods = [
+  "init_mint",
+  "init_token_account",
+  "mint_to",
+  "transfer",
+  "transfer_from",
+  "approve",
+  "revoke",
+  "burn",
+  "freeze_account",
+  "thaw_account",
+  "disable_mint"
+]
+  interfaces = [ ]

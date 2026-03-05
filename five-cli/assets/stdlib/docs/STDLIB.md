@@ -1,7 +1,14 @@
 # 5IVE Standard Library (Bundled v1)
 
 The compiler provides stdlib modules from a bundled source registry.
-Local `src/std` files are ignored in bundled mode.
+Declare stdlib explicitly in `five.toml`:
+
+```toml
+schema_version = 1
+
+[dependencies]
+std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "inline" }
+```
 When bundled stdlib examples and installed CLI behavior diverge from the pinned monorepo toolchain, treat the pinned compiler/runtime as authoritative.
 
 ## Included modules

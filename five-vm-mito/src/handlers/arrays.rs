@@ -154,12 +154,14 @@ fn append_raw_bytes_with_depth(
             }
 
             if *account_offset != 0 {
-                error_log!(
-                    "MitoVM: extract_raw_bytes rejected AccountRef({}, {}) with non-zero offset",
-                    *account_idx as u32,
-                    *account_offset as u32
-                );
-                return Err(VMErrorCode::TypeMismatch);
+                // Field-backed AccountRef values are lazy scalar refs.
+                // For raw CPI payload assembly (ARRAY_CONCAT), serialize as LE u64.
+                let resolved = crate::utils::resolve_u64(
+                    ValueRef::AccountRef(*account_idx, *account_offset),
+                    ctx,
+                )?;
+                out[..8].copy_from_slice(&resolved.to_le_bytes());
+                return Ok(8);
             }
             let account = ctx
                 .accounts()

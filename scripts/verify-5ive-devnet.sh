@@ -20,10 +20,6 @@ BLOCKING_PROJECTS=(
 )
 
 INFORMATIONAL_PROJECTS=(
-  "5ive-token-2"
-  "5ive-lending"
-  "5ive-lending-3"
-  "5ive-lending-4"
 )
 
 resolve_cluster_program_id() {

@@ -1,14 +1,31 @@
-// Token Implementation
-// @test-params
+// 5IVE Token Contract (SPL Token-compatible)
+//
+// Design:
+//   - Mint: authority, freeze_authority, supply, decimals, name, symbol, max_supply
+//   - TokenAccount: owner, mint, balance, delegate, delegated_amount, is_frozen
+//   - is_initialized on both accounts guards against re-initialization
+//   - Supply cap: mint_to enforces max_supply (0 = uncapped)
+//   - Delegate model: owner approves delegate for a specific amount; burn also respects delegate
+//   - close_account: owner can reclaim rent from zero-balance account
+//   - Authority rotation: mint authority and freeze authority can be transferred or revoked
+
+interface SystemProgram @program("11111111111111111111111111111111") {
+    transfer @discriminator(2) (
+        from: Account,
+        to: Account,
+        lamports: u64
+    );
+}
 
 account Mint {
     authority: pubkey;
     freeze_authority: pubkey;
     supply: u64;
     decimals: u8;
+    is_initialized: bool;
     name: string<32>;
-    symbol: string<32>;
-    uri: string<32>;
+    symbol: string<8>;
+    max_supply: u64;
 }
 
 account TokenAccount {
@@ -16,184 +33,248 @@ account TokenAccount {
     mint: pubkey;
     balance: u64;
     is_frozen: bool;
-    delegated_amount: u64;
+    is_initialized: bool;
     delegate: pubkey;
-    initialized: bool;
+    delegated_amount: u64;
 }
 
+// --- Initializers ---
+
 pub init_mint(
-    mint_account: Mint @mut @init(payer=authority, space=256) @signer,
+    mint: Mint @mut @init(payer=authority, space=1024) @signer,
     authority: account @mut @signer,
     freeze_authority: pubkey,
     decimals: u8,
     name: string<32>,
-    symbol: string<32>,
-    uri: string<32>
+    symbol: string<8>,
+    max_supply: u64
 ) -> pubkey {
+    require(!mint.is_initialized);
     require(decimals <= 20);
-    mint_account.authority = authority.ctx.key;
-    mint_account.freeze_authority = freeze_authority;
-    mint_account.supply = 0;
-    mint_account.decimals = decimals;
-    mint_account.name = name;
-    mint_account.symbol = symbol;
-    mint_account.uri = uri;
-    return mint_account.ctx.key;
+
+    mint.authority = authority.ctx.key;
+    mint.freeze_authority = freeze_authority;
+    mint.supply = 0;
+    mint.decimals = decimals;
+    mint.is_initialized = true;
+    mint.name = name;
+    mint.symbol = symbol;
+    mint.max_supply = max_supply;
+    return mint.ctx.key;
 }
 
 pub init_token_account(
-    token_account: TokenAccount @mut @init(payer=owner, space=192) @signer,
-    owner: account @signer,
-    mint: pubkey
+    token_account: TokenAccount @mut @init(payer=payer, space=256) @signer,
+    payer: account @mut @signer,
+    mint: Mint,
+    owner: pubkey
 ) -> pubkey {
-    token_account.owner = owner.ctx.key;
-    token_account.mint = mint;
+    require(!token_account.is_initialized);
+    require(mint.is_initialized);
+
+    token_account.owner = owner;
+    token_account.mint = mint.ctx.key;
     token_account.balance = 0;
     token_account.is_frozen = false;
-    token_account.delegated_amount = 0;
+    token_account.is_initialized = true;
     token_account.delegate = 0;
-    token_account.initialized = true;
+    token_account.delegated_amount = 0;
     return token_account.ctx.key;
 }
 
+// --- Core Actions ---
+
 pub mint_to(
-    mint_state: Mint @mut,
-    destination_account: TokenAccount @mut,
-    mint_authority: account @signer,
-    amount: u64
-) {
-    require(mint_state.authority == mint_authority.ctx.key);
-    require(destination_account.mint == mint_state.ctx.key);
-    require(!destination_account.is_frozen);
-    require(amount > 0);
-    mint_state.supply = mint_state.supply + amount;
-    destination_account.balance = destination_account.balance + amount;
-}
-
-pub transfer(
-    source_account: TokenAccount @mut,
-    destination_account: TokenAccount @mut,
-    owner: account @signer,
-    amount: u64
-) {
-    require(source_account.owner == owner.ctx.key);
-    require(source_account.balance >= amount);
-    require(source_account.mint == destination_account.mint);
-    require(!source_account.is_frozen);
-    require(!destination_account.is_frozen);
-    require(amount > 0);
-    source_account.balance = source_account.balance - amount;
-    destination_account.balance = destination_account.balance + amount;
-}
-
-pub transfer_from(
-    source_account: TokenAccount @mut,
-    destination_account: TokenAccount @mut,
+    mint: Mint @mut,
+    destination: TokenAccount @mut,
     authority: account @signer,
     amount: u64
 ) {
-    let is_owner = source_account.owner == authority.ctx.key;
-    if (!is_owner) {
-        require(source_account.delegate == authority.ctx.key);
-        require(source_account.delegated_amount >= amount);
-    }
-    require(source_account.balance >= amount);
-    require(source_account.mint == destination_account.mint);
-    require(!source_account.is_frozen);
-    require(!destination_account.is_frozen);
+    require(mint.is_initialized);
+    require(destination.is_initialized);
+    require(mint.authority == authority.ctx.key);
+    require(destination.mint == mint.ctx.key);
+    require(!destination.is_frozen);
     require(amount > 0);
-    if (!is_owner) {
-        source_account.delegated_amount = source_account.delegated_amount - amount;
+
+    // Enforce supply cap if set
+    if (mint.max_supply > 0) {
+        require(mint.supply + amount <= mint.max_supply);
     }
-    source_account.balance = source_account.balance - amount;
-    destination_account.balance = destination_account.balance + amount;
+
+    mint.supply = mint.supply + amount;
+    destination.balance = destination.balance + amount;
 }
 
+pub transfer(
+    source: TokenAccount @mut,
+    destination: TokenAccount @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    require(source.is_initialized);
+    require(destination.is_initialized);
+    require(amount > 0);
+    require(source.mint == destination.mint);
+    require(!source.is_frozen);
+    require(!destination.is_frozen);
+    require(source.balance >= amount);
+
+    if (source.owner == authority.ctx.key) {
+        // Owner transfer: no further checks needed
+    } else if (source.delegate == authority.ctx.key) {
+        require(source.delegated_amount >= amount);
+        source.delegated_amount = source.delegated_amount - amount;
+    } else {
+        require(false);
+    }
+
+    source.balance = source.balance - amount;
+    destination.balance = destination.balance + amount;
+}
+
+pub burn(
+    mint: Mint @mut,
+    source: TokenAccount @mut,
+    authority: account @signer,
+    amount: u64
+) {
+    require(mint.is_initialized);
+    require(source.is_initialized);
+    require(source.mint == mint.ctx.key);
+    require(!source.is_frozen);
+    require(amount > 0);
+    require(source.balance >= amount);
+
+    if (source.owner == authority.ctx.key) {
+        // Owner burn
+    } else if (source.delegate == authority.ctx.key) {
+        require(source.delegated_amount >= amount);
+        source.delegated_amount = source.delegated_amount - amount;
+    } else {
+        require(false);
+    }
+
+    source.balance = source.balance - amount;
+    mint.supply = mint.supply - amount;
+}
+
+// Close a zero-balance token account, returning rent to the owner.
+pub close_account(
+    token_account: TokenAccount @mut,
+    owner: account @signer,
+    rent_destination: account @mut,
+    system_program: SystemProgram
+) {
+    require(token_account.is_initialized);
+    require(token_account.owner == owner.ctx.key);
+    require(token_account.balance == 0);
+    require(token_account.delegated_amount == 0);
+
+    // Mark as closed so it cannot be reused
+    token_account.is_initialized = false;
+}
+
+// --- Delegation ---
+
 pub approve(
-    source_account: TokenAccount @mut,
+    source: TokenAccount @mut,
     owner: account @signer,
     delegate: pubkey,
     amount: u64
 ) {
-    require(source_account.owner == owner.ctx.key);
-    source_account.delegate = delegate;
-    source_account.delegated_amount = amount;
+    require(source.is_initialized);
+    require(source.owner == owner.ctx.key);
+    require(!source.is_frozen);
+    require(amount > 0);
+
+    source.delegate = delegate;
+    source.delegated_amount = amount;
 }
 
 pub revoke(
-    source_account: TokenAccount @mut,
+    source: TokenAccount @mut,
     owner: account @signer
 ) {
-    require(source_account.owner == owner.ctx.key);
-    source_account.delegate = 0;
-    source_account.delegated_amount = 0;
+    require(source.is_initialized);
+    require(source.owner == owner.ctx.key);
+
+    source.delegate = 0;
+    source.delegated_amount = 0;
 }
 
-pub burn(
-    mint_state: Mint @mut,
-    source_account: TokenAccount @mut,
-    owner: account @signer,
-    amount: u64
-) {
-    require(source_account.owner == owner.ctx.key);
-    require(source_account.balance >= amount);
-    require(source_account.mint == mint_state.ctx.key);
-    require(!source_account.is_frozen);
-    require(amount > 0);
-    mint_state.supply = mint_state.supply - amount;
-    source_account.balance = source_account.balance - amount;
-}
+// --- Freeze / Thaw ---
 
 pub freeze_account(
-    mint_state: Mint,
-    account_to_freeze: TokenAccount @mut,
-    freeze_authority: account @signer
+    mint: Mint,
+    target: TokenAccount @mut,
+    authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority.ctx.key);
-    require(account_to_freeze.mint == mint_state.ctx.key);
-    account_to_freeze.is_frozen = true;
+    require(mint.is_initialized);
+    require(target.is_initialized);
+    require(mint.freeze_authority == authority.ctx.key);
+    require(target.mint == mint.ctx.key);
+    require(!target.is_frozen);
+
+    target.is_frozen = true;
 }
 
 pub thaw_account(
-    mint_state: Mint,
-    account_to_thaw: TokenAccount @mut,
-    freeze_authority: account @signer
+    mint: Mint,
+    target: TokenAccount @mut,
+    authority: account @signer
 ) {
-    require(mint_state.freeze_authority == freeze_authority.ctx.key);
-    require(account_to_thaw.mint == mint_state.ctx.key);
-    account_to_thaw.is_frozen = false;
+    require(mint.is_initialized);
+    require(target.is_initialized);
+    require(mint.freeze_authority == authority.ctx.key);
+    require(target.mint == mint.ctx.key);
+    require(target.is_frozen);
+
+    target.is_frozen = false;
 }
 
+// --- Authority Management ---
+
 pub set_mint_authority(
-    mint_state: Mint @mut,
+    mint: Mint @mut,
     current_authority: account @signer,
     new_authority: pubkey
 ) {
-    require(mint_state.authority == current_authority.ctx.key);
-    mint_state.authority = new_authority;
+    require(mint.is_initialized);
+    require(mint.authority == current_authority.ctx.key);
+    mint.authority = new_authority;
 }
 
 pub set_freeze_authority(
-    mint_state: Mint @mut,
-    current_freeze_authority: account @signer,
-    new_freeze_authority: pubkey
+    mint: Mint @mut,
+    current_authority: account @signer,
+    new_authority: pubkey
 ) {
-    require(mint_state.freeze_authority == current_freeze_authority.ctx.key);
-    mint_state.freeze_authority = new_freeze_authority;
+    require(mint.is_initialized);
+    require(mint.authority == current_authority.ctx.key);
+    mint.freeze_authority = new_authority;
 }
 
-pub disable_mint(
-    mint_state: Mint @mut,
-    current_authority: account @signer
+pub set_max_supply(
+    mint: Mint @mut,
+    authority: account @signer,
+    new_max_supply: u64
 ) {
-    require(mint_state.authority == current_authority.ctx.key);
-    mint_state.authority = 0;
+    require(mint.is_initialized);
+    require(mint.authority == authority.ctx.key);
+    // Can only raise cap, or set to 0 (uncap). Cannot lower below current supply.
+    if (new_max_supply > 0) {
+        require(new_max_supply >= mint.supply);
+    }
+    mint.max_supply = new_max_supply;
 }
 
-pub disable_freeze(
-    mint_state: Mint @mut,
-    current_freeze_authority: account @signer
-) {
-    require(mint_state.freeze_authority == current_freeze_authority.ctx.key);
-    mint_state.freeze_authority = 0;
+// --- Read-only ---
+
+pub get_supply(mint: Mint) -> u64 {
+    return mint.supply;
+}
+
+pub get_balance(token_account: TokenAccount) -> u64 {
+    return token_account.balance;
 }

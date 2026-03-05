@@ -5,10 +5,7 @@ This handoff captures current status for the `5ive-*` consolidation/readiness ef
 
 ## What Is Already Implemented
 - Canonical lending is set to `5ive-lending-2` (`src/main.v`) with ABI metadata/changelog.
-- Deprecated lending variants are kept and clearly marked:
-  - `5ive-lending`
-  - `5ive-lending-3`
-  - `5ive-lending-4`
+- Deprecated lending variants are excluded from active local/devnet verification matrices.
 - Standardized scripts were added across all `5ive-*` projects:
   - `test:onchain:local`, `test:onchain:devnet`
   - `deploy:local`, `deploy:devnet`
@@ -56,7 +53,7 @@ All 13 skips are localnet on-chain steps (`test:onchain:local`, `client:run:loca
 - All `test:onchain:local` and `client:run:local` steps skip with:
   - `VM program not found: HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg`
 - Requires deploying the Five VM program to localnet first.
-- Client smoke flows (`5ive-cfd`, `5ive-esccrow`, `5ive-token`, `5ive-token-2`) cannot be validated until localnet is up.
+- Client smoke flows (`5ive-cfd`, `5ive-esccrow`, `5ive-token`) cannot be validated until localnet is up.
 
 ### `5ive-cfd/tests/main.test.json`
 - Still has old `tests: {}` object format (causes `testCases is not iterable` warning, non-fatal).
@@ -81,7 +78,7 @@ All 13 skips are localnet on-chain steps (`test:onchain:local`, `client:run:loca
    ```bash
    FIVE_PROGRAM_ID=<deployed-id> ./scripts/verify-5ive-projects.sh
    ```
-4. Validate client smoke flows for `5ive-cfd`, `5ive-esccrow`, `5ive-token`, `5ive-token-2`.
+4. Validate client smoke flows for `5ive-cfd`, `5ive-esccrow`, `5ive-token`.
 5. Fix `5ive-cfd/tests/main.test.json` format (Object → Array) to silence the warning.
 6. Run devnet matrix and classify blockers by: compile/config, authority/permissions, account fixtures, funding/RPC.
 7. Extend devnet report payload with signature/meta.err/CU where available.
@@ -91,7 +88,7 @@ All 13 skips are localnet on-chain steps (`test:onchain:local`, `client:run:loca
 ## Acceptance Criteria for "100%"
 - `./scripts/verify-5ive-projects.sh` exits 0 and `.reports/5ive-validation.json` has zero failures. ✅ **DONE**
 - `./scripts/verify-5ive-devnet.sh` reports zero blocked steps.
-- Client smoke flows pass for `5ive-cfd`, `5ive-esccrow`, `5ive-token`, `5ive-token-2` on localnet and devnet.
+- Client smoke flows pass for `5ive-cfd`, `5ive-esccrow`, `5ive-token` on localnet and devnet.
 - CI has both `verify-local` and `verify-devnet` as required checks.
 
 ## Notes

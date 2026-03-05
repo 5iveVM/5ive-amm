@@ -62,14 +62,18 @@ export async function pollForConfirmation(
 
   while (Date.now() - startTime < timeoutMs) {
     try {
-      const confirmationStatus = await connection.getSignatureStatus(signature);
+      const confirmationStatus = await connection.getSignatureStatuses(
+        [signature],
+        { searchTransactionHistory: true },
+      );
+      const statusValue = confirmationStatus?.value?.[0];
 
       if (debug && (Date.now() - startTime) % 10000 < 1000) {
-        console.log(`[FiveSDK] Confirmation status: ${JSON.stringify(confirmationStatus.value)}`);
+        console.log(`[FiveSDK] Confirmation status: ${JSON.stringify(statusValue)}`);
       }
 
-      if (confirmationStatus.value) {
-        const transactionError = confirmationStatus.value.err;
+      if (statusValue) {
+        const transactionError = statusValue.err;
         if (transactionError) {
           if (debug) {
             console.log(`[FiveSDK] Transaction error: ${JSON.stringify(transactionError)}`);
@@ -83,8 +87,8 @@ export async function pollForConfirmation(
 
         if (
           statusMeetsCommitment(
-            confirmationStatus.value.confirmationStatus,
-            confirmationStatus.value.confirmations,
+            statusValue.confirmationStatus,
+            statusValue.confirmations,
             targetCommitment,
           )
         ) {
@@ -166,6 +170,115 @@ export async function confirmTransactionRobust(
   }
 
   return pollForConfirmation(connection, signature, commitment, timeoutMs, debug);
+}
+
+export async function sendAndConfirmRawTransactionRobust(
+  connection: any,
+  serializedTx: Uint8Array | Buffer,
+  options: {
+    commitment?: string;
+    timeoutMs?: number;
+    debug?: boolean;
+    maxRetries?: number;
+    skipPreflight?: boolean;
+    preflightCommitment?: string;
+    resendIntervalMs?: number;
+    blockhash?: string;
+    lastValidBlockHeight?: number;
+  } = {},
+): Promise<{ success: boolean; signature?: string; err?: any; error?: string }> {
+  const commitment = options.commitment || SDK_COMMITMENTS.CONFIRM;
+  const timeoutMs = options.timeoutMs || 120000;
+  const debug = options.debug || false;
+  const resendIntervalMs = options.resendIntervalMs || 1500;
+  const targetCommitment = normalizeCommitment(commitment);
+  const skipPreflight = options.skipPreflight ?? true;
+
+  const signature = await connection.sendRawTransaction(serializedTx, {
+    skipPreflight,
+    preflightCommitment: options.preflightCommitment || "confirmed",
+    maxRetries: options.maxRetries || 3,
+  });
+
+  const startTime = Date.now();
+  let lastResendAt = startTime;
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const statuses = await connection.getSignatureStatuses(
+        [signature],
+        { searchTransactionHistory: true },
+      );
+      const status = statuses?.value?.[0];
+
+      if (status?.err) {
+        return { success: false, signature, err: status.err, error: JSON.stringify(status.err) };
+      }
+
+      if (
+        status &&
+        statusMeetsCommitment(
+          status.confirmationStatus,
+          status.confirmations,
+          targetCommitment,
+        )
+      ) {
+        return { success: true, signature };
+      }
+
+      if (Date.now() - lastResendAt >= resendIntervalMs) {
+        try {
+          await connection.sendRawTransaction(serializedTx, {
+            skipPreflight,
+            preflightCommitment: options.preflightCommitment || "confirmed",
+            maxRetries: 0,
+          });
+          if (debug) {
+            console.log(`[FiveSDK] Rebroadcasting transaction ${signature}`);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (
+            debug &&
+            !/already processed|already received|blockhash not found|too old|duplicate/i.test(message)
+          ) {
+            console.log(`[FiveSDK] Rebroadcast error: ${message}`);
+          }
+        }
+        lastResendAt = Date.now();
+      }
+    } catch (error) {
+      if (debug) {
+        console.log(`[FiveSDK] send/confirm polling error: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (
+      typeof options.lastValidBlockHeight === "number" &&
+      typeof connection.getBlockHeight === "function"
+    ) {
+      try {
+        const currentBlockHeight = await connection.getBlockHeight("confirmed");
+        if (currentBlockHeight > options.lastValidBlockHeight) {
+          return {
+            success: false,
+            signature,
+            error: `Transaction expired before confirmation. Signature: ${signature}`,
+          };
+        }
+      } catch {
+        // Ignore block height lookup failures and keep polling.
+      }
+    }
+
+    await sleep(DEFAULT_POLL_INTERVAL_MS);
+  }
+
+  return {
+    success: false,
+    signature,
+    error: `Transaction confirmation timeout after ${Date.now() - startTime}ms. Signature: ${signature}`,
+  };
 }
 
 export async function getAccountInfoWithRetry(

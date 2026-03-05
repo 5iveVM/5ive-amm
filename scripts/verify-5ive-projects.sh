@@ -20,10 +20,6 @@ BLOCKING_PROJECTS=(
 )
 
 INFORMATIONAL_PROJECTS=(
-  "5ive-token-2"
-  "5ive-lending"
-  "5ive-lending-3"
-  "5ive-lending-4"
 )
 
 resolve_cluster_program_id() {
@@ -84,10 +80,13 @@ check_localnet() {
     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"${FIVE_PROGRAM_ID}\",{\"encoding\":\"base64\"}]}" \
     --max-time 5 2>/dev/null || echo "{}")"
   if echo "${program_info}" | grep -q '"value":null'; then
-    echo "    [SKIP] VM program not found: ${FIVE_PROGRAM_ID}"
-    LOCALNET_OK=false
-    LOCALNET_SKIP_REASON="VM program not found: ${FIVE_PROGRAM_ID}"
-    return
+    # Fallback: some validator/RPC combinations can return transient null here.
+    if ! solana account "${FIVE_PROGRAM_ID}" --url "${LOCALNET_RPC}" >/dev/null 2>&1; then
+      echo "    [SKIP] VM program not found: ${FIVE_PROGRAM_ID}"
+      LOCALNET_OK=false
+      LOCALNET_SKIP_REASON="VM program not found: ${FIVE_PROGRAM_ID}"
+      return
+    fi
   fi
   echo "    [OK] VM program exists: ${FIVE_PROGRAM_ID}"
 

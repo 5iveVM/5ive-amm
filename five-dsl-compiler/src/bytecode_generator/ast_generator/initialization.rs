@@ -191,6 +191,14 @@ impl ASTGenerator {
         None
     }
 
+    pub fn find_interface_by_suffix(&self, interface_name: &str) -> Option<String> {
+        let suffix = format!("::{}", interface_name);
+        self.interface_registry
+            .keys()
+            .find(|name| name.ends_with(&suffix))
+            .cloned()
+    }
+
     fn to_snake_case(name: &str) -> String {
         let mut out = String::new();
         let chars: Vec<char> = name.chars().collect();

@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { ConfigManager } from "../config/ConfigManager.js";
+import { loadProjectConfig } from "../project/ProjectLoader.js";
 import { createRequire } from "module";
 import { normalizeWasmCompilerSource } from "./source-normalization.js";
 
@@ -23,6 +24,7 @@ let FiveVMWasm: any;
 let BytecodeAnalyzer: any;
 let WasmCompilationOptions: any;
 let wasmModuleRef: any | null = null;
+const BUNDLED_STDLIB_PACKAGE = "@5ive/std";
 
 export class FiveCompilerWasm {
   private compiler: any = null;
@@ -1259,6 +1261,7 @@ export class FiveCompilerWasm {
   private unresolvedAliasGuidance(source: string): { alias: string; suggestedImport?: string } | null {
     const imports = this.extractModuleImports(source);
     const importedAliases = new Set(imports.map((p) => this.toImportAlias(p)));
+    const localInterfaces = this.extractLocalInterfaceNames(source);
     const qualifiers = this.extractModuleCallQualifiers(source);
 
     for (const qualifier of qualifiers) {
@@ -1268,6 +1271,9 @@ export class FiveCompilerWasm {
       }
 
       if (importedAliases.has(qualifier)) {
+        continue;
+      }
+      if (localInterfaces.has(qualifier)) {
         continue;
       }
 
@@ -1288,6 +1294,17 @@ export class FiveCompilerWasm {
     return null;
   }
 
+  private extractLocalInterfaceNames(source: string): Set<string> {
+    const sanitizedSource = this.stripComments(source);
+    const names = new Set<string>();
+    const pattern = /^\s*interface\s+([A-Za-z_][A-Za-z0-9_]*)\b/gm;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(sanitizedSource)) !== null) {
+      names.add(match[1]);
+    }
+    return names;
+  }
+
   private resolveLocalModuleFile(baseDir: string, modulePath: string): string | null {
     const relPath = modulePath.replace(/::/g, "/");
     const direct = resolve(baseDir, `${relPath}.v`);
@@ -1299,6 +1316,116 @@ export class FiveCompilerWasm {
       return modFile;
     }
     return null;
+  }
+
+  private resolvePathDependencyModuleFile(
+    projectRootDir: string,
+    dependencyPath: string,
+    moduleTail: string
+  ): string | null {
+    const dependencyRoot = resolve(projectRootDir, dependencyPath);
+    const relPath = moduleTail.replace(/::/g, "/");
+    const direct = resolve(dependencyRoot, `${relPath}.v`);
+    if (existsSync(direct)) {
+      return direct;
+    }
+    const modFile = resolve(dependencyRoot, relPath, "mod.v");
+    if (existsSync(modFile)) {
+      return modFile;
+    }
+    return null;
+  }
+
+  private resolveBundledDependencyModuleFile(packageName: string, moduleTail: string): string | null {
+    if (packageName !== BUNDLED_STDLIB_PACKAGE) {
+      throw new Error(
+        `Bundled dependency package '${packageName}' is not available in this compiler build.`
+      );
+    }
+
+    if (!moduleTail) {
+      throw new Error(
+        `Invalid import path for bundled dependency '${packageName}'. Expected use <alias>::<module>::...;`
+      );
+    }
+
+    return this.resolveStdlibModuleFile(`std::${moduleTail}`);
+  }
+
+  private async resolveDependencyModuleFile(
+    sourceDir: string,
+    modulePath: string
+  ): Promise<string | null> {
+    const aliasSeparator = modulePath.indexOf("::");
+    if (aliasSeparator <= 0) {
+      return this.resolveLocalModuleFile(sourceDir, modulePath);
+    }
+
+    const alias = modulePath.slice(0, aliasSeparator);
+    const moduleTail = modulePath.slice(aliasSeparator + 2);
+    const projectContext = await loadProjectConfig(undefined, sourceDir);
+    const dependency = projectContext?.config.dependencies.find((candidate) => candidate.alias === alias);
+
+    if (!dependency) {
+      if (alias === "std") {
+        throw new Error(
+          "Missing dependency alias 'std' for stdlib import. Add:\n[dependencies]\nstd = { package = \"@5ive/std\", version = \"0.1.0\", source = \"bundled\", link = \"inline\" }"
+        );
+      }
+      return this.resolveLocalModuleFile(sourceDir, modulePath);
+    }
+
+    if (dependency.source === "namespace" || dependency.source === "address") {
+      throw new Error(
+        `Dependency alias '${alias}' uses source='${dependency.source}' and link='${dependency.link}', which is declared but not enabled yet.`
+      );
+    }
+    if (dependency.source === "moat") {
+      throw new Error(
+        `Dependency alias '${alias}' uses source='moat' and link='${dependency.link}', which is declared but not enabled yet.`
+      );
+    }
+
+    if (dependency.source === "bundled") {
+      if (dependency.link !== "inline") {
+        throw new Error(
+          `Dependency alias '${alias}' is invalid: source='bundled' requires link='inline'.`
+        );
+      }
+      const bundled = this.resolveBundledDependencyModuleFile(dependency.package, moduleTail);
+      if (!bundled) {
+        throw new Error(
+          `Bundled dependency '${dependency.package}' could not resolve module '${moduleTail}'.`
+        );
+      }
+      return bundled;
+    }
+
+    if (dependency.source === "path") {
+      if (dependency.link !== "inline") {
+        throw new Error(
+          `Dependency alias '${alias}' is invalid: source='path' requires link='inline'.`
+        );
+      }
+      if (!dependency.path) {
+        throw new Error(`Dependency alias '${alias}' is invalid: source='path' requires 'path'.`);
+      }
+      const dependencyFile = this.resolvePathDependencyModuleFile(
+        projectContext?.rootDir ?? sourceDir,
+        dependency.path,
+        moduleTail
+      );
+      if (!dependencyFile) {
+        throw new Error(
+          `Path dependency '${alias}' could not resolve module '${moduleTail}' under '${dependency.path}'.`
+        );
+      }
+      return dependencyFile;
+    }
+
+    throw new Error(
+      `Dependency alias '${alias}' has unsupported configuration source='${dependency.source}' link='${dependency.link}'.`
+    );
   }
 
   private resolveStdlibModuleFile(modulePath: string): string | null {
@@ -1328,18 +1455,6 @@ export class FiveCompilerWasm {
     const sourceDir = dirname(entryPointAbs);
     const mainSource = await readFile(entryPointAbs, "utf8");
 
-    const unresolvedAlias = this.unresolvedAliasGuidance(mainSource);
-    if (unresolvedAlias) {
-      if (unresolvedAlias.suggestedImport) {
-        throw new Error(
-          `Unresolved module alias '${unresolvedAlias.alias}'. Missing import: use ${unresolvedAlias.suggestedImport};`
-        );
-      }
-      throw new Error(
-        `Unresolved module alias '${unresolvedAlias.alias}'. Add a matching use <module path>; import.`
-      );
-    }
-
     const modules: Array<{ name: string; content: string }> = [];
     const visited = new Set<string>();
 
@@ -1348,9 +1463,7 @@ export class FiveCompilerWasm {
         return;
       }
 
-      const moduleFile = modulePath.startsWith("std::")
-        ? this.resolveStdlibModuleFile(modulePath)
-        : this.resolveLocalModuleFile(sourceDir, modulePath);
+      const moduleFile = await this.resolveDependencyModuleFile(sourceDir, modulePath);
       if (!moduleFile) {
         return;
       }

@@ -446,17 +446,19 @@ impl FunctionDispatcher {
                             }
                         };
 
+                    // Local/module imports are resolved through module scope + AST/codegen alias maps.
+                    // This import table path is only for external bytecode account imports.
+                    if !is_external_import {
+                        continue;
+                    }
+
                     // Store import information for both functions and fields
                     // ARCHITECTURE: Five DSL supports importing both functions and fields
                     // Fields use LOAD_EXTERNAL_FIELD opcode for zero-copy access (read-only)
                     // Functions use CALL_EXTERNAL opcode for external function calls
-                    let exports = if is_external_import {
-                        lockfile
-                            .as_ref()
-                            .and_then(|l| l.get_exports(&account_address))
-                    } else {
-                        None
-                    };
+                    let exports = lockfile
+                        .as_ref()
+                        .and_then(|l| l.get_exports(&account_address));
 
                     if let Some(items) = imported_items {
                         // Specific imports: use account::{function_name, field_name}
@@ -471,21 +473,19 @@ impl FunctionDispatcher {
                                 {
                                     return Err(VMError::InvalidScript);
                                 }
-                                if is_external_import {
-                                    for verify_name in verify_names {
-                                        if let Some(seed_bytes) = &namespace_seed {
-                                            self.import_table.add_import_by_seeds(
-                                                vec![seed_bytes.clone()],
-                                                verify_name,
-                                            );
-                                        } else {
-                                            self.import_table.add_import_by_address(
-                                                &account_address,
-                                                verify_name,
-                                            );
-                                        }
-                                    }
+                            for verify_name in verify_names {
+                                if let Some(seed_bytes) = &namespace_seed {
+                                    self.import_table.add_import_by_seeds(
+                                        vec![seed_bytes.clone()],
+                                        verify_name,
+                                    );
+                                } else {
+                                    self.import_table.add_import_by_address(
+                                        &account_address,
+                                        verify_name,
+                                    );
                                 }
+                            }
                                 continue;
                             }
 
@@ -512,17 +512,15 @@ impl FunctionDispatcher {
                             );
 
                             // Only external imports are eligible for on-chain import verification metadata.
-                            if is_external_import {
-                                for verify_name in verify_names {
-                                    if let Some(seed_bytes) = &namespace_seed {
-                                        self.import_table.add_import_by_seeds(
-                                            vec![seed_bytes.clone()],
-                                            verify_name,
-                                        );
-                                    } else {
-                                        self.import_table
-                                            .add_import_by_address(&account_address, verify_name);
-                                    }
+                            for verify_name in verify_names {
+                                if let Some(seed_bytes) = &namespace_seed {
+                                    self.import_table.add_import_by_seeds(
+                                        vec![seed_bytes.clone()],
+                                        verify_name,
+                                    );
+                                } else {
+                                    self.import_table
+                                        .add_import_by_address(&account_address, verify_name);
                                 }
                             }
 
@@ -541,19 +539,16 @@ impl FunctionDispatcher {
                             (account_address.clone(), None),
                         );
 
-                        // Only external imports are eligible for on-chain import verification metadata.
-                        if is_external_import {
-                            if let Some(seed_bytes) = &namespace_seed {
-                                self.import_table.add_import_by_seeds(
-                                    vec![seed_bytes.clone()],
-                                    "import_all".to_string(),
-                                );
-                            } else {
-                                self.import_table.add_import_by_address(
-                                    &account_address,
-                                    "import_all".to_string(),
-                                );
-                            }
+                        if let Some(seed_bytes) = &namespace_seed {
+                            self.import_table.add_import_by_seeds(
+                                vec![seed_bytes.clone()],
+                                "import_all".to_string(),
+                            );
+                        } else {
+                            self.import_table.add_import_by_address(
+                                &account_address,
+                                "import_all".to_string(),
+                            );
                         }
 
                         println!(
@@ -927,14 +922,31 @@ impl FunctionDispatcher {
                     if let Some(full_path) = &local_module_path {
                         if let Some(split_idx) = full_path.rfind("::") {
                             let interface_name = &full_path[split_idx + 2..];
-                            if ast_generator.get_interface_info(interface_name).is_some() {
+                            let resolved_interface =
+                                if ast_generator.get_interface_info(interface_name).is_some() {
+                                    Some(interface_name.to_string())
+                                } else if let Some(alias) = &local_module_alias {
+                                    ast_generator.find_interface_for_module_alias(alias)
+                                } else {
+                                    None
+                                };
+                            let resolved_interface = resolved_interface
+                                .or_else(|| ast_generator.find_interface_by_suffix(interface_name));
+
+                            if let Some(interface_name) = resolved_interface {
+                                if let Some(alias) = &local_module_alias {
+                                    ast_generator.register_module_interface_alias(
+                                        alias.clone(),
+                                        interface_name.clone(),
+                                    );
+                                }
                                 ast_generator.register_module_interface_alias(
-                                    interface_name.to_string(),
-                                    interface_name.to_string(),
+                                    interface_name.clone(),
+                                    interface_name.clone(),
                                 );
                                 ast_generator.register_module_interface_alias(
                                     full_path.clone(),
-                                    interface_name.to_string(),
+                                    interface_name,
                                 );
                             }
                         }

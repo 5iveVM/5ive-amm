@@ -218,6 +218,7 @@ async function generateProjectConfig(
   options: any
 ): Promise<void> {
   const config: ProjectConfig = {
+    schemaVersion: 1,
     name: projectName,
     version: '0.1.0',
     description: options.description || `A 5IVE VM project`,
@@ -397,6 +398,8 @@ async function initializeGitRepository(projectDir: string): Promise<void> {
 
 function generateTomlConfig(config: ProjectConfig): string {
   return `# 5IVE VM Project Configuration
+schema_version = ${config.schemaVersion}
+
 [project]
 name = "${config.name}"
 version = "${config.version}"
@@ -412,10 +415,11 @@ enable_constraint_optimization = ${config.optimizations.enableConstraintOptimiza
 optimization_level = "${config.optimizations.optimizationLevel}"
 
 [dependencies]
-# Add project dependencies here
-# example = { path = "../example" }
-# future: stdlib package source (v1 uses compiler-bundled stdlib)
-# five-stdlib = { version = "0.1.0" }
+std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "inline" }
+# Cargo-style alias dependencies:
+# local_math = { package = "math-lib", source = "path", path = "../math-lib", link = "inline" }
+# amm = { package = "@5ive/amm", source = "namespace", namespace = "@5ive/amm", link = "external" }
+# oracle = { package = "@acme/oracle", source = "address", address = "SCRIPT_ACCOUNT_BASE58", link = "external" }
 
 [build]
 # Custom build settings
@@ -1334,7 +1338,14 @@ npm run deploy
 
 ## Standard Library (Bundled v1)
 
-Projects initialized with \`5ive init\` use compiler-bundled stdlib modules.
+Projects initialized with \`5ive init\` declare stdlib explicitly in \`five.toml\`:
+
+\`\`\`toml
+schema_version = 1
+
+[dependencies]
+std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "inline" }
+\`\`\`
 
 Use explicit imports in your modules:
 

@@ -162,8 +162,8 @@ echo -e "${BLUE}🔑 Program ID: $PROGRAM_ID${NC}"
 # Deploy the program
 echo -e "${YELLOW}Deploying program...${NC}"
 if [ "$NETWORK" = "localnet" ]; then
-    echo -e "${BLUE}Using --use-rpc for local/surfpool validator compatibility${NC}"
-    solana program deploy "$SO_FILE" --keypair "$PAYER_KEYPAIR" --program-id "$KEYPAIR_FILE" --use-rpc --max-sign-attempts "$MAX_SIGN_ATTEMPTS" --url "$RPC_URL"
+    echo -e "${BLUE}Using standard deploy flow on localnet${NC}"
+    solana program deploy "$SO_FILE" --keypair "$PAYER_KEYPAIR" --program-id "$KEYPAIR_FILE" --max-sign-attempts "$MAX_SIGN_ATTEMPTS" --url "$RPC_URL"
 else
     solana program deploy "$SO_FILE" --keypair "$PAYER_KEYPAIR" --program-id "$KEYPAIR_FILE" --url "$RPC_URL"
 fi

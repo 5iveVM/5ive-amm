@@ -48,6 +48,7 @@ describe('init command stdlib scaffolding', () => {
       expect(initResult.status).toBe(0);
 
       const toml = readFileSync(join(projectDir, 'five.toml'), 'utf8');
+      expect(toml).toContain('schema_version = 1');
       expect(toml).toContain('name = "sample"');
       expect(toml).toContain('entry_point = "src/main.v"');
 

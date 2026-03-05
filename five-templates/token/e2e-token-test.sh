@@ -43,6 +43,7 @@ SOURCE_FILE="$PROJECT_ROOT/src/token.v"
 COMPILED_FILE="$BUILD_DIR/five-token-template.five"
 TEST_SCRIPT="$PROJECT_ROOT/e2e-token-test.mjs"
 REPORT_FILE="$PROJECT_ROOT/test-state-fiveprogram.json"
+LOCAL_FIVE_CLI="$PROJECT_ROOT/../../five-cli/dist/index.js"
 
 # Options
 VERBOSE=false
@@ -100,9 +101,29 @@ parse_json_field() {
     local field="$2"
 
     if command -v jq >/dev/null 2>&1; then
-        jq -r ".${field} // empty" "$file"
+        node -e '
+const fs = require("fs");
+const [file, field] = process.argv.slice(1);
+const raw = fs.readFileSync(file, "utf8");
+const start = raw.indexOf("{");
+const end = raw.lastIndexOf("}");
+if (start === -1 || end === -1 || end < start) process.exit(0);
+const data = JSON.parse(raw.slice(start, end + 1));
+const value = data[field] ?? "";
+if (value !== null && value !== undefined) process.stdout.write(String(value));
+' "$file" "$field"
     else
-        node -e 'const fs=require("fs"); const [file, field]=process.argv.slice(1); const data=JSON.parse(fs.readFileSync(file, "utf8")); const value=data[field] ?? ""; if (value !== null && value !== undefined) process.stdout.write(String(value));' "$file" "$field"
+        node -e '
+const fs = require("fs");
+const [file, field] = process.argv.slice(1);
+const raw = fs.readFileSync(file, "utf8");
+const start = raw.indexOf("{");
+const end = raw.lastIndexOf("}");
+if (start === -1 || end === -1 || end < start) process.exit(0);
+const data = JSON.parse(raw.slice(start, end + 1));
+const value = data[field] ?? "";
+if (value !== null && value !== undefined) process.stdout.write(String(value));
+' "$file" "$field"
     fi
 }
 
@@ -149,7 +170,7 @@ ${CYAN}Test Workflow:${NC}
 
 ${CYAN}Requirements:${NC}
   - Solana CLI (solana --version)
-  - Five CLI (five --version)
+  - Local Five CLI build (node ../../five-cli/dist/index.js --version)
   - Node.js 18+ (node --version)
   - Running target validator at the explicit RPC URL
   - @solana/web3.js installed (npm install)

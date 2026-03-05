@@ -291,17 +291,9 @@ impl ASTGenerator {
         // Check if this is an interface method call first
         if let AstNode::Identifier(interface_name) = object {
             if let Some(interface_info) = self.interface_registry.get(interface_name) {
-                // This is an interface method call - generate INVOKE opcode
-                if let Some(interface_method) = interface_info.methods.get(method) {
-                    // Clone to avoid simultaneous borrow of self.interface_registry (immutable)
-                    // and self (mutable) in emit_interface_invoke
-                    let info = interface_info.clone();
-                    let method_info = interface_method.clone();
-
-                    return self.emit_interface_invoke(emitter, &info, &method_info, args);
-                } else {
-                    return Err(VMError::InvalidOperation); // Method not found in interface
-                }
+                // Interface calls must use namespace syntax: Interface::method(...)
+                let _ = interface_info;
+                return Err(VMError::InvalidOperation);
             }
         }
 
@@ -353,10 +345,44 @@ impl ASTGenerator {
                 }
                 return Err(VMError::InvalidOperation);
             }
+
+            // Fallback for imported interface symbols that are stored under fully-qualified
+            // registry keys: resolve by qualifier/method shape.
+            let qualifier_lower = qualifier.to_ascii_lowercase();
+            let mut candidates: Vec<(String, InterfaceInfo, InterfaceMethod)> = self
+                .interface_registry
+                .iter()
+                .filter_map(|(iface_name, iface_info)| {
+                    let method = iface_info.methods.get(method_name)?;
+                    let iface_lower = iface_name.to_ascii_lowercase();
+                    let qualifier_matches = iface_name == qualifier
+                        || iface_name.ends_with(&format!("::{}", qualifier))
+                        || iface_lower.contains(&qualifier_lower);
+                    if qualifier_matches {
+                        Some((iface_name.clone(), iface_info.clone(), method.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            candidates.sort_by(|a, b| a.0.cmp(&b.0));
+            candidates.dedup_by(|a, b| a.0 == b.0);
+            if candidates.len() == 1 {
+                let (_, info, method_info) = candidates.remove(0);
+                return self.emit_interface_invoke(emitter, &info, &method_info, args);
+            }
         }
 
         let resolved_name = self.resolve_qualified_function_name(name);
         let effective_name = resolved_name.as_deref().unwrap_or(name);
+        let effective_name = match effective_name {
+            "SystemProgram::transfer"
+            | "system_program::transfer"
+            | "std::interfaces::system_program::SystemProgram::transfer" => {
+                "transfer_lamports"
+            }
+            _ => effective_name,
+        };
 
         // Most built-ins consume pre-generated arguments.
         // A few have custom argument lowering and must not pre-generate here.
@@ -735,11 +761,30 @@ impl ASTGenerator {
             return Some(qualifier.to_string());
         }
 
+        if let Some(interface_name) = self.find_interface_for_module_alias(qualifier) {
+            return Some(interface_name);
+        }
+
+        let direct_suffix = format!("::{}", qualifier);
+        if let Some(found) = self
+            .interface_registry
+            .keys()
+            .find(|name| name.ends_with(&direct_suffix))
+        {
+            return Some(found.clone());
+        }
+
         let split_idx = qualifier.rfind("::")?;
         let interface_name = &qualifier[split_idx + 2..];
+        if self.interface_registry.contains_key(interface_name) {
+            return Some(interface_name.to_string());
+        }
+
+        let suffix = format!("::{}", interface_name);
         self.interface_registry
-            .contains_key(interface_name)
-            .then(|| interface_name.to_string())
+            .keys()
+            .find(|name| name.ends_with(&suffix))
+            .cloned()
     }
 
     fn resolve_qualified_function_name(&self, name: &str) -> Option<String> {

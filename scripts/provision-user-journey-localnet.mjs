@@ -15,21 +15,22 @@ const targets = [
   {
     key: 'token',
     envName: 'FIVE_TOKEN_SCRIPT_ACCOUNT',
-    projectDir: path.join(ROOT_DIR, 'five-templates', 'token'),
+    projectDir: path.join(ROOT_DIR, '5ive-token'),
   },
   {
     key: 'amm',
     envName: 'FIVE_AMM_SCRIPT_ACCOUNT',
-    projectDir: path.join(ROOT_DIR, 'five-templates', 'amm'),
+    projectDir: path.join(ROOT_DIR, '5ive-amm'),
   },
   {
     key: 'lending',
     envName: 'FIVE_LENDING_SCRIPT_ACCOUNT',
-    projectDir: path.join(ROOT_DIR, 'five-templates', 'lending'),
+    projectDir: path.join(ROOT_DIR, '5ive-lending-2'),
   },
   {
     key: 'lendingOracle',
     envName: 'FIVE_LENDING_ORACLE_SCRIPT_ACCOUNT',
+    // No 5ive-* oracle helper project exists yet; keep template helper for now.
     projectDir: path.join(ROOT_DIR, 'five-templates', 'lending-oracle-helper'),
   },
 ];
@@ -53,6 +54,15 @@ function runNode(args, cwd) {
   }
 
   return result.stdout;
+}
+
+function parseJsonFromMixedOutput(raw) {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1 || end < start) {
+    throw new Error('Command did not emit JSON output');
+  }
+  return JSON.parse(raw.slice(start, end + 1));
 }
 
 function buildProject(projectDir) {
@@ -92,7 +102,7 @@ function deployArtifact(projectDir, artifactPath, rpcUrl, keypairPath, fiveVmPro
   }
 
   const stdout = runNode(args, projectDir);
-  const parsed = JSON.parse(stdout.trim());
+  const parsed = parseJsonFromMixedOutput(stdout);
   const scriptAccount = parsed.scriptAccount || parsed.programId;
   if (!parsed.success || !scriptAccount) {
     throw new Error(parsed.error || `Deployment failed for ${artifactPath}`);

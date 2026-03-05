@@ -1,5 +1,5 @@
 {
-  "name": "@5ive-tech/stdlib",
+  "name": "@5ive/std",
   "version": "0.1.0",
   "private": true,
   "description": "Vendored standard library sources for 5IVE projects",

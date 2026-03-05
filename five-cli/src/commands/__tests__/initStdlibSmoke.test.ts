@@ -64,6 +64,7 @@ describe('init + stdlib smoke', () => {
       expect(initResult.status).toBe(0);
 
       const toml = readFileSync(join(projectDir, 'five.toml'), 'utf8');
+      expect(toml).toContain('schema_version = 1');
       expect(toml).toContain('entry_point = "src/main.v"');
 
       const main = readFileSync(join(projectDir, 'src/main.v'), 'utf8');

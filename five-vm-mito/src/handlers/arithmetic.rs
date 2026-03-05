@@ -59,10 +59,24 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
         }
 
         // AccountRef vs Integer comparisons
-        // For Option/Result encodings, AccountRef index acts as a tag (0/254/255).
-        // Comparing AccountRef to a literal should use the index, not account data.
-        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => Ok((account_idx as u64) == b),
-        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => Ok(a == (account_idx as u64)),
+        // Normal account refs should compare underlying field data.
+        // Sentinel refs (idx 0/255) are used as Option/Result tags and should compare by tag.
+        (ValueRef::AccountRef(account_idx, _), ValueRef::U64(b)) => {
+            if account_idx == 0 || account_idx == 255 {
+                Ok((account_idx as u64) == b)
+            } else {
+                let val_a = crate::utils::resolve_u64(a, ctx)?;
+                Ok(val_a == b)
+            }
+        }
+        (ValueRef::U64(a), ValueRef::AccountRef(account_idx, _)) => {
+            if account_idx == 0 || account_idx == 255 {
+                Ok(a == (account_idx as u64))
+            } else {
+                let val_b = crate::utils::resolve_u64(b, ctx)?;
+                Ok(a == val_b)
+            }
+        }
 
         // Pubkey/Temp comparisons
         (ValueRef::PubkeyRef(_), _)

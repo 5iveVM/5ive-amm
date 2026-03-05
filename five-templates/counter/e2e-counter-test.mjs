@@ -51,19 +51,19 @@ const deploymentConfigPath = path.join(__dirname, 'deployment-config.json');
 if (fs.existsSync(deploymentConfigPath)) {
     try {
         const deploymentConfig = JSON.parse(fs.readFileSync(deploymentConfigPath, 'utf-8'));
-        if (deploymentConfig.rpcUrl) {
+        if (!process.env.FIVE_RPC_URL && !process.env.RPC_URL && deploymentConfig.rpcUrl) {
             RPC_URL = deploymentConfig.rpcUrl;
         }
-        if (deploymentConfig.fiveProgramId) {
+        if (!process.env.FIVE_PROGRAM_ID && !process.env.FIVE_VM_PROGRAM_ID && deploymentConfig.fiveProgramId) {
             FIVE_PROGRAM_ID = new PublicKey(deploymentConfig.fiveProgramId);
         }
-        if (deploymentConfig.vmStatePda) {
+        if (!process.env.VM_STATE_PDA && !process.env.FIVE_VM_STATE_PDA && deploymentConfig.vmStatePda) {
             VM_STATE_PDA = new PublicKey(deploymentConfig.vmStatePda);
         }
-        if (deploymentConfig.counterScriptAccount) {
+        if (!process.env.COUNTER_SCRIPT_ACCOUNT && !process.env.SCRIPT_ACCOUNT && deploymentConfig.counterScriptAccount) {
             COUNTER_SCRIPT_ACCOUNT = new PublicKey(deploymentConfig.counterScriptAccount);
         }
-        info('Loaded deployment-config.json overrides');
+        info('Loaded deployment-config.json fallbacks');
     } catch (configError) {
         warn(`Failed to load deployment-config.json: ${configError.message}`);
     }
@@ -138,13 +138,7 @@ async function executeCounterFunctionFiveProgram(
 
         const tx = new Transaction().add(ix);
         const allSigners = [payer, ...signers];
-
-        const sig = await connection.sendTransaction(tx, allSigners, {
-            skipPreflight: true,
-            maxRetries: 3
-        });
-
-        await connection.confirmTransaction(sig, 'confirmed');
+        const sig = await sendAndConfirmWithContext(connection, tx, allSigners);
 
         const txDetails = await connection.getTransaction(sig, {
             maxSupportedTransactionVersion: 0
@@ -192,6 +186,30 @@ async function executeCounterFunctionFiveProgram(
 function loadKeypair(kpPath) {
     const secretKey = JSON.parse(fs.readFileSync(kpPath, 'utf-8'));
     return Keypair.fromSecretKey(Uint8Array.from(secretKey));
+}
+
+async function sendAndConfirmWithContext(connection, tx, signers, options = {}) {
+    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+    tx.feePayer = signers[0].publicKey;
+    tx.recentBlockhash = latestBlockhash.blockhash;
+
+    const signature = await connection.sendTransaction(tx, signers, {
+        skipPreflight: true,
+        maxRetries: 3,
+        ...options
+    });
+
+    const confirmation = await connection.confirmTransaction({
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+    }, 'confirmed');
+
+    if (confirmation.value.err) {
+        throw new Error(JSON.stringify(confirmation.value.err));
+    }
+
+    return signature;
 }
 
 // ============================================================================
@@ -261,8 +279,7 @@ async function main() {
                 lamports: fundAmount,
             })
         );
-        const sig = await connection.sendTransaction(tx, [payer], { skipPreflight: true });
-        await connection.confirmTransaction(sig, 'confirmed');
+        await sendAndConfirmWithContext(connection, tx, [payer]);
     }
     const user1Balance = await connection.getBalance(user1.publicKey);
     const user2Balance = await connection.getBalance(user2.publicKey);

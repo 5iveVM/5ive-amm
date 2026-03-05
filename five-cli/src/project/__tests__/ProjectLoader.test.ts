@@ -18,6 +18,8 @@ describe('ProjectLoader', () => {
     await writeConfig(
       dir,
       `
+schema_version = 1
+
 [project]
 name = "demo"
 version = "0.1.0"
@@ -68,6 +70,8 @@ output_artifact_name = "demo-artifact"
     await writeConfig(
       root,
       `
+schema_version = 1
+
 [project]
 name = "root-project"
 version = "0.1.0"
@@ -91,6 +95,8 @@ target = "vm"
     await writeConfig(
       dir,
       `
+schema_version = 1
+
 [project]
 name = "explicit-project"
 version = "0.1.0"
@@ -104,5 +110,104 @@ target = "vm"
     expect(loaded).not.toBeNull();
     if (!loaded) return;
     expect(loaded.config.name).toBe('explicit-project');
+  });
+
+  it('parses dependency aliases from five.toml', async () => {
+    const dir = await createTempDir();
+    await writeConfig(
+      dir,
+      `
+schema_version = 1
+
+[project]
+name = "deps-project"
+version = "0.1.0"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+
+[dependencies]
+std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "inline" }
+local_math = { package = "math-lib", source = "path", path = "../math-lib", link = "inline" }
+`
+    );
+
+    const loaded = await loadProjectConfig(undefined, dir);
+    expect(loaded).not.toBeNull();
+    if (!loaded) return;
+
+    expect(loaded.config.dependencies).toEqual([
+      {
+        alias: 'std',
+        package: '@5ive/std',
+        version: '0.1.0',
+        source: 'bundled',
+        link: 'inline',
+        path: undefined,
+        namespace: undefined,
+        address: undefined,
+        moatAccount: undefined,
+        module: undefined,
+        pin: undefined,
+        cluster: undefined,
+      },
+      {
+        alias: 'local_math',
+        package: 'math-lib',
+        version: undefined,
+        source: 'path',
+        link: 'inline',
+        path: '../math-lib',
+        namespace: undefined,
+        address: undefined,
+        moatAccount: undefined,
+        module: undefined,
+        pin: undefined,
+        cluster: undefined,
+      },
+    ]);
+  });
+
+  it('fails when dependency source-specific fields are missing', async () => {
+    const dir = await createTempDir();
+    await writeConfig(
+      dir,
+      `
+schema_version = 1
+
+[project]
+name = "invalid-deps-project"
+version = "0.1.0"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+
+[dependencies]
+broken = { package = "math-lib", source = "path", link = "inline" }
+`
+    );
+
+    await expect(loadProjectConfig(undefined, dir)).rejects.toThrow(
+      "Invalid dependency 'broken': source=path requires 'path'"
+    );
+  });
+
+  it('fails when schema_version is missing', async () => {
+    const dir = await createTempDir();
+    await writeConfig(
+      dir,
+      `
+[project]
+name = "missing-schema"
+version = "0.1.0"
+source_dir = "src"
+build_dir = "build"
+target = "vm"
+`
+    );
+
+    await expect(loadProjectConfig(undefined, dir)).rejects.toThrow(
+      "missing required top-level 'schema_version'"
+    );
   });
 });

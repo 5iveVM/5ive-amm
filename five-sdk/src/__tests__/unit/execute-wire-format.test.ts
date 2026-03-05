@@ -72,6 +72,7 @@ describe('execute wire format', () => {
         estimateFees: false,
         fiveVMProgramId: '11111111111111111111111111111111',
         feeShardIndex: 0,
+        payerAccount: '11111111111111111111111111111116',
       },
     );
 
@@ -126,6 +127,7 @@ describe('execute wire format', () => {
         abi,
         estimateFees: false,
         feeShardIndex: 0,
+        payerAccount: '11111111111111111111111111111116',
       },
     );
 
@@ -234,6 +236,97 @@ describe('execute wire format', () => {
     expect(feeTail[1].isSigner).toBe(false);
     expect(feeTail[1].isWritable).toBe(true);
     expect(feeTail[1].pubkey).not.toBe(payer);
+  });
+
+  it('marks execute core accounts (script + vm_state) readonly', async () => {
+    const payer = '11111111111111111111111111111112';
+    const result = await ExecuteModule.generateExecuteInstruction(
+      '11111111111111111111111111111111',
+      0,
+      [],
+      [payer],
+      undefined,
+      {
+        estimateFees: false,
+        payerAccount: payer,
+        accountMetadata: new Map([
+          [payer, { isSigner: true, isWritable: false }],
+        ]),
+      },
+    );
+
+    expect(result.instruction.accounts[0]).toMatchObject({
+      pubkey: '11111111111111111111111111111111',
+      isWritable: false,
+    });
+    expect(result.instruction.accounts[1]).toMatchObject({
+      pubkey: '11111111111111111111111111111111',
+      isWritable: false,
+    });
+  });
+
+  it('derives account metadata in args-only mode using ABI account param order', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const stateAccount = '11111111111111111111111111111114';
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      'update',
+      [42],
+      [stateAccount],
+      undefined,
+      {
+        estimateFees: false,
+        abi: {
+          functions: [
+            {
+              name: 'update',
+              index: 9,
+              parameters: [
+                { name: 'state', type: 'account', is_account: true, attributes: ['mut'] },
+                { name: 'value', type: 'u64', is_account: false },
+              ],
+            },
+          ],
+        },
+        payerAccount: '11111111111111111111111111111116',
+      },
+    );
+
+    // account layout: [script, vm_state, user_accounts..., fee_tail...]
+    expect(result.instruction.accounts[2]).toMatchObject({
+      pubkey: stateAccount,
+      isWritable: true,
+      isSigner: false,
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('defaults unknown user accounts to readonly and warns with hint', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const unknownAccount = '11111111111111111111111111111115';
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      0,
+      [],
+      [unknownAccount],
+      undefined,
+      {
+        estimateFees: false,
+        payerAccount: '11111111111111111111111111111116',
+      },
+    );
+
+    expect(result.instruction.accounts[2]).toMatchObject({
+      pubkey: unknownAccount,
+      isWritable: false,
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Missing account metadata')
+    );
+    warnSpy.mockRestore();
   });
 
   it('does not match legacy varint envelope layout', async () => {

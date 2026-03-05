@@ -123,6 +123,16 @@ Anchor-porting default:
 7. Prefer interface `@authority` parameters plus caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` calls.
 8. If an interface authority arg is a normal signer account, the compiler should emit plain `INVOKE`; if it is a PDA account, the compiler should emit signed CPI automatically.
 
+## 8.3) Reserved Identifier Guidance (Mandatory)
+
+1. Avoid reserved or compiler-sensitive field/parameter names in authored DSL when equivalent names exist.
+2. Do not use `owner` for mutable account-state authority fields in new contracts; prefer `authority`.
+3. For account-control semantics, standardize on:
+- account field: `authority: pubkey`
+- signer parameter: `authority: account @signer`
+4. If porting older code that uses `owner`, rename to `authority` unless compatibility constraints require preserving the external name.
+5. If an `ImmutableField` or similar checker error appears around identifiers, treat naming as the first triage step before deeper refactors.
+
 ## 8.1) Crypto Capability Contract (Mandatory)
 
 1. Hash builtins use explicit output buffers:

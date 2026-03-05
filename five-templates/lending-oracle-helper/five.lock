@@ -1,0 +1,12 @@
+version = 1
+
+[[packages]]
+name = "five-lending-oracle-helper"
+version = "0.0.0"
+address = "8uTZT2LurZ2EFTkpAhbZqXBJUnThzZttGFwn8xPFhqMg"
+bytecode_hash = "4889646d2dad035558b190fc0569bafda4aa8a02acc13550eec0ebe2ebfc9934"
+deployed_at = "2026-03-05T00:13:07.341Z"
+
+  [packages.exports]
+  methods = [ "init_oracle", "set_oracle" ]
+  interfaces = [ ]

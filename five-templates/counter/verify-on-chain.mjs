@@ -25,14 +25,16 @@ async function main() {
     console.log(`${colors.blue}========================================${colors.reset}\n`);
 
     // 1. Load test state
-    const statePath = path.join(__dirname, 'test-state.json');
+    const preferredStatePath = path.join(__dirname, 'test-state-fiveprogram.json');
+    const legacyStatePath = path.join(__dirname, 'test-state.json');
+    const statePath = fs.existsSync(preferredStatePath) ? preferredStatePath : legacyStatePath;
     if (!fs.existsSync(statePath)) {
-        error("test-state.json not found. Run e2e-counter-test.mjs first.");
+        error("No test state file found. Run e2e-counter-test.mjs first.");
         process.exit(1);
     }
 
     const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-    info(`Loaded test state`);
+    info(`Loaded test state from ${path.basename(statePath)}`);
     info(`Counter1: ${state.accounts.counter1}`);
     info(`Counter2: ${state.accounts.counter2}`);
 

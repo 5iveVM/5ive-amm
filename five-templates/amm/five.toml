@@ -1,3 +1,5 @@
+schema_version = 1
+
 # Five AMM Template
 # A modular Automated Market Maker (DEX) template
 

@@ -5,8 +5,8 @@
     "/Users/ivmidable/Development/five-mono/five-templates/lending-oracle-helper/src/main.v"
   ],
   "target": "vm",
-  "timestamp": "2026-03-01T23:53:18.849Z",
-  "hash": "e0cf48773c01de72201f7a657ad4d5da3b6f9e2463e1548aa9823de374c19873",
+  "timestamp": "2026-03-05T00:13:05.946Z",
+  "hash": "9601e841b4798ced2c0ce128ed3e81a40273c2b268191d9e029282bed05f962e",
   "format": "five",
   "entry_point": "src/main.v",
   "source_dir": "src"

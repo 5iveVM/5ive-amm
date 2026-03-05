@@ -42,7 +42,8 @@ BUILD_DIR="$PROJECT_ROOT/build"
 SOURCE_FILE="$PROJECT_ROOT/src/counter.v"
 COMPILED_FILE="$BUILD_DIR/five-counter-template.five"
 TEST_SCRIPT="$PROJECT_ROOT/e2e-counter-test.mjs"
-REPORT_FILE="$PROJECT_ROOT/test-state.json"
+REPORT_FILE="$PROJECT_ROOT/test-state-fiveprogram.json"
+LOCAL_FIVE_CLI="$PROJECT_ROOT/../../five-cli/dist/index.js"
 
 # Options
 VERBOSE=false
@@ -99,9 +100,29 @@ parse_json_field() {
     local field="$2"
 
     if command -v jq >/dev/null 2>&1; then
-        jq -r ".${field} // empty" "$file"
+        node -e '
+const fs = require("fs");
+const [file, field] = process.argv.slice(1);
+const raw = fs.readFileSync(file, "utf8");
+const start = raw.indexOf("{");
+const end = raw.lastIndexOf("}");
+if (start === -1 || end === -1 || end < start) process.exit(0);
+const data = JSON.parse(raw.slice(start, end + 1));
+const value = data[field] ?? "";
+if (value !== null && value !== undefined) process.stdout.write(String(value));
+' "$file" "$field"
     else
-        node -e 'const fs=require("fs"); const [file, field]=process.argv.slice(1); const data=JSON.parse(fs.readFileSync(file, "utf8")); const value=data[field] ?? ""; if (value !== null && value !== undefined) process.stdout.write(String(value));' "$file" "$field"
+        node -e '
+const fs = require("fs");
+const [file, field] = process.argv.slice(1);
+const raw = fs.readFileSync(file, "utf8");
+const start = raw.indexOf("{");
+const end = raw.lastIndexOf("}");
+if (start === -1 || end === -1 || end < start) process.exit(0);
+const data = JSON.parse(raw.slice(start, end + 1));
+const value = data[field] ?? "";
+if (value !== null && value !== undefined) process.stdout.write(String(value));
+' "$file" "$field"
     fi
 }
 
@@ -144,7 +165,7 @@ ${CYAN}Test Workflow:${NC}
 
 ${CYAN}Requirements:${NC}
   - Solana CLI (solana --version)
-  - Five CLI (five --version)
+  - Local Five CLI build (node ../../five-cli/dist/index.js --version)
   - Node.js 18+ (node --version)
   - Running Solana validator (solana-test-validator)
   - @solana/web3.js installed (npm install)
@@ -163,13 +184,14 @@ EOF
 check_prerequisites() {
     print_header "Checking Prerequisites"
 
-    # Check Five CLI
-    print_step "Checking Five CLI..."
-    if command -v five &> /dev/null; then
-        FIVE_VERSION=$(five --version 2>/dev/null | head -1 || echo "unknown")
-        print_success "Five CLI installed: $FIVE_VERSION"
+    # Check local Five CLI build
+    print_step "Checking local Five CLI..."
+    if [ -f "$LOCAL_FIVE_CLI" ]; then
+        FIVE_VERSION=$(node "$LOCAL_FIVE_CLI" --version 2>/dev/null | head -1 || echo "unknown")
+        print_success "Local Five CLI available: $FIVE_VERSION"
     else
-        print_error "Five CLI not found. Install with: cargo install --git https://github.com/five-protocol/five-cli"
+        print_error "Local Five CLI not found: $LOCAL_FIVE_CLI"
+        print_error "Build it first with: npm --prefix ../../five-cli run build:js"
         exit 1
     fi
 

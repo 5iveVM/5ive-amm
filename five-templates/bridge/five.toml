@@ -1,3 +1,5 @@
+schema_version = 1
+
 # Bridge / wrapped asset template
 
 [project]

@@ -103,6 +103,11 @@ interface OnChainFixtureFile {
   tests?: Record<string, OnChainFixtureTestSpec>;
 }
 
+type ExecuteAccountMetadata = Map<
+  string,
+  { isSigner: boolean; isWritable: boolean; isSystemAccount?: boolean }
+>;
+
 /**
  * 5IVE test command implementation
  */
@@ -976,16 +981,19 @@ async function ensureOnChainBalance(
   if (target === 'local' || target === 'localnet') {
     logger.info('Low localnet balance detected; requesting airdrop...');
     const sig = await connection.requestAirdrop(signerKeypair.publicKey, 2_000_000_000);
-    const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-    const confirmation = await connection.confirmTransaction({
-      signature: sig,
-      blockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-    }, 'confirmed');
-    if (confirmation.value.err) {
-      throw new Error(JSON.stringify(confirmation.value.err));
+    const start = Date.now();
+    while (Date.now() - start < 30_000) {
+      const statuses = await connection.getSignatureStatuses([sig], { searchTransactionHistory: true });
+      const status = statuses.value[0];
+      if (status?.err) {
+        throw new Error(JSON.stringify(status.err));
+      }
+      if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    return;
+    throw new Error(`Airdrop confirmation timed out for signature ${sig}`);
   }
 
   throw new Error(
@@ -1393,7 +1401,7 @@ async function runDiscoveredVOnChainTests(
       const fixtureSpec = fixture?.tests?.[test.source.functionName];
       const expectedSuccess = fixtureSpec?.expected?.success ?? true;
       const params = fixtureSpec?.parameters ?? test.parameters ?? [];
-      const { accounts, error: fixtureError } = await createPerTestFixtureAccounts(
+      const { accounts, accountNameToAddress, error: fixtureError } = await createPerTestFixtureAccounts(
         connection,
         signerKeypair,
         fixture,
@@ -1417,6 +1425,14 @@ async function runDiscoveredVOnChainTests(
         continue;
       }
 
+      const accountMetadata = buildFixtureAccountMetadataForExecution(
+        compilation.abi,
+        test.source.functionName,
+        fixtureSpec,
+        fixture,
+        accountNameToAddress
+      );
+
       const execute = await FiveSDK.executeOnSolana(
         deploy.programId,
         connection,
@@ -1429,7 +1445,8 @@ async function runDiscoveredVOnChainTests(
           network: config.target,
           computeUnitLimit: 1_000_000,
           maxRetries: 3,
-          abi: compilation.abi
+          abi: compilation.abi,
+          accountMetadata
         }
       );
 
@@ -1499,26 +1516,32 @@ async function createPerTestFixtureAccounts(
   fixture: OnChainFixtureFile | undefined,
   testSpec: OnChainFixtureTestSpec | undefined,
   verbose: boolean
-): Promise<{ accounts: string[]; error?: string }> {
+): Promise<{ accounts: string[]; accountNameToAddress: Record<string, string>; error?: string }> {
   const required = testSpec?.accounts || [];
   if (required.length === 0) {
-    return { accounts: [] };
+    return { accounts: [], accountNameToAddress: {} };
   }
   if (!fixture?.accounts) {
-    return { accounts: [], error: 'Fixture accounts are required but no companion .test.json accounts block was found' };
+    return {
+      accounts: [],
+      accountNameToAddress: {},
+      error: 'Fixture accounts are required but no companion .test.json accounts block was found'
+    };
   }
 
   const { PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction } = await import('@solana/web3.js');
   const createdAccounts: string[] = [];
+  const accountNameToAddress: Record<string, string> = {};
 
   for (const accountName of required) {
     const spec = fixture.accounts[accountName];
     if (!spec) {
-      return { accounts: [], error: `Fixture account '${accountName}' not found in companion fixture file` };
+      return { accounts: [], accountNameToAddress: {}, error: `Fixture account '${accountName}' not found in companion fixture file` };
     }
     if (spec.is_signer) {
       return {
         accounts: [],
+        accountNameToAddress: {},
         error: `Fixture account '${accountName}' requests is_signer=true; external signer fixtures are not supported yet`
       };
     }
@@ -1537,13 +1560,15 @@ async function createPerTestFixtureAccounts(
       })
     );
     await sendAndConfirmTransaction(connection, tx, [signerKeypair, keypair], { commitment: 'confirmed' });
-    createdAccounts.push(keypair.publicKey.toBase58());
+    const createdAddress = keypair.publicKey.toBase58();
+    createdAccounts.push(createdAddress);
+    accountNameToAddress[accountName] = createdAddress;
     if (verbose) {
-      console.log(`[on-chain fixture] created ${accountName}=${keypair.publicKey.toBase58()}`);
+      console.log(`[on-chain fixture] created ${accountName}=${createdAddress}`);
     }
   }
 
-  return { accounts: createdAccounts };
+  return { accounts: createdAccounts, accountNameToAddress };
 }
 
 function resolveFixtureOwner(owner: string | undefined, fallback: string): string {
@@ -1554,6 +1579,105 @@ function resolveFixtureOwner(owner: string | undefined, fallback: string): strin
     return fallback;
   }
   return owner;
+}
+
+function resolveFunctionDefinitionFromAbi(abi: any, functionName: string): any | undefined {
+  const functions = abi?.functions;
+  if (Array.isArray(functions)) {
+    return functions.find((fn: any) => fn?.name === functionName);
+  }
+  if (functions && typeof functions === 'object') {
+    const direct = functions[functionName];
+    if (direct && typeof direct === 'object') {
+      return { name: functionName, ...direct };
+    }
+    for (const [name, fn] of Object.entries(functions)) {
+      const maybe = fn as any;
+      if (maybe?.name === functionName) {
+        return maybe;
+      }
+      if (name === functionName && maybe && typeof maybe === 'object') {
+        return { name, ...maybe };
+      }
+    }
+  }
+  return undefined;
+}
+
+function isAccountParameter(param: any): boolean {
+  if (!param) return false;
+  if (param.is_account || param.isAccount) return true;
+  const type = (param.type || param.param_type || '').toString().trim().toLowerCase();
+  return type === 'account' || type === 'mint' || type === 'tokenaccount';
+}
+
+function buildFixtureAccountMetadataForExecution(
+  abi: any,
+  functionName: string,
+  fixtureSpec: OnChainFixtureTestSpec | undefined,
+  fixture: OnChainFixtureFile | undefined,
+  accountNameToAddress: Record<string, string>
+): ExecuteAccountMetadata | undefined {
+  const requiredAccountNames = fixtureSpec?.accounts || [];
+  if (requiredAccountNames.length === 0) {
+    return undefined;
+  }
+
+  const functionDef = resolveFunctionDefinitionFromAbi(abi, functionName);
+  if (!functionDef || !Array.isArray(functionDef.parameters)) {
+    return undefined;
+  }
+
+  const accountParams = functionDef.parameters.filter((param: any) => isAccountParameter(param));
+  if (accountParams.length === 0) {
+    return undefined;
+  }
+
+  const metadata: ExecuteAccountMetadata = new Map();
+  const initParam = accountParams.find((param: any) => (param.attributes || []).includes('init'));
+  const payerParam = initParam
+    ? accountParams.find((param: any) => param !== initParam && (param.attributes || []).includes('signer'))
+    : undefined;
+  const payerParamName = payerParam?.name;
+  const assignedParamNames = new Set<string>();
+
+  for (let i = 0; i < requiredAccountNames.length; i++) {
+    const accountName = requiredAccountNames[i];
+    const pubkey = accountNameToAddress[accountName];
+    if (!pubkey) continue;
+
+    const byName = accountParams.find(
+      (param: any) => param?.name === accountName && !assignedParamNames.has(param.name)
+    );
+    const byIndex = accountParams[i];
+    const param = byName || byIndex;
+    if (param?.name) {
+      assignedParamNames.add(param.name);
+    }
+
+    const attributes = param?.attributes || [];
+    let isSigner = attributes.includes('signer');
+    let isWritable =
+      attributes.includes('mut') ||
+      attributes.includes('init') ||
+      (payerParamName !== undefined && payerParamName === param?.name);
+
+    const fixtureAccount = fixture?.accounts?.[accountName];
+    if (typeof fixtureAccount?.is_signer === 'boolean') {
+      isSigner = fixtureAccount.is_signer;
+    }
+    if (typeof fixtureAccount?.is_writable === 'boolean') {
+      isWritable = fixtureAccount.is_writable;
+    }
+
+    const existing = metadata.get(pubkey) || { isSigner: false, isWritable: false };
+    metadata.set(pubkey, {
+      isSigner: existing.isSigner || isSigner,
+      isWritable: existing.isWritable || isWritable
+    });
+  }
+
+  return metadata.size > 0 ? metadata : undefined;
 }
 
 /**

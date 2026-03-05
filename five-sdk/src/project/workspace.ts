@@ -123,6 +123,11 @@ export interface LockEntry {
     address: string;
     bytecode_hash: string;
     deployed_at?: string;
+    package?: string;
+    source?: 'bundled' | 'path' | 'namespace' | 'address';
+    link?: LinkType;
+    resolved_namespace?: string;
+    resolved_script_account?: string;
 }
 
 // ==================== Resolved State ====================

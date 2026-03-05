@@ -22,6 +22,7 @@ class MockTransaction {
   feePayer: any;
   recentBlockhash?: string;
   add(_ix: any): this {
+    addedInstructions.push(_ix);
     return this;
   }
   partialSign(_signer: any): void {
@@ -38,6 +39,7 @@ class MockTransactionInstruction {
 
 const mockSetComputeUnitLimit = jest.fn(() => ({ type: "compute_limit" }));
 const mockSetComputeUnitPrice = jest.fn(() => ({ type: "compute_price" }));
+const addedInstructions: any[] = [];
 
 jest.unstable_mockModule("../../lib/bytecode-encoder.js", () => ({
   BytecodeEncoder: {
@@ -83,6 +85,7 @@ describe("executeOnSolana preflight behavior", () => {
     mockDeriveVMStatePDA.mockClear();
     mockSetComputeUnitLimit.mockClear();
     mockSetComputeUnitPrice.mockClear();
+    addedInstructions.length = 0;
     ProgramIdResolver.setDefault('TokenkegQfeZyiNwAJsyFbPVwwQQnmjV7B8B65C7TnP');
   });
 
@@ -178,5 +181,49 @@ describe("executeOnSolana preflight behavior", () => {
       skipPreflight: true,
       preflightCommitment: "confirmed",
     });
+  });
+
+  it("does not force-upgrade signer account writability", async () => {
+    const signerPubkey = "11111111111111111111111111111112";
+    const sendRawTransaction = jest.fn(async () => "tx-readonly");
+    const connection = {
+      getLatestBlockhash: jest.fn(async () => ({
+        blockhash: "bh3",
+        lastValidBlockHeight: 300,
+      })),
+      getAccountInfo: jest.fn(async () => null),
+      sendRawTransaction,
+      confirmTransaction: jest.fn(async () => ({ value: { err: null } })),
+      getTransaction: jest.fn(async () => ({
+        meta: { computeUnitsConsumed: 3, logMessages: ["ok"] },
+      })),
+    };
+
+    const result = await ExecuteModule.executeOnSolana(
+      "11111111111111111111111111111111",
+      connection,
+      { publicKey: new MockPublicKey(signerPubkey) },
+      0,
+      [],
+      [signerPubkey],
+      {
+        abi: { functions: [{ name: "main", index: 0, parameters: [] }] },
+      },
+    );
+
+    expect(result).toBeDefined();
+    if (sendRawTransaction.mock.calls.length === 0) {
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      return;
+    }
+
+    const executeIx = addedInstructions.find((ix) => ix instanceof MockTransactionInstruction);
+    expect(executeIx).toBeDefined();
+
+    const keys = executeIx.payload.keys;
+    expect(keys[2].pubkey.toString()).toBe(signerPubkey);
+    expect(keys[2].isSigner).toBe(true);
+    expect(keys[2].isWritable).toBe(false);
   });
 });

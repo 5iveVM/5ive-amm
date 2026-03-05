@@ -194,32 +194,12 @@ impl TypeCheckerContext {
             } => {
                 if let AstNode::Identifier(interface_name) = object.as_ref() {
                     if self.interface_registry.contains_key(interface_name) {
-                        if !self.imported_external_interfaces.contains(interface_name) {
-                            self.infer_local_interface_method_call_type(
-                                interface_name,
-                                method,
-                                args,
-                            )?;
-                            return Ok(());
-                        }
-
-                        // Legacy object-style imported interface call
-                        // (e.g. SPLToken.transfer(...)) is intentionally unsupported.
-                        // Imported interfaces are module-qualified:
-                        // use std::interfaces::spl_token; spl_token::transfer(...)
-                        let suggestion = self
-                            .interface_module_aliases
-                            .iter()
-                            .find_map(|(ns, iface)| {
-                                if iface == interface_name && !ns.contains("::") {
-                                    Some(format!("{}::{}", ns, method))
-                                } else {
-                                    None
-                                }
-                            })
-                            .unwrap_or_else(|| format!("module_alias::{}", method));
+                        // Interface calls must use namespace syntax:
+                        // Interface::method(...)
+                        // Dot-call form is rejected to keep import/local semantics consistent.
+                        let suggestion = format!("{}::{}", interface_name, method);
                         return Err(VMError::undefined_identifier(
-                            interface_name,
+                            &format!("{}.{}", interface_name, method),
                             Some(&suggestion),
                         ));
                     }

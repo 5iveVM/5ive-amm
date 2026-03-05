@@ -201,6 +201,8 @@ async function createProject({ target = 'vm' }: { target?: string } = {}) {
   await writeFile(
     join(root, 'five.toml'),
     `
+schema_version = 1
+
 [project]
 name = "demo"
 version = "0.1.0"
