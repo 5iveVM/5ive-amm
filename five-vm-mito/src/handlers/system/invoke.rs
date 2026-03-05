@@ -458,6 +458,7 @@ fn invoke_signed_grouped_from_array_ref(
             invoke_accounts[invoke_account_len] = program_account;
             invoke_account_len += 1;
         }
+
         mark_grouped_signer_metas(
             ctx,
             workspace_base,

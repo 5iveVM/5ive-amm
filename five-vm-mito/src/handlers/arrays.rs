@@ -545,12 +545,15 @@ fn handle_array_literals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 }
             }
 
-            // Determine binary element type: 0=FIXED_SIZE, 1=VARIABLE_SIZE
+            // Header type tags:
+            // 0 = raw bytes buffer (only produced by push_raw_bytes)
+            // 1 = variable-size serialized elements
+            // 2 = fixed-size serialized elements
             let first_element_type_id = element_type_id.unwrap_or(0);
             let array_element_type = match first_element_type_id {
-                // Fixed-size elements (Type 0): scalar and pubkey immediates
-                1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 => 0,
-                // Variable-size elements (Type 1): strings, nested arrays
+                // Fixed-size serialized elements: scalar and pubkey immediates
+                1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 => 2,
+                // Variable-size serialized elements: strings, nested arrays
                 11 | _ => 1, // String and others default to variable-size
             };
             // Allocate temp buffer space
@@ -1140,10 +1143,10 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             };
 
             let array_element_type = match first_element_type_id {
-                // Fixed-size elements (Type 0): u8, u64, i64, bool, pubkey
-                1 | 4 | 8 | 9 | 10 => 0, // U8, U64, I64, Bool, Pubkey
-                // Variable-size elements (Type 1): strings, nested arrays
-                11 | _ => 1, // String and others default to variable-size
+                // Fixed-size serialized elements: u8/u16/u32/u64, i8/i16/i32/i64, bool, pubkey
+                1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 => 2,
+                // Variable-size serialized elements: strings, nested arrays
+                11 | _ => 1,
             };
 
             // Allocate space and initialize header
