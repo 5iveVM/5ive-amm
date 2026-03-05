@@ -15,11 +15,7 @@ impl TypeCheckerContext {
     fn is_account_param_type(&self, type_node: &TypeNode) -> bool {
         match type_node {
             TypeNode::Account => true,
-            TypeNode::Named(name) => {
-                name == "Account"
-                    || name == "account"
-                    || self.account_definitions.contains_key(name)
-            }
+            TypeNode::Named(name) => self.is_named_account_type_name(name),
             _ => false,
         }
     }
@@ -338,16 +334,7 @@ impl TypeCheckerContext {
                 let is_valid_account = match &param.param_type {
                     crate::ast::TypeNode::Account => true,
                     crate::ast::TypeNode::Named(name) => {
-                        // Check for exact match or namespaced match (e.g., "AMMPool" or "amm_types::AMMPool")
-                        let namespace_suffix = format!("::{}", name);
-                        if name == "Account"
-                            || name == "account"
-                            || self.account_definitions.contains_key(name)
-                            || self
-                                .account_definitions
-                                .keys()
-                                .any(|k| k.ends_with(&namespace_suffix))
-                        {
+                        if self.is_named_account_type_name(name) {
                             true
                         } else {
                             // Check module scope for imported accounts
@@ -464,11 +451,7 @@ impl TypeCheckerContext {
             // Determine if this is an account type (including custom named accounts)
             let is_account_param = match &param.param_type {
                 crate::ast::TypeNode::Account => true,
-                crate::ast::TypeNode::Named(name) => {
-                    name == "Account"
-                        || name == "account"
-                        || self.account_definitions.contains_key(name)
-                }
+                crate::ast::TypeNode::Named(name) => self.is_named_account_type_name(name),
                 _ => false,
             };
 

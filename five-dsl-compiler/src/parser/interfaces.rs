@@ -26,8 +26,7 @@ fn parse_account_serializer(parser: &mut DslParser) -> Result<AccountSerializer,
         "raw" => Ok(AccountSerializer::Raw),
         "borsh" => Ok(AccountSerializer::Borsh),
         "bincode" => Ok(AccountSerializer::Bincode),
-        "anchor" => Ok(AccountSerializer::Anchor),
-        _ => Err(parser.parse_error("valid serializer: raw, borsh, bincode, or anchor")),
+        _ => Err(parser.parse_error("valid serializer: raw, borsh, or bincode")),
     }
 }
 

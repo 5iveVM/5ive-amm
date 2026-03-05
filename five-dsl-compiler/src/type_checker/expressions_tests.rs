@@ -341,6 +341,72 @@ fn test_legacy_init_alias_identifier_provides_ctx_hint() {
 }
 
 #[test]
+fn test_namespaced_account_field_access_resolves() {
+    let mut checker = TypeCheckerContext::new();
+    checker.account_definitions.insert(
+        "std::interfaces::spl_token::Mint".to_string(),
+        vec![crate::ast::StructField {
+            name: "supply".to_string(),
+            field_type: TypeNode::Primitive("u64".to_string()),
+            is_mutable: false,
+            is_optional: false,
+        }],
+    );
+    checker.symbol_table.insert(
+        "mint".to_string(),
+        (TypeNode::Named("spl_token::Mint".to_string()), false),
+    );
+
+    let expr = AstNode::FieldAccess {
+        object: Box::new(AstNode::Identifier("mint".to_string())),
+        field: "supply".to_string(),
+    };
+
+    assert!(checker.check_expression(&expr).is_ok());
+    assert_eq!(
+        checker.infer_type(&expr).expect("infer namespaced field"),
+        TypeNode::Primitive("u64".to_string())
+    );
+}
+
+#[test]
+fn test_named_account_metadata_field_provides_ctx_hint() {
+    let mut checker = TypeCheckerContext::new();
+    checker.account_definitions.insert(
+        "std::interfaces::spl_token::Mint".to_string(),
+        vec![crate::ast::StructField {
+            name: "supply".to_string(),
+            field_type: TypeNode::Primitive("u64".to_string()),
+            is_mutable: false,
+            is_optional: false,
+        }],
+    );
+    checker.symbol_table.insert(
+        "mint".to_string(),
+        (TypeNode::Named("spl_token::Mint".to_string()), false),
+    );
+
+    let expr = AstNode::FieldAccess {
+        object: Box::new(AstNode::Identifier("mint".to_string())),
+        field: "key".to_string(),
+    };
+
+    match checker.check_expression(&expr) {
+        Err(VMError::UndefinedIdentifierWithContext {
+            identifier,
+            did_you_mean,
+        }) => {
+            assert_eq!(identifier.as_str(), "key");
+            assert_eq!(
+                did_you_mean.as_ref().map(|s| s.as_str()),
+                Some("mint.ctx.key")
+            );
+        }
+        other => panic!("expected UndefinedIdentifierWithContext, got {:?}", other),
+    }
+}
+
+#[test]
 fn test_infer_pubkey_zero_constructor_type() {
     let mut checker = TypeCheckerContext::new();
     let node = AstNode::FunctionCall {

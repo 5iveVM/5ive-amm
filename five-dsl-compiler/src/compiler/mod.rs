@@ -1459,9 +1459,9 @@ pub read_supply(mint: Mint) -> u64 {
     }
 
     #[test]
-    fn account_serializer_anchor_adds_discriminator_offset() {
+    fn account_serializer_borsh_keeps_raw_offset() {
         let source = r#"
-account Mint @serializer("anchor") {
+account Mint @serializer("borsh") {
     supply: u64;
 }
 
@@ -1472,13 +1472,13 @@ pub read_supply(mint: Mint) -> u64 {
 
         let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
         let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
-        assert_eq!(offset, 8);
+        assert_eq!(offset, 0);
     }
 
     #[test]
     fn parameter_serializer_override_takes_precedence() {
         let source = r#"
-account Mint @serializer("anchor") {
+account Mint @serializer("bincode") {
     supply: u64;
 }
 
@@ -1493,30 +1493,30 @@ pub read_supply(mint: Mint @serializer("raw")) -> u64 {
     }
 
     #[test]
-    fn parameter_serializer_anchor_override_takes_precedence() {
+    fn parameter_serializer_borsh_override_takes_precedence() {
         let source = r#"
 account Mint @serializer("raw") {
     supply: u64;
 }
 
-pub read_supply(mint: Mint @serializer("anchor")) -> u64 {
+pub read_supply(mint: Mint @serializer("borsh")) -> u64 {
     return mint.supply;
 }
 "#;
 
         let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
         let offset = first_load_field_offset(&bytecode).expect("expected LOAD_FIELD in bytecode");
-        assert_eq!(offset, 8);
+        assert_eq!(offset, 0);
     }
 
     #[test]
     fn mixed_account_serializers_resolve_per_parameter_instance() {
         let source = r#"
-account A @serializer("anchor") {
+account A @serializer("borsh") {
     value: u64;
 }
 
-account B @serializer("anchor") {
+account B @serializer("bincode") {
     value: u64;
 }
 
@@ -1527,14 +1527,8 @@ pub probe(a: A @serializer("raw"), b: B) -> u64 {
 
         let bytecode = DslCompiler::compile_dsl(source).expect("compilation failed");
         let offsets = all_load_field_offsets(&bytecode);
-        assert!(
-            offsets.contains(&0),
-            "expected at least one raw field access offset"
-        );
-        assert!(
-            offsets.contains(&8),
-            "expected at least one anchor field access offset"
-        );
+        assert_eq!(offsets.len(), 2);
+        assert!(offsets.iter().all(|offset| *offset == 0));
     }
 
     #[test]
@@ -1589,6 +1583,17 @@ account Mint {
 
 pub read_supply(mint: Mint @serializer("yaml")) -> u64 {
     return mint.supply;
+}
+"#;
+
+        assert!(DslCompiler::compile_dsl(source).is_err());
+    }
+
+    #[test]
+    fn anchor_account_serializer_keyword_is_rejected() {
+        let source = r#"
+account Mint @serializer("anchor") {
+    supply: u64;
 }
 "#;
 

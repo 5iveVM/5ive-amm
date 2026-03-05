@@ -22,6 +22,7 @@ Five implements CPI through:
 Important distinction:
 - Interface `@serializer(...)` controls CPI instruction-data encoding.
 - Account `@serializer(...)` controls account-state decoding for typed field access.
+- For typed account metadata, use `account.ctx.key`/`account.ctx.*` (not direct `account.key`).
 
 ## Interface Declarations
 

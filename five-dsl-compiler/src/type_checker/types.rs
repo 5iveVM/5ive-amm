@@ -86,6 +86,62 @@ impl Default for TypeCheckerContext {
 }
 
 impl TypeCheckerContext {
+    fn type_tail(name: &str) -> &str {
+        name.rsplit("::").next().unwrap_or(name)
+    }
+
+    fn resolve_account_definition_entry(
+        &self,
+        name: &str,
+    ) -> Option<(&String, &Vec<StructField>)> {
+        if let Some(exact) = self.account_definitions.get_key_value(name) {
+            return Some(exact);
+        }
+
+        if name.contains("::") {
+            let qualified_suffix = format!("::{}", name);
+            if let Some(qualified_match) = self
+                .account_definitions
+                .iter()
+                .find(|(key, _)| key.ends_with(&qualified_suffix))
+            {
+                return Some(qualified_match);
+            }
+        }
+
+        let tail = Self::type_tail(name);
+        let mut tail_matches = self
+            .account_definitions
+            .iter()
+            .filter(|(key, _)| Self::type_tail(key) == tail);
+        let first = tail_matches.next();
+        let second = tail_matches.next();
+        if second.is_none() {
+            return first;
+        }
+
+        None
+    }
+
+    pub(crate) fn resolve_account_definition_fields(
+        &self,
+        name: &str,
+    ) -> Option<&Vec<StructField>> {
+        self.resolve_account_definition_entry(name)
+            .map(|(_, fields)| fields)
+    }
+
+    pub(crate) fn resolve_account_definition_key(&self, name: &str) -> Option<&str> {
+        self.resolve_account_definition_entry(name)
+            .map(|(key, _)| key.as_str())
+    }
+
+    pub(crate) fn is_named_account_type_name(&self, name: &str) -> bool {
+        name == "Account"
+            || name == "account"
+            || self.resolve_account_definition_fields(name).is_some()
+    }
+
     fn builtin_named_type_definition(name: &str) -> Option<TypeNode> {
         match name {
             "Clock" => Some(TypeNode::Struct {

@@ -143,10 +143,11 @@ Use these rules whenever reading external account state via typed fields.
 2. Account decode precedence is strict:
 - parameter instance `@serializer(...)` > account type `@serializer(...)` > contextual default.
 3. For SPL Token `Mint` and `TokenAccount`, use `raw` decoding.
-4. Do not decode SPL accounts with `anchor`.
-5. `anchor` in account decode context means discriminator-aware mode (`8-byte discriminator + borsh payload`), not a standalone wire serializer.
-6. If you only need a subset of fields, partial definitions can compile, but production integrations should prefer canonical full layouts for external programs.
-7. Enforce behavior with on-chain assertion instructions (`require(...)` checks over decoded fields), not only local mocks.
+4. Supported account decode serializers are `raw`, `borsh`, and `bincode`.
+5. For typed accounts, always use `account.ctx.key` (and `ctx.*` metadata); direct `account.key` is invalid.
+6. Prefer namespaced stdlib account types (for example `spl_token::Mint`, `spl_token::TokenAccount`) over local shadow definitions.
+7. If you only need a subset of fields, partial definitions can compile, but production integrations should prefer canonical full layouts for external programs.
+8. Enforce behavior with on-chain assertion instructions (`require(...)` checks over decoded fields), not only local mocks.
 
 Authoring examples:
 

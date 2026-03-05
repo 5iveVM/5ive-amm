@@ -633,7 +633,6 @@ impl From<Definition> for AstNode {
                     "raw" => Some(crate::ast::AccountSerializer::Raw),
                     "borsh" => Some(crate::ast::AccountSerializer::Borsh),
                     "bincode" => Some(crate::ast::AccountSerializer::Bincode),
-                    "anchor" => Some(crate::ast::AccountSerializer::Anchor),
                     _ => None,
                 }),
                 visibility: node.visibility,

@@ -145,24 +145,17 @@ impl TypeCheckerContext {
                         }
                         TypeNode::Account => return Err(VMError::UndefinedField),
                         TypeNode::Named(account_type_name) => {
-                            // Look up account fields with namespace-aware matching
-                            let namespace_suffix = format!("::{}", account_type_name);
-                            eprintln!("DEBUG: FieldAssignment on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", account_type_name, field, namespace_suffix);
-                            let is_external_interface_account =
-                                self.account_definitions.keys().any(|k| {
-                                    (k == account_type_name.as_str()
-                                        || k.ends_with(&namespace_suffix))
-                                        && k.contains("::interfaces::")
-                                });
-                            let account_fields = self
-                                .account_definitions
-                                .get(&account_type_name)
-                                .or_else(|| {
-                                    self.account_definitions
-                                        .iter()
-                                        .find(|(k, _)| k.ends_with(&namespace_suffix))
-                                        .map(|(_, v)| v)
-                                });
+                            eprintln!(
+                                "DEBUG: FieldAssignment on TypeNode::Named('{}'), looking for field '{}'",
+                                account_type_name, field
+                            );
+                            let resolved_key =
+                                self.resolve_account_definition_key(&account_type_name);
+                            let is_external_interface_account = resolved_key
+                                .map(|key| key.contains("::interfaces::"))
+                                .unwrap_or(false);
+                            let account_fields =
+                                self.resolve_account_definition_fields(&account_type_name);
 
                             if let Some(account_fields) = account_fields {
                                 eprintln!(
@@ -222,16 +215,7 @@ impl TypeCheckerContext {
                                                     let rhs_is_account = match &value_type {
                                                         TypeNode::Account => true,
                                                         TypeNode::Named(ref n) => {
-                                                            self.account_definitions.contains_key(n)
-                                                                || self
-                                                                    .account_definitions
-                                                                    .keys()
-                                                                    .any(|k| {
-                                                                        k.ends_with(&format!(
-                                                                            "::{}",
-                                                                            n
-                                                                        ))
-                                                                    })
+                                                            self.is_named_account_type_name(n)
                                                         }
                                                         _ => false,
                                                     };

@@ -19,6 +19,13 @@ for rel in "${REQUIRED_STDLIB_FILES[@]}"; do
   fi
 done
 
+CANONICAL_SPL="$ROOT_DIR/five-stdlib/std/interfaces/spl_token.v"
+PACKAGED_SPL="$CLI_DIR/assets/stdlib/std/interfaces/spl_token.v"
+if [ -f "$CANONICAL_SPL" ] && ! diff -q "$CANONICAL_SPL" "$PACKAGED_SPL" >/dev/null; then
+  echo "STDLIB DRIFT: five-cli/assets/stdlib/std/interfaces/spl_token.v differs from five-stdlib/std/interfaces/spl_token.v"
+  exit 1
+fi
+
 if [ ! -f "$CLI_DIR/dist/index.js" ]; then
   echo "MISSING: five-cli/dist/index.js (run build first)"
   exit 1

@@ -28,6 +28,15 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
                 if registry.account_types.contains_key(name) {
                     return true;
                 }
+
+                 let tail = name.rsplit("::").next().unwrap_or(name);
+                 if registry
+                    .account_types
+                    .keys()
+                    .any(|key| key == name || key.rsplit("::").next() == Some(tail))
+                {
+                    return true;
+                }
             }
 
             // Check built-in account types

@@ -5,11 +5,49 @@ use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::InstructionParameter;
 use crate::ast::{AstNode, TypeNode};
-use crate::bytecode_generator::types::AccountDecodingSerializer;
+use crate::bytecode_generator::types::{AccountDecodingSerializer, AccountRegistry, AccountTypeInfo};
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn type_tail(name: &str) -> &str {
+        name.rsplit("::").next().unwrap_or(name)
+    }
+
+    fn resolve_registry_account_info<'a>(
+        registry: &'a AccountRegistry,
+        account_type: &str,
+    ) -> Option<&'a AccountTypeInfo> {
+        if let Some(exact) = registry.account_types.get(account_type) {
+            return Some(exact);
+        }
+
+        if account_type.contains("::") {
+            let qualified_suffix = format!("::{}", account_type);
+            if let Some(qualified_match) = registry
+                .account_types
+                .iter()
+                .find(|(key, _)| key.ends_with(&qualified_suffix))
+                .map(|(_, info)| info)
+            {
+                return Some(qualified_match);
+            }
+        }
+
+        let tail = Self::type_tail(account_type);
+        let mut tail_matches = registry
+            .account_types
+            .iter()
+            .filter(|(key, _)| Self::type_tail(key) == tail);
+        let first = tail_matches.next().map(|(_, info)| info);
+        let second = tail_matches.next();
+        if second.is_none() {
+            return first;
+        }
+
+        None
+    }
+
     fn account_serializer_base_offset(serializer: AccountDecodingSerializer) -> u32 {
         match serializer {
             AccountDecodingSerializer::Anchor => 8,
@@ -40,19 +78,8 @@ impl ASTGenerator {
         }
 
         if let Some(account_system) = &self.account_system {
-            let namespace_suffix = format!("::{}", account_type);
-            if let Some(info) = account_system
-                .get_account_registry()
-                .account_types
-                .get(account_type)
-                .or_else(|| {
-                    account_system
-                        .get_account_registry()
-                        .account_types
-                        .iter()
-                        .find(|(k, _)| k.ends_with(&namespace_suffix))
-                        .map(|(_, v)| v)
-                })
+            if let Some(info) =
+                Self::resolve_registry_account_info(account_system.get_account_registry(), account_type)
             {
                 if let Some(serializer) = info.serializer {
                     return serializer;
@@ -200,13 +227,7 @@ impl ASTGenerator {
             }
 
             // Look up the account type in the registry with namespace-aware matching
-            let account_info = registry.account_types.get(account_type).or_else(|| {
-                registry
-                    .account_types
-                    .iter()
-                    .find(|(k, _)| k.ends_with(&format!("::{}", account_type)))
-                    .map(|(_, v)| v)
-            });
+            let account_info = Self::resolve_registry_account_info(registry, account_type);
 
             if let Some(account_info) = account_info {
                 println!(
@@ -342,22 +363,12 @@ impl ASTGenerator {
             let calculated_size = if let Some(account_system) = &self.account_system {
                 let registry = account_system.get_account_registry();
                 // Lookup with namespace support
-                let namespace_suffix = format!("::{}", type_name);
                 if type_name == "Account" {
                     println!("AST Generator: generic Account type, assuming 0 data size");
                     0
                 } else {
-                    let account_info = registry
-                        .account_types
-                        .get(&type_name)
-                        .or_else(|| {
-                            registry
-                                .account_types
-                                .iter()
-                                .find(|(k, _)| k.ends_with(&namespace_suffix))
-                                .map(|(_, v)| v)
-                        })
-                        .ok_or_else(|| {
+                    let account_info =
+                        Self::resolve_registry_account_info(registry, &type_name).ok_or_else(|| {
                             println!(
                                 "AST Generator: ERROR - Account type '{}' not found in registry",
                                 type_name

@@ -285,10 +285,12 @@ impl TypeCheckerContext {
             AstNode::FieldAccess { object, field } => {
                 if field == "ctx" {
                     let object_type = self.infer_type(object)?;
-                    return if matches!(object_type, TypeNode::Account | TypeNode::Named(_)) {
-                        Ok(TypeNode::Named("AccountCtx".to_string()))
-                    } else {
-                        Err(VMError::TypeMismatch)
+                    return match object_type {
+                        TypeNode::Account => Ok(TypeNode::Named("AccountCtx".to_string())),
+                        TypeNode::Named(name) if self.is_named_account_type_name(&name) => {
+                            Ok(TypeNode::Named("AccountCtx".to_string()))
+                        }
+                        _ => Err(VMError::TypeMismatch),
                     };
                 }
                 if let AstNode::FieldAccess {
@@ -336,14 +338,11 @@ impl TypeCheckerContext {
 
                         // Look up account fields with namespace-aware matching
                         // Account names may be namespaced (e.g., "amm_types::AMMPool") but referenced by simple name ("AMMPool")
-                        let namespace_suffix = format!("::{}", name);
-                        eprintln!("DEBUG: inference.rs infer_type FieldAccess on TypeNode::Named('{}'), looking for field '{}', suffix='{}'", name, field, namespace_suffix);
-                        let account_fields = self.account_definitions.get(&name).or_else(|| {
-                            self.account_definitions
-                                .iter()
-                                .find(|(k, _)| k.ends_with(&namespace_suffix))
-                                .map(|(_, v)| v)
-                        });
+                        eprintln!(
+                            "DEBUG: inference.rs infer_type FieldAccess on TypeNode::Named('{}'), looking for field '{}'",
+                            name, field
+                        );
+                        let account_fields = self.resolve_account_definition_fields(&name);
 
                         if let Some(account_fields) = account_fields {
                             eprintln!(
@@ -368,7 +367,9 @@ impl TypeCheckerContext {
                                     field, name
                                 );
                                 if let Some(replacement) =
-                                    Self::legacy_account_metadata_replacement(field)
+                                    Self::legacy_account_metadata_replacement_for_access(
+                                        object, field,
+                                    )
                                 {
                                     Err(VMError::undefined_identifier(field, Some(&replacement)))
                                 } else {
@@ -378,7 +379,7 @@ impl TypeCheckerContext {
                         } else {
                             eprintln!("DEBUG: No account definition found for '{}'", name);
                             if let Some(replacement) =
-                                Self::legacy_account_metadata_replacement(field)
+                                Self::legacy_account_metadata_replacement_for_access(object, field)
                             {
                                 Err(VMError::undefined_identifier(field, Some(&replacement)))
                             } else {
@@ -387,7 +388,8 @@ impl TypeCheckerContext {
                         }
                     }
                     TypeNode::Account => {
-                        if let Some(replacement) = Self::legacy_account_metadata_replacement(field)
+                        if let Some(replacement) =
+                            Self::legacy_account_metadata_replacement_for_access(object, field)
                         {
                             Err(VMError::undefined_identifier(field, Some(&replacement)))
                         } else {

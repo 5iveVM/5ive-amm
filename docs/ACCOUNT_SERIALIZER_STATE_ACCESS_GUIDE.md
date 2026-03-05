@@ -13,9 +13,6 @@ This guide covers account-state decoding metadata for external accounts (for exa
 - `raw`: fixed-layout offsets from byte `0` (best for SPL Token accounts).
 - `borsh`: borsh layout-based decode.
 - `bincode`: bincode layout-based decode.
-- `anchor`: discriminator-aware decode mode (`8-byte discriminator + borsh payload`).
-
-`anchor` is not a wire serializer format by itself; it is an account decoding mode alias.
 
 ## Syntax
 
@@ -51,6 +48,12 @@ Effective account decoding mode resolves as:
 
 For SPL accounts, use `raw` explicitly at type or parameter level.
 
+## Typed Account Metadata Access
+
+- Use `acct.ctx.key` for pubkey identity checks.
+- Use `acct.ctx.lamports`, `acct.ctx.owner`, `acct.ctx.data` for runtime metadata.
+- `acct.key`/`acct.lamports` on typed accounts is invalid and should be migrated to `acct.ctx.*`.
+
 ## SPL Guidance
 
 SPL Token accounts are not Anchor accounts. Do not decode SPL state with `anchor`.
@@ -64,6 +67,7 @@ pub check_balances(
     mint: spl_token::Mint @serializer("raw"),
     token: spl_token::TokenAccount @serializer("raw")
 ) {
+    require(token.mint == mint.ctx.key);
     require(mint.decimals <= 9);
     require(token.amount >= 0);
 }
@@ -83,4 +87,3 @@ Minimum test matrix:
 
 Use a dedicated assertion instruction that only performs `require(...)` checks on decoded fields.
 If decode offsets or serializer resolution are wrong, the transaction fails on-chain.
-

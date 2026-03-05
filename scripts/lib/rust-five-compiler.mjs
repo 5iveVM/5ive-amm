@@ -19,37 +19,69 @@ function findRepoRoot(startDir) {
 
 export function compileWithRustFiveCompiler(scriptPath) {
   const repoRoot = findRepoRoot(path.dirname(scriptPath));
+  const cliPath = path.join(repoRoot, 'five-cli', 'dist', 'index.js');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'five-compile-'));
-  const outputPath = path.join(tempDir, `${path.basename(scriptPath, path.extname(scriptPath))}.five`);
+  const srcDir = path.join(tempDir, 'src');
+  const entryPath = path.join(srcDir, 'main.v');
+  let outputPath = path.join(tempDir, 'build', 'main.five');
 
   try {
-    execFileSync(
-      'cargo',
-      [
-        'run',
-        '-q',
-        '-p',
-        'five-dsl-compiler',
-        '--bin',
-        'five',
-        '--',
-        'compile',
-        scriptPath,
-        '-o',
-        outputPath,
-        '-m',
-        'deployment',
-      ],
-      {
-        cwd: repoRoot,
-        stdio: 'pipe',
-      }
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.copyFileSync(scriptPath, entryPath);
+    fs.writeFileSync(
+      path.join(tempDir, 'five.toml'),
+      `schema_version = 1
+
+[project]
+name = "temp-compile"
+version = "0.1.0"
+source_dir = "src"
+build_dir = "build"
+entry_point = "src/main.v"
+target = "vm"
+
+[dependencies]
+std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "inline" }
+`,
+      'utf8',
     );
+
+    execFileSync('node', [cliPath, 'build', '--project', tempDir], {
+      cwd: repoRoot,
+      stdio: 'pipe',
+    });
+
+    if (!fs.existsSync(outputPath)) {
+      const buildDir = path.join(tempDir, 'build');
+      const candidates = fs.existsSync(buildDir)
+        ? fs
+            .readdirSync(buildDir)
+            .filter((name) => name.endsWith('.five'))
+            .map((name) => path.join(buildDir, name))
+        : [];
+      if (candidates.length === 0) {
+        throw new Error(`No .five artifact produced in ${buildDir}`);
+      }
+      outputPath = candidates[0];
+    }
+
+    const artifactBuffer = fs.readFileSync(outputPath);
+    const artifactText = artifactBuffer.toString('utf8');
+    let bytecode = new Uint8Array(artifactBuffer);
+
+    try {
+      const parsed = JSON.parse(artifactText);
+      if (parsed && typeof parsed.bytecode === 'string') {
+        bytecode = new Uint8Array(Buffer.from(parsed.bytecode, 'base64'));
+      }
+    } catch {
+      // Non-JSON artifacts are treated as raw bytecode bytes.
+    }
 
     return {
       outputPath,
-      artifactText: fs.readFileSync(outputPath, 'utf8'),
-      bytecode: new Uint8Array(fs.readFileSync(outputPath)),
+      artifactText,
+      bytecode,
     };
   } catch (error) {
     const stderr = error?.stderr ? String(error.stderr) : '';

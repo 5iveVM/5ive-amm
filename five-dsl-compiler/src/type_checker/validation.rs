@@ -210,7 +210,18 @@ impl TypeCheckerContext {
                             | (type_names::I32, type_names::I64)
                     )
             }
-            (TypeNode::Named(name1), TypeNode::Named(name2)) => name1 == name2,
+            (TypeNode::Named(name1), TypeNode::Named(name2)) => {
+                if name1 == name2 {
+                    true
+                } else {
+                    let resolved_1 = self.resolve_account_definition_key(name1);
+                    let resolved_2 = self.resolve_account_definition_key(name2);
+                    match (resolved_1, resolved_2) {
+                        (Some(a), Some(b)) => a == b,
+                        _ => false,
+                    }
+                }
+            }
             (
                 TypeNode::Sized {
                     base_type: b1,
@@ -231,13 +242,13 @@ impl TypeCheckerContext {
                 // Check if it's a built-in account name or a user-defined account type
                 name == type_names::ACCOUNT_LOWER
                     || name == type_names::ACCOUNT_UPPER
-                    || self.account_definitions.contains_key(name) // User-defined account type
+                    || self.resolve_account_definition_fields(name).is_some() // User-defined account type
             }
             (TypeNode::Named(name), TypeNode::Account) => {
                 // Reverse: custom account type parameter compatible with Account
                 name == type_names::ACCOUNT_LOWER
                     || name == type_names::ACCOUNT_UPPER
-                    || self.account_definitions.contains_key(name) // User-defined account type
+                    || self.resolve_account_definition_fields(name).is_some() // User-defined account type
             }
             (TypeNode::Tuple { elements: e1 }, TypeNode::Tuple { elements: e2 }) => {
                 e1.len() == e2.len()
