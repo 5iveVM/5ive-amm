@@ -68,20 +68,20 @@ fn test_get_clock_complete_data_structure() {
 fn test_get_clock_data_format_specification() {
     println!("\n📋 GET_CLOCK Data Structure Specification:");
     println!("══════════════════════════════════════════");
-    println!("✅ Returns: TupleRef(offset=0, size=40) containing:");
+    println!("✅ Returns: TupleRef(offset=*, size=45) containing serialized ValueRefs:");
     println!("   • Offset 0-7:   slot (u64)                - Current slot number");
-    println!("   • Offset 8-15:  epoch_start_timestamp (u64) - Timestamp of first slot in epoch");
+    println!("   • Offset 8-15:  epoch_start_timestamp (i64) - Timestamp of first slot in epoch");
     println!("   • Offset 16-23: epoch (u64)               - Current epoch number");
     println!("   • Offset 24-31: leader_schedule_epoch (u64) - Future epoch for leader schedule");
-    println!("   • Offset 32-39: unix_timestamp (u64)      - Approximate real-world timestamp");
+    println!("   • Offset 32-39: unix_timestamp (i64)      - Approximate real-world timestamp");
     println!();
     println!("📚 Usage in Five DSL:");
-    println!("   let clock_data = get_clock();  // Returns complete clock structure");
-    println!("   // Access individual fields with future field access opcodes");
-    println!("   // e.g., clock_data.slot, clock_data.timestamp, etc.");
+    println!("   let clock_data = get_clock();      // Clock value");
+    println!("   let slot = clock_data.slot;        // u64");
+    println!("   let now = clock_data.unix_timestamp; // i64");
     println!();
     println!("🔄 Migration Note:");
-    println!("   Previous behavior: get_clock() -> u64 (timestamp only)");
-    println!("   New behavior:     get_clock() -> ClockData (complete structure)");
+    println!("   Previous behavior: get_clock() -> u64");
+    println!("   New behavior:     get_clock() -> Clock");
     println!("   This provides access to slot, epoch, and all timing information");
 }

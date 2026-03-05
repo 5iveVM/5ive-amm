@@ -10,7 +10,7 @@ fn compile_source(source: &str) -> Vec<u8> {
 
 #[test]
 fn now_seconds_lowers_to_get_clock_opcode() {
-    let bytecode = compile_source("pub fn run() -> u64 { return get_clock(); }");
+    let bytecode = compile_source("pub fn run() -> u64 { return get_clock().slot; }");
     assert!(bytecode.starts_with(&FIVE_MAGIC));
     assert!(
         bytecode.contains(&GET_CLOCK),

@@ -29,7 +29,7 @@ pub withdraw(
     require(!stream.is_cancelled);
     require(stream.recipient == recipient.key);
 
-    let now: u64 = get_clock();
+    let now: u64 = get_clock().slot;
     let available: u64 = 0;
     if (now <= stream.start_slot) {
         available = 0;

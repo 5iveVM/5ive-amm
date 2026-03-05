@@ -22,7 +22,7 @@ pub fn vote_yes(
     amount: u64
 ) {
     require(!market.resolved);
-    require(get_clock() < market.resolution_time);
+    require(get_clock().slot < market.resolution_time);
     require(vote.market == market.key);
     require(vote.owner == voter.key);
     require(amount > 0);
@@ -43,7 +43,7 @@ pub fn vote_no(
     amount: u64
 ) {
     require(!market.resolved);
-    require(get_clock() < market.resolution_time);
+    require(get_clock().slot < market.resolution_time);
     require(vote.market == market.key);
     require(vote.owner == voter.key);
     require(amount > 0);

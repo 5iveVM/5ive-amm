@@ -7,7 +7,7 @@ pub fn create_market(
 ) {
     market.creator = creator.key;
     market.question = question;
-    market.resolution_time = get_clock() + duration_seconds;
+    market.resolution_time = get_clock().slot + duration_seconds;
     market.resolved = false;
     market.outcome_yes = false; // Default
     
@@ -27,7 +27,7 @@ pub fn resolve_market(
     
     // State check
     require(!market.resolved);
-    require(get_clock() >= market.resolution_time);
+    require(get_clock().slot >= market.resolution_time);
 
     market.resolved = true;
     market.outcome_yes = outcome_yes;

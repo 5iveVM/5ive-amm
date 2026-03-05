@@ -31,8 +31,8 @@ pub create_proposal(
     governance.proposal_count = governance.proposal_count + 1;
     proposal.governance = governance.key;
     proposal.proposer = proposer.key;
-    proposal.start_slot = get_clock();
-    proposal.end_slot = get_clock() + governance.voting_period_slots;
+    proposal.start_slot = get_clock().slot;
+    proposal.end_slot = get_clock().slot + governance.voting_period_slots;
     proposal.for_votes = 0;
     proposal.against_votes = 0;
     proposal.executed = false;
@@ -45,6 +45,6 @@ pub finalize_proposal(
     authority: account @signer
 ) {
     require(authority.key != 0);
-    require(get_clock() >= proposal.end_slot);
+    require(get_clock().slot >= proposal.end_slot);
     proposal.executed = true;
 }

@@ -25,5 +25,5 @@ pub liquidate_position(
     position.collateral = position.collateral - seized_collateral;
     engine.total_debt = engine.total_debt - repay_amount;
     engine.total_collateral = engine.total_collateral - seized_collateral;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
 }

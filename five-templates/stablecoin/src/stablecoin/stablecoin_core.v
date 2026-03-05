@@ -35,7 +35,7 @@ pub init_position(
     position.engine = engine;
     position.collateral = 0;
     position.debt = 0;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
     return position.key;
 }
 
@@ -54,7 +54,7 @@ pub deposit_collateral(
 
     engine.total_collateral = engine.total_collateral + amount;
     position.collateral = position.collateral + amount;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
 }
 
 pub withdraw_collateral(
@@ -75,7 +75,7 @@ pub withdraw_collateral(
 
     engine.total_collateral = engine.total_collateral - amount;
     position.collateral = new_collateral;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
 }
 
 pub mint_stable(
@@ -96,7 +96,7 @@ pub mint_stable(
 
     engine.total_debt = engine.total_debt + amount;
     position.debt = position.debt + amount;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
 }
 
 pub repay_stable(
@@ -112,5 +112,5 @@ pub repay_stable(
 
     engine.total_debt = engine.total_debt - amount;
     position.debt = position.debt - amount;
-    position.last_update_slot = get_clock();
+    position.last_update_slot = get_clock().slot;
 }

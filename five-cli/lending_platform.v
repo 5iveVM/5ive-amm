@@ -117,7 +117,7 @@
         user_loan.user = user.key;
         user_loan.collateral_amount = collateral_deposited; // This should be linked to actual deposited collateral
         user_loan.borrowed_amount = borrow_amount;
-        user_loan.loan_start_time = get_clock(); // Get current timestamp
+        user_loan.loan_start_time = get_clock().slot; // Get current timestamp
         user_loan.is_active = true;
 
         emit BorrowEvent { user: user.key, amount: borrow_amount, collateral_used: collateral_deposited };
@@ -137,7 +137,7 @@
         require(repay_amount <= user_loan.borrowed_amount, "Repay amount exceeds outstanding loan");
 
         // Calculate interest (simplified: proportional to time and interest rate)
-        let current_time = get_clock();
+        let current_time = get_clock().slot;
         let elapsed_time = current_time - user_loan.loan_start_time;
         // This is a very simplified interest calculation. Real-world would be more complex.
         let interest_due = user_loan.borrowed_amount * lending_pool.interest_rate_bps * elapsed_time / (10000 * 31536000); // 31536000 seconds in a year

@@ -58,12 +58,14 @@ impl ASTGenerator {
                 constraints_block,
                 event_definitions: _,
                 account_definitions: _,
+                type_definitions,
                 interface_definitions,
                 import_statements,
             } => self.generate_program(
                 emitter,
                 import_statements,
                 field_definitions,
+                type_definitions,
                 interface_definitions,
                 init_block,
                 constraints_block,
@@ -380,6 +382,43 @@ impl ASTGenerator {
                         }
                     }
                 }
+
+                // Tuple-backed Clock field access lowering.
+                // Clock values are currently transported as tuple payloads in VM memory.
+                if let Some(clock_index) = match field.as_str() {
+                    "slot" => Some(0u8),
+                    "epoch_start_timestamp" => Some(1u8),
+                    "epoch" => Some(2u8),
+                    "leader_schedule_epoch" => Some(3u8),
+                    "unix_timestamp" => Some(4u8),
+                    _ => None,
+                } {
+                    let object_is_clock = match object.as_ref() {
+                        AstNode::FunctionCall { name, .. } => {
+                            name == "get_clock" || name == "get_clock_sysvar"
+                        }
+                        AstNode::Identifier(name) => {
+                            self.local_symbol_table
+                                .get(name)
+                                .map(|f| f.field_type == "Clock")
+                                .or_else(|| {
+                                    self.global_symbol_table
+                                        .get(name)
+                                        .map(|f| f.field_type == "Clock")
+                                })
+                                .unwrap_or(false)
+                        }
+                        _ => false,
+                    };
+
+                    if object_is_clock {
+                        self.generate_ast_node(emitter, object)?;
+                        emitter.emit_const_u8(clock_index)?;
+                        emitter.emit_opcode(TUPLE_GET);
+                        return Ok(());
+                    }
+                }
+
                 if let AstNode::Identifier(account_name) = object.as_ref() {
                     #[cfg(debug_assertions)]
                     println!(
@@ -464,8 +503,8 @@ impl ASTGenerator {
             }
             AstNode::TupleAccess { object, index } => {
                 self.generate_ast_node(emitter, object)?;
+                emitter.emit_const_u8(*index as u8)?;
                 emitter.emit_opcode(TUPLE_GET);
-                emitter.emit_u8(*index as u8);
                 Ok(())
             }
 

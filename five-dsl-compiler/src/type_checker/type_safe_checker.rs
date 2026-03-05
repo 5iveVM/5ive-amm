@@ -254,6 +254,12 @@ impl TypeCheckerContext {
                 }
                 Ok(())
             }
+            Definition::TypeDefinition(node) => {
+                if !self.is_valid_type_node(&node.definition) {
+                    return Err(VMError::InvalidScript);
+                }
+                Ok(())
+            }
             Definition::InterfaceDefinition(_) => Ok(()),
             Definition::InterfaceFunction(node) => {
                 for param in &node.parameters {

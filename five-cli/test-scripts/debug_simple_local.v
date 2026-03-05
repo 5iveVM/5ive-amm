@@ -13,7 +13,7 @@ pub test_literal_local() -> u64 {
     
 test_function_local() -> u64 {
         // Test function call local variable in binary operation (FAILS)
-        let function_var = get_clock();
+        let function_var = get_clock().slot;
         let result = function_var - global_var;
         return result;
     }

@@ -98,6 +98,7 @@ pub enum AstNode {
         instruction_definitions: Vec<AstNode>,
         event_definitions: Vec<AstNode>,
         account_definitions: Vec<AstNode>,
+        type_definitions: Vec<AstNode>,
         interface_definitions: Vec<AstNode>,
         import_statements: Vec<AstNode>,
         init_block: Option<Box<AstNode>>,
@@ -193,6 +194,13 @@ pub enum AstNode {
     AccountDefinition {
         name: String,
         fields: Vec<StructField>,
+        visibility: Visibility, // pub for cross-module access
+    },
+
+    // Value type definitions (non-account)
+    TypeDefinition {
+        name: String,
+        definition: Box<TypeNode>,
         visibility: Visibility, // pub for cross-module access
     },
 
@@ -336,6 +344,7 @@ pub enum AstNode {
     ImportStatement {
         module_specifier: ModuleSpecifier,
         imported_items: Option<Vec<ImportItem>>, // Specific members to import (None = all)
+        is_reexport: bool,                       // `pub use ...` re-export
         location: Option<SourceLocation>,
     },
 

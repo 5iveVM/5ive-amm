@@ -38,11 +38,11 @@ fn fee_vault_pda(program_id: &Pubkey) -> Pubkey {
 fn now_seconds_builtin_equivalent_deploys_and_executes_in_runtime_unit() {
     run_stdlib_builtin_case(
         r#"
-pub now_seconds() -> u64 {
-    return get_clock();
+pub now_seconds() -> i64 {
+    return get_clock().unix_timestamp;
 }
 
-pub run() -> u64 {
+pub run() -> i64 {
     return now_seconds();
 }
 "#,
@@ -57,11 +57,11 @@ pub clock_sysvar() {
     get_clock_sysvar();
 }
 
-pub now_seconds() -> u64 {
-    return get_clock();
+pub now_seconds() -> i64 {
+    return get_clock().unix_timestamp;
 }
 
-pub run() -> u64 {
+pub run() -> i64 {
     clock_sysvar();
     return now_seconds();
 }

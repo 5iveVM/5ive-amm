@@ -155,13 +155,21 @@ pub fn handle_syscall_create_program_address(ctx: &mut ExecutionManager) -> Comp
     match pda_result {
         Ok(pda_pubkey) => {
             debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS success");
-            push_pda_result(ctx, pda_pubkey, 0)
+            push_pubkey_result(ctx, pda_pubkey)
         }
         Err(_e) => {
             debug_log!("MitoVM: SYSCALL_CREATE_PROGRAM_ADDRESS failed");
             Err(VMErrorCode::InvokeError)
         }
     }
+}
+
+#[inline(always)]
+fn push_pubkey_result(ctx: &mut ExecutionManager, pda_pubkey: [u8; 32]) -> CompactResult<()> {
+    let pda_offset = ctx.alloc_temp(32)?;
+    ctx.temp_buffer_mut()[pda_offset as usize..(pda_offset + 32) as usize]
+        .copy_from_slice(&pda_pubkey);
+    ctx.push(ValueRef::TempRef(pda_offset, 32))
 }
 
 /// Handle sol_try_find_program_address syscall.

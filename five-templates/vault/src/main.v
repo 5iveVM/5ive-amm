@@ -76,7 +76,7 @@ pub fn deposit(
     vault.total_assets = vault.total_assets + amount;
     vault.total_shares = vault.total_shares + shares_out;
     position.shares = position.shares + shares_out;
-    position.last_deposit_slot = get_clock();
+    position.last_deposit_slot = get_clock().slot;
 
     return shares_out;
 }

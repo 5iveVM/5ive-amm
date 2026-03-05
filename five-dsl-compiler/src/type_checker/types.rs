@@ -46,6 +46,7 @@ pub struct TypeCheckerContext {
     /// Symbol definitions with source location for go-to-definition and hover
     pub(crate) symbol_definitions: HashMap<String, SymbolDefinition>,
     pub(crate) account_definitions: HashMap<String, Vec<StructField>>,
+    pub(crate) type_definitions: HashMap<String, TypeNode>,
     pub(crate) interface_registry: HashMap<String, InterfaceInfo>,
     /// Tracks which account parameters are writable (@mut) for the current function
     pub(crate) current_writable_accounts: Option<std::collections::HashSet<String>>,
@@ -84,11 +85,52 @@ impl Default for TypeCheckerContext {
 }
 
 impl TypeCheckerContext {
+    fn builtin_named_type_definition(name: &str) -> Option<TypeNode> {
+        match name {
+            "Clock" => Some(TypeNode::Struct {
+                fields: vec![
+                    StructField {
+                        name: "slot".to_string(),
+                        field_type: TypeNode::Primitive("u64".to_string()),
+                        is_mutable: false,
+                        is_optional: false,
+                    },
+                    StructField {
+                        name: "epoch_start_timestamp".to_string(),
+                        field_type: TypeNode::Primitive("i64".to_string()),
+                        is_mutable: false,
+                        is_optional: false,
+                    },
+                    StructField {
+                        name: "epoch".to_string(),
+                        field_type: TypeNode::Primitive("u64".to_string()),
+                        is_mutable: false,
+                        is_optional: false,
+                    },
+                    StructField {
+                        name: "leader_schedule_epoch".to_string(),
+                        field_type: TypeNode::Primitive("u64".to_string()),
+                        is_mutable: false,
+                        is_optional: false,
+                    },
+                    StructField {
+                        name: "unix_timestamp".to_string(),
+                        field_type: TypeNode::Primitive("i64".to_string()),
+                        is_mutable: false,
+                        is_optional: false,
+                    },
+                ],
+            }),
+            _ => None,
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             symbol_table: HashMap::new(),
             symbol_definitions: HashMap::new(),
             account_definitions: HashMap::new(),
+            type_definitions: HashMap::new(),
             interface_registry: HashMap::new(),
             current_writable_accounts: None,
             current_function: None,
@@ -216,6 +258,24 @@ impl TypeCheckerContext {
     /// Get mutable reference to module scope (for testing)
     pub fn get_module_scope_mut(&mut self) -> Option<&mut ModuleScope> {
         self.module_scope.as_mut()
+    }
+
+    pub(crate) fn resolve_named_type_definition(&self, name: &str) -> Option<TypeNode> {
+        if let Some(ty) = self.type_definitions.get(name) {
+            return Some(ty.clone());
+        }
+
+        let suffix = format!("::{}", name);
+        if let Some(ty) = self
+            .type_definitions
+            .iter()
+            .find(|(k, _)| k.ends_with(&suffix))
+            .map(|(_, v)| v.clone())
+        {
+            return Some(ty);
+        }
+
+        Self::builtin_named_type_definition(name)
     }
 
     /// Build a rich undefined-identifier VM error with nearest-match context.

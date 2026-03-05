@@ -26,6 +26,7 @@ impl ASTGenerator {
         emitter: &mut T,
         import_statements: &[AstNode],
         field_definitions: &[AstNode],
+        _type_definitions: &[AstNode],
         interface_definitions: &[AstNode],
         init_block: &Option<Box<AstNode>>,
         constraints_block: &Option<Box<AstNode>>,

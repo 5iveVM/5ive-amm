@@ -507,7 +507,11 @@ impl ModuleDiscoverer {
         let mut out = Vec::new();
         for raw_line in source_code.lines() {
             let line = raw_line.trim();
-            let (prefix, body) = if let Some(rest) = line.strip_prefix("use ") {
+            let (prefix, body) = if let Some(rest) = line.strip_prefix("pub use ") {
+                ("pub_use", rest)
+            } else if let Some(rest) = line.strip_prefix("pub import ") {
+                ("pub_import", rest)
+            } else if let Some(rest) = line.strip_prefix("use ") {
                 ("use", rest)
             } else if let Some(rest) = line.strip_prefix("import ") {
                 ("import", rest)

@@ -121,6 +121,7 @@ impl super::types::TypeCheckerContext {
         Definition::ImportStatement(ImportStatementNode {
             module_specifier,
             imported_items,
+            is_reexport: false,
         })
     }
 

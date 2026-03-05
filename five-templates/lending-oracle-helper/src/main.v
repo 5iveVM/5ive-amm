@@ -13,7 +13,7 @@ pub init_oracle(
     require(price > 0);
     oracle.price = price;
     oracle.decimals = decimals;
-    oracle.last_update = get_clock();
+    oracle.last_update = get_clock().slot;
 }
 
 pub set_oracle(

@@ -2236,7 +2236,7 @@ mod tests {
             }
 
             fn refresh_reserve_internal(reserve: Reserve @mut) {
-                let current_time: u64 = get_clock();
+                let current_time: u64 = get_clock().slot;
                 reserve.last_update_slot = current_time;
             }
 

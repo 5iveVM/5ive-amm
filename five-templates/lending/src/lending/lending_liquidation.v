@@ -23,6 +23,6 @@ pub liquidate(
     reserve.total_borrows = reserve.total_borrows - repay_amount;
     reserve.total_deposits = reserve.total_deposits - seized_collateral;
     reserve.available_liquidity = reserve.available_liquidity + repay_amount - seized_collateral;
-    obligation.last_update_slot = get_clock();
-    reserve.last_update_slot = get_clock();
+    obligation.last_update_slot = get_clock().slot;
+    reserve.last_update_slot = get_clock().slot;
 }

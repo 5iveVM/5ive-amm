@@ -33,7 +33,7 @@ pub release(
     require(schedule.beneficiary == beneficiary.key);
     require(!schedule.revoked);
 
-    let now: u64 = get_clock();
+    let now: u64 = get_clock().slot;
     if (now < schedule.cliff_slot) {
         return 0;
     }

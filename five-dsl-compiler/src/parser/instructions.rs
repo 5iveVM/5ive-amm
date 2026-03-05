@@ -19,6 +19,7 @@ fn is_reserved_function_name_token(token: &Token) -> bool {
             | Token::Account
             | Token::Interface
             | Token::Enum
+            | Token::TypeDecl
             | Token::True
             | Token::False
             | Token::Break

@@ -252,7 +252,7 @@ fn test_bundled_stdlib_named_import_auto_discovery_compile(
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { use std::builtins::{now_seconds}; pub fn run() -> u64 { return now_seconds(); } }"
+        "script main { use std::builtins::{now_seconds}; pub fn run() -> i64 { return now_seconds(); } }"
             .to_string(),
     );
 
@@ -270,7 +270,7 @@ fn test_bundled_stdlib_module_qualified_auto_discovery_compile(
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { use std::builtins; pub fn run() -> u64 { return builtins::now_seconds(); } }"
+        "script main { use std::builtins; pub fn run() -> i64 { return builtins::now_seconds(); } }"
             .to_string(),
     );
 
@@ -288,7 +288,7 @@ fn test_bundled_stdlib_full_qualified_auto_discovery_compile(
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { use std::builtins; pub fn run() -> u64 { return std::builtins::now_seconds(); } }"
+        "script main { use std::builtins; pub fn run() -> i64 { return std::builtins::now_seconds(); } }"
             .to_string(),
     );
 
@@ -731,7 +731,7 @@ fn test_builtins_unqualified_call_without_import_fails() -> Result<(), Box<dyn s
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { pub fn run() -> u64 { return now_seconds(); } }".to_string(),
+        "script main { pub fn run() -> i64 { return now_seconds(); } }".to_string(),
     );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
@@ -747,7 +747,7 @@ fn test_builtins_module_qualified_call_without_import_fails(
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { pub fn run() -> u64 { return builtins::now_seconds(); } }".to_string(),
+        "script main { pub fn run() -> i64 { return builtins::now_seconds(); } }".to_string(),
     );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;
@@ -763,7 +763,7 @@ fn test_builtins_fully_qualified_call_without_import_fails(
     let mut files = HashMap::new();
     files.insert(
         "main.v".to_string(),
-        "script main { pub fn run() -> u64 { return std::builtins::now_seconds(); } }".to_string(),
+        "script main { pub fn run() -> i64 { return std::builtins::now_seconds(); } }".to_string(),
     );
 
     let (_dir, _root_path, entry_point_path) = create_test_project(files)?;

@@ -125,7 +125,7 @@ impl ASTGenerator {
             AstNode::FunctionCall { name, .. } => {
                 // Infer return type for built-in functions
                 match name.as_str() {
-                    "get_clock" => Ok("u64".to_string()),
+                    "get_clock" | "get_clock_sysvar" => Ok("Clock".to_string()),
                     "require" => Ok("void".to_string()),
                     "string_length" => Ok("u8".to_string()),
                     "string_concat" => Ok("string".to_string()),

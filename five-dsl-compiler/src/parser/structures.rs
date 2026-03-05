@@ -358,3 +358,95 @@ pub(crate) fn parse_account_definition(parser: &mut DslParser) -> Result<AstNode
         visibility,
     })
 }
+
+pub(crate) fn parse_type_definition(parser: &mut DslParser) -> Result<AstNode, VMError> {
+    let visibility = if matches!(parser.current_token, Token::Pub) {
+        parser.advance(); // consume 'pub'
+        crate::Visibility::Public
+    } else {
+        crate::Visibility::Internal
+    };
+
+    if !matches!(parser.current_token, Token::TypeDecl) {
+        return Err(parser.parse_error("'type' keyword"));
+    }
+    parser.advance(); // consume 'type'
+
+    let name = match &parser.current_token {
+        Token::Identifier(name) => name.clone(),
+        _ => return Err(parser.parse_error("type name identifier")),
+    };
+    parser.advance();
+
+    let definition = if matches!(parser.current_token, Token::Assign) {
+        parser.advance(); // consume '='
+        Box::new(types::parse_type(parser)?)
+    } else if matches!(parser.current_token, Token::LeftBrace) {
+        parser.advance(); // consume '{'
+        let mut fields = Vec::new();
+
+        while !matches!(parser.current_token, Token::RightBrace)
+            && !matches!(parser.current_token, Token::Eof)
+        {
+            let is_mutable = if matches!(parser.current_token, Token::Mut) {
+                parser.advance();
+                true
+            } else {
+                false
+            };
+
+            let field_name = match &parser.current_token {
+                Token::Identifier(name) => name.clone(),
+                Token::Account => "account".to_string(),
+                _ => return Err(parser.parse_error("type field name identifier")),
+            };
+            parser.advance();
+
+            let is_optional = if matches!(parser.current_token, Token::Question) {
+                parser.advance();
+                true
+            } else {
+                false
+            };
+
+            if !matches!(parser.current_token, Token::Colon) {
+                return Err(parser.parse_error("':' after type field name"));
+            }
+            parser.advance();
+
+            let field_type = types::parse_type(parser)?;
+            fields.push(StructField {
+                name: field_name,
+                field_type,
+                is_mutable,
+                is_optional,
+            });
+
+            if matches!(parser.current_token, Token::Comma)
+                || matches!(parser.current_token, Token::Semicolon)
+            {
+                parser.advance();
+            } else {
+                break;
+            }
+        }
+
+        if !matches!(parser.current_token, Token::RightBrace) {
+            return Err(parser.parse_error("'}' to end type fields"));
+        }
+        parser.advance();
+        Box::new(crate::ast::TypeNode::Struct { fields })
+    } else {
+        return Err(parser.parse_error("'=' or '{' after type name"));
+    };
+
+    if matches!(parser.current_token, Token::Semicolon) {
+        parser.advance();
+    }
+
+    Ok(AstNode::TypeDefinition {
+        name,
+        definition,
+        visibility,
+    })
+}

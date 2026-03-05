@@ -543,7 +543,9 @@ impl DslCompiler {
             instruction_definitions,
             field_definitions,
             account_definitions,
+            type_definitions,
             interface_definitions,
+            import_statements,
             ..
         } = ast
         {
@@ -606,6 +608,63 @@ impl DslCompiler {
                             visibility: *visibility,
                         },
                     );
+                }
+            }
+
+            // Add value type definitions to scope
+            for type_def in type_definitions {
+                if let AstNode::TypeDefinition {
+                    name,
+                    definition,
+                    visibility,
+                } = type_def
+                {
+                    scope.add_symbol_to_current(
+                        name.clone(),
+                        ModuleSymbol {
+                            type_info: (**definition).clone(),
+                            is_mutable: false,
+                            visibility: *visibility,
+                        },
+                    );
+                }
+            }
+
+            // Re-export imported symbols for `pub use`.
+            for import in import_statements {
+                let AstNode::ImportStatement {
+                    module_specifier,
+                    imported_items,
+                    is_reexport,
+                    ..
+                } = import
+                else {
+                    continue;
+                };
+                if !*is_reexport {
+                    continue;
+                }
+                let Some(items) = imported_items else {
+                    continue;
+                };
+                let module_path = match module_specifier {
+                    crate::ast::ModuleSpecifier::Local(name) => name.clone(),
+                    crate::ast::ModuleSpecifier::Nested(path) => path.join("::"),
+                    _ => continue,
+                };
+
+                for item in items {
+                    let symbol_name = item.name();
+                    if let Some(symbol) = scope.resolve_symbol_in_module(&module_path, symbol_name) {
+                        scope.add_symbol_to_current(
+                            symbol_name.to_string(),
+                            ModuleSymbol {
+                                type_info: symbol.type_info,
+                                is_mutable: symbol.is_mutable,
+                                visibility: crate::ast::Visibility::Public,
+                            },
+                        );
+                    }
                 }
             }
 

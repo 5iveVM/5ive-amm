@@ -58,6 +58,7 @@ impl ModuleMerger {
             mut instruction_definitions,
             mut event_definitions,
             mut account_definitions,
+            mut type_definitions,
             mut interface_definitions,
             import_statements,
             init_block,
@@ -80,6 +81,7 @@ impl ModuleMerger {
                     &mut instruction_definitions,
                     &mut event_definitions,
                     &mut account_definitions,
+                    &mut type_definitions,
                     &mut interface_definitions,
                 )?;
             }
@@ -91,6 +93,7 @@ impl ModuleMerger {
                 instruction_definitions,
                 event_definitions,
                 account_definitions,
+                type_definitions,
                 interface_definitions,
                 import_statements,
                 init_block,
@@ -110,6 +113,7 @@ impl ModuleMerger {
         instr_defs: &mut Vec<AstNode>,
         event_defs: &mut Vec<AstNode>,
         account_defs: &mut Vec<AstNode>,
+        type_defs: &mut Vec<AstNode>,
         interface_defs: &mut Vec<AstNode>,
     ) -> Result<(), VMError> {
         if let AstNode::Program {
@@ -117,6 +121,7 @@ impl ModuleMerger {
             instruction_definitions,
             event_definitions,
             account_definitions,
+            type_definitions,
             interface_definitions,
             ..
         } = module_ast
@@ -151,6 +156,13 @@ impl ModuleMerger {
                 }
             }
 
+            for type_def in type_definitions {
+                if self.is_importable_definition(type_def) {
+                    let qualified = self.qualify_with_module(type_def, module_name)?;
+                    type_defs.push(qualified);
+                }
+            }
+
             for interface_def in interface_definitions {
                 if self.is_importable_definition(interface_def) {
                     let qualified = self.qualify_with_module(interface_def, module_name)?;
@@ -171,6 +183,7 @@ impl ModuleMerger {
             AstNode::InstructionDefinition { visibility, .. } => visibility.is_importable(),
             AstNode::EventDefinition { visibility, .. } => visibility.is_importable(),
             AstNode::AccountDefinition { visibility, .. } => visibility.is_importable(),
+            AstNode::TypeDefinition { visibility, .. } => visibility.is_importable(),
             // InterfaceDefinitions are always included (no visibility field)
             AstNode::InterfaceDefinition { .. } => true,
             _ => false,
@@ -237,6 +250,15 @@ impl ModuleMerger {
                 visibility: *visibility,
                 fields: fields.clone(),
             }),
+            AstNode::TypeDefinition {
+                name,
+                visibility,
+                definition,
+            } => Ok(AstNode::TypeDefinition {
+                name: format!("{}::{}", module_name, name),
+                visibility: *visibility,
+                definition: definition.clone(),
+            }),
             // InterfaceDefinitions don't get qualified (they're external references)
             _ => Ok(definition.clone()),
         }
@@ -274,6 +296,7 @@ mod tests {
             instruction_definitions: instructions,
             event_definitions: vec![],
             account_definitions: vec![],
+            type_definitions: vec![],
             interface_definitions: vec![],
             import_statements: vec![],
             init_block: None,

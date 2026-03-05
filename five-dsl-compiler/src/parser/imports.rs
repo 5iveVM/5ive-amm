@@ -93,6 +93,13 @@ fn parse_scoped_namespace(parser: &mut DslParser) -> Result<ModuleSpecifier, VME
 
 /// Parse use statement: use account_address; import account_address; or use account_address::function_name;
 pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VMError> {
+    let is_reexport = if matches!(parser.current_token, Token::Pub) {
+        parser.advance(); // consume 'pub'
+        true
+    } else {
+        false
+    };
+
     // Consume 'use' or 'import' keyword
     if !matches!(parser.current_token, Token::Use | Token::Import) {
         return Err(parser.parse_error("'use' or 'import' keyword"));
@@ -202,6 +209,7 @@ pub(crate) fn parse_use_statement(parser: &mut DslParser) -> Result<AstNode, VME
     Ok(AstNode::ImportStatement {
         module_specifier,
         imported_items,
+        is_reexport,
         location: None,
     })
 }

@@ -85,6 +85,7 @@ impl DslParser {
         let mut field_definitions = Vec::new();
         let mut event_definitions = Vec::new();
         let mut account_definitions = Vec::new();
+        let mut type_definitions = Vec::new();
         let mut interface_definitions = Vec::new();
         let mut import_statements = Vec::new();
         let mut init_block = None;
@@ -100,6 +101,9 @@ impl DslParser {
             match self.current_token.kind() {
                 TokenKind::Use | TokenKind::Import => {
                     import_statements.push(imports::parse_use_statement(self)?);
+                }
+                TokenKind::TypeDecl => {
+                    type_definitions.push(structures::parse_type_definition(self)?);
                 }
                 TokenKind::Init => {
                     self.advance();
@@ -147,9 +151,19 @@ impl DslParser {
                 }
                 // Functions and fields
                 TokenKind::Pub => {
-                    // Public function definition: parse as instruction
-                    eprintln!("DEBUG_PARSER: parse_module found pub, about to parse instruction");
-                    instruction_definitions.push(instructions::parse_instruction_definition(self)?);
+                    if self.peek_kind(1) == TokenKind::Use || self.peek_kind(1) == TokenKind::Import
+                    {
+                        import_statements.push(imports::parse_use_statement(self)?);
+                    } else if self.peek_kind(1) == TokenKind::TypeDecl {
+                        type_definitions.push(structures::parse_type_definition(self)?);
+                    } else {
+                        // Public function definition: parse as instruction
+                        eprintln!(
+                            "DEBUG_PARSER: parse_module found pub, about to parse instruction"
+                        );
+                        instruction_definitions
+                            .push(instructions::parse_instruction_definition(self)?);
+                    }
                 }
                 TokenKind::Fn => {
                     // Private function definition (fn) without pub
@@ -184,6 +198,7 @@ impl DslParser {
             instruction_definitions,
             event_definitions,
             account_definitions,
+            type_definitions,
             interface_definitions,
             import_statements,
             init_block,
@@ -329,6 +344,7 @@ impl DslParser {
             Token::Init => "'init'".to_string(),
             Token::Constraints => "'constraints'".to_string(),
             Token::Script => "'script'".to_string(),
+            Token::TypeDecl => "'type'".to_string(),
             Token::Field => "'field'".to_string(),
             Token::When => "'when'".to_string(),
             Token::Query => "'query'".to_string(),

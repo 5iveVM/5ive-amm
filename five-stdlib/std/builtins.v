@@ -3,8 +3,10 @@
 //
 // These wrappers keep call sites stable if builtin naming evolves.
 
-pub now_seconds() -> u64 {
-    return get_clock();
+use std::types::{Clock};
+
+pub now_seconds() -> i64 {
+    return get_clock().unix_timestamp;
 }
 
 pub abort_now() {
@@ -62,16 +64,16 @@ pub remaining_cu() {
     remaining_compute_units();
 }
 
-pub derive_program_address(seeds: u64, program_id: u64) {
-    create_program_address(seeds, program_id);
+pub derive_program_address(seeds: u64, program_id: u64) -> pubkey {
+    return create_program_address(seeds, program_id);
 }
 
-pub find_program_address(seeds: u64, program_id: u64) {
-    try_find_program_address(seeds, program_id);
+pub find_program_address(seeds: u64, program_id: u64) -> (pubkey, u8) {
+    return try_find_program_address(seeds, program_id);
 }
 
-pub clock_sysvar() {
-    get_clock_sysvar();
+pub clock_sysvar() -> Clock {
+    return get_clock_sysvar();
 }
 
 pub epoch_schedule_sysvar() {

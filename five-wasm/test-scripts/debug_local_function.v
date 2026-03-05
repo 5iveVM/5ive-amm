@@ -6,7 +6,7 @@
     
 test_function_call_local() -> u64 {
         // This should work - function call result stored in local variable
-        let function_result = get_clock();
+        let function_result = get_clock().slot;
         
         // This should work - return the local variable
         return function_result;
@@ -24,7 +24,7 @@ test_literal_local_binary() -> u64 {
     
 test_function_call_binary() -> u64 {
         // This should work - function call result stored in local variable  
-        let function_result = get_clock();
+        let function_result = get_clock().slot;
         
         // This FAILS - using local variable in binary operation
         let arithmetic_result = function_result - global_var;

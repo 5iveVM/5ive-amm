@@ -355,7 +355,7 @@ fn analyze_source(source_file: &str) {
     if source.contains("enum ") {
         features.push("Enums");
     }
-    if source.contains("get_clock()") {
+    if source.contains("get_clock()") || source.contains("get_clock().") {
         features.push("System calls");
     }
     if source.contains("[") && source.contains("]") {

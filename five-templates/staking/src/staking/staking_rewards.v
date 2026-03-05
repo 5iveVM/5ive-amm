@@ -11,7 +11,7 @@ pub init_staker(
     staker.pool = pool;
     staker.staked_amount = 0;
     staker.reward_debt = 0;
-    staker.last_update_slot = get_clock();
+    staker.last_update_slot = get_clock().slot;
     return staker.key;
 }
 
@@ -30,7 +30,7 @@ pub stake(
 
     pool.total_staked = pool.total_staked + amount;
     staker.staked_amount = staker.staked_amount + amount;
-    staker.last_update_slot = get_clock();
+    staker.last_update_slot = get_clock().slot;
 }
 
 pub unstake(
@@ -48,7 +48,7 @@ pub unstake(
 
     pool.total_staked = pool.total_staked - amount;
     staker.staked_amount = staker.staked_amount - amount;
-    staker.last_update_slot = get_clock();
+    staker.last_update_slot = get_clock().slot;
 }
 
 pub claim_rewards(
@@ -63,6 +63,6 @@ pub claim_rewards(
     require(reward >= staker.reward_debt);
     let claimable: u64 = reward - staker.reward_debt;
     staker.reward_debt = reward;
-    staker.last_update_slot = get_clock();
+    staker.last_update_slot = get_clock().slot;
     return claimable;
 }

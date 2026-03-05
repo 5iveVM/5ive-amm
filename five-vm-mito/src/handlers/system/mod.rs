@@ -21,7 +21,7 @@ pub mod sysvars;
 pub use init::handle_init_ops;
 pub use invoke::handle_invoke_ops;
 pub use pda::{handle_pda_ops, process_seed_value};
-pub use sysvars::{handle_sysvar_ops, serialize_clock_to_buffer};
+pub use sysvars::handle_sysvar_ops;
 
 use crate::{
     context::ExecutionManager,

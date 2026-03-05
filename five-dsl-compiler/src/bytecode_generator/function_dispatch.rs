@@ -1511,6 +1511,7 @@ mod tests {
             constraints_block: None,
             event_definitions: vec![],
             account_definitions: vec![],
+            type_definitions: vec![],
             interface_definitions: vec![],
             import_statements: vec![],
         };
@@ -1526,6 +1527,7 @@ mod tests {
             constraints_block: None,
             event_definitions: vec![],
             account_definitions: vec![],
+            type_definitions: vec![],
             interface_definitions: vec![],
             import_statements: vec![],
         };
@@ -1580,6 +1582,7 @@ mod tests {
             constraints_block: None,
             event_definitions: vec![],
             account_definitions: vec![],
+            type_definitions: vec![],
             interface_definitions: vec![],
             import_statements: vec![],
         };

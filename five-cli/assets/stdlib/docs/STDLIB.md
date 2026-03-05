@@ -15,8 +15,9 @@ When bundled stdlib examples and installed CLI behavior diverge from the pinned 
 
 1. `std::prelude`
 2. `std::builtins`
-3. `std::interfaces::spl_token`
-4. `std::interfaces::system_program`
+3. `std::types`
+4. `std::interfaces::spl_token`
+5. `std::interfaces::system_program`
 
 ## Import style (explicit)
 

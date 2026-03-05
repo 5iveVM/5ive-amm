@@ -7,17 +7,17 @@
     }
     
 update_time() -> u64 {
-        current_time = get_clock();
+        current_time = get_clock().slot;
         return current_time;
     }
     
 pub get_current_time() -> u64 {
-        let time = get_clock();
+        let time = get_clock().slot;
         return time;
     }
     
 time_since_last_update() -> u64 {
-        let current = get_clock();
+        let current = get_clock().slot;
         let difference = current - last_timestamp;
         last_timestamp = current;
         return difference;

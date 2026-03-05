@@ -16,7 +16,7 @@ account StakeAccount {
 // Initialize pool
 pub init_pool(state: Pool @mut, reward_rate_per_slot: u64, scale: u64) {
     state.reward_rate_per_slot = reward_rate_per_slot;
-    state.last_update_slot = get_clock();
+    state.last_update_slot = get_clock().slot;
     state.acc_reward_per_share = 0;
     state.scale = scale;
 }

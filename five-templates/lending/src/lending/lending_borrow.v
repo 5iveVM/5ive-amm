@@ -20,8 +20,8 @@ pub borrow(
     reserve.available_liquidity = reserve.available_liquidity - amount;
     reserve.total_borrows = reserve.total_borrows + amount;
     obligation.borrowed_amount = obligation.borrowed_amount + amount;
-    obligation.last_update_slot = get_clock();
-    reserve.last_update_slot = get_clock();
+    obligation.last_update_slot = get_clock().slot;
+    reserve.last_update_slot = get_clock().slot;
 }
 
 pub repay(
@@ -38,6 +38,6 @@ pub repay(
     obligation.borrowed_amount = obligation.borrowed_amount - amount;
     reserve.total_borrows = reserve.total_borrows - amount;
     reserve.available_liquidity = reserve.available_liquidity + amount;
-    obligation.last_update_slot = get_clock();
-    reserve.last_update_slot = get_clock();
+    obligation.last_update_slot = get_clock().slot;
+    reserve.last_update_slot = get_clock().slot;
 }

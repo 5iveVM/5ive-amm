@@ -128,6 +128,14 @@ pub struct AccountDefinitionNode {
     pub visibility: Visibility,
 }
 
+/// Value type definition (non-account)
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeDefinitionNode {
+    pub name: String,
+    pub definition: Box<TypeNode>,
+    pub visibility: Visibility,
+}
+
 /// Tuple literal (...)
 #[derive(Debug, Clone, PartialEq)]
 pub struct TupleLiteralNode {
@@ -231,6 +239,7 @@ pub struct WhileLoopNode {
 pub struct ImportStatementNode {
     pub module_specifier: ModuleSpecifier,
     pub imported_items: Option<Vec<ImportItem>>,
+    pub is_reexport: bool,
 }
 
 /// Array literal [...]
@@ -258,6 +267,7 @@ pub struct DoWhileLoopNode {
 pub struct ProgramNode {
     pub init_block: Option<Box<AstNode>>,
     pub account_definitions: Vec<AstNode>,
+    pub type_definitions: Vec<AstNode>,
     pub constraints_block: Option<Box<AstNode>>,
     pub program_name: String,
     pub event_definitions: Vec<AstNode>,
@@ -375,6 +385,7 @@ pub enum Definition {
     EventDefinition(EventDefinitionNode),
     ErrorTypeDefinition(ErrorTypeDefinitionNode),
     AccountDefinition(AccountDefinitionNode),
+    TypeDefinition(TypeDefinitionNode),
     InterfaceDefinition(InterfaceDefinitionNode),
     InterfaceFunction(InterfaceFunctionNode),
     ImportStatement(ImportStatementNode),
@@ -619,6 +630,11 @@ impl From<Definition> for AstNode {
                 name: node.name,
                 visibility: node.visibility,
             },
+            Definition::TypeDefinition(node) => AstNode::TypeDefinition {
+                name: node.name,
+                definition: node.definition,
+                visibility: node.visibility,
+            },
             Definition::InterfaceDefinition(node) => AstNode::InterfaceDefinition {
                 name: node.name,
                 program_id: node.program_id,
@@ -637,6 +653,7 @@ impl From<Definition> for AstNode {
             Definition::ImportStatement(node) => AstNode::ImportStatement {
                 module_specifier: node.module_specifier,
                 imported_items: node.imported_items,
+                is_reexport: node.is_reexport,
                 location: None,
             },
             Definition::ArrowFunction(node) => AstNode::ArrowFunction {
@@ -680,6 +697,7 @@ impl From<ProgramNode> for AstNode {
             instruction_definitions: node.instruction_definitions,
             event_definitions: node.event_definitions,
             account_definitions: node.account_definitions,
+            type_definitions: node.type_definitions,
             interface_definitions: node.interface_definitions,
             import_statements: node.import_statements,
             init_block: node.init_block,

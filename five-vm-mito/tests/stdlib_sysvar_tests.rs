@@ -43,7 +43,7 @@ fn clock_sysvar_returns_tuple_ref() {
     let mut ctx = new_context(&mut storage);
 
     handle_syscall_get_clock_sysvar(&mut ctx).expect("clock sysvar syscall");
-    assert!(matches!(ctx.pop().unwrap(), ValueRef::TupleRef(_, 40)));
+    assert!(matches!(ctx.pop().unwrap(), ValueRef::TupleRef(_, 45)));
 }
 
 #[test]

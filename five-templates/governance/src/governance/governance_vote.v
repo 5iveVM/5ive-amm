@@ -9,8 +9,8 @@ pub vote(
     weight: u64,
     support: bool
 ) {
-    require(get_clock() >= proposal.start_slot);
-    require(get_clock() <= proposal.end_slot);
+    require(get_clock().slot >= proposal.start_slot);
+    require(get_clock().slot <= proposal.end_slot);
     require(weight > 0);
 
     vote_record.proposal = proposal.key;

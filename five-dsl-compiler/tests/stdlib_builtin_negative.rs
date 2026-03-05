@@ -23,3 +23,9 @@ fn invalid_close_account_arity_fails_compilation() {
     let source = "pub fn run(source: account, destination: account) { close_account(source); }";
     assert!(DslCompiler::compile_dsl(source).is_err());
 }
+
+#[test]
+fn assigning_clock_to_u64_fails_compilation() {
+    let source = "pub fn run() -> u64 { let t: u64 = get_clock(); return t; }";
+    assert!(DslCompiler::compile_dsl(source).is_err());
+}

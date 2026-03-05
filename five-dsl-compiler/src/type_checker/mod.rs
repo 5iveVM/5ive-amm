@@ -44,6 +44,7 @@ impl types::TypeCheckerContext {
                 instruction_definitions,
                 event_definitions,
                 account_definitions,
+                type_definitions,
                 interface_definitions,
                 import_statements,
                 init_block,
@@ -104,6 +105,14 @@ impl types::TypeCheckerContext {
                 // Process global field definitions (now supported)
                 for field_def in field_definitions {
                     self.check_types(field_def)?;
+                }
+
+                // Process account definitions FIRST (they are referenced by instructions)
+                for type_def in type_definitions {
+                    if let Err(e) = self.check_types(type_def) {
+                        eprintln!("Failed checking type definition: {:?}", e);
+                        return Err(e);
+                    }
                 }
 
                 // Process account definitions FIRST (they are referenced by instructions)
@@ -318,6 +327,11 @@ impl types::TypeCheckerContext {
                 fields,
                 visibility,
             } => self.check_account_definition(name, fields, *visibility),
+            AstNode::TypeDefinition {
+                name,
+                definition,
+                visibility,
+            } => self.check_type_definition(name, definition, *visibility),
             // Error type definition
             AstNode::ErrorTypeDefinition { name, variants } => {
                 self.check_error_type_definition(name, variants)
@@ -419,7 +433,15 @@ impl types::TypeCheckerContext {
         }
 
         let symbol = scope.resolve_symbol_in_module(module_path, symbol_name)?;
-        if matches!(symbol.type_info, TypeNode::Account) {
+        if matches!(
+            symbol.type_info,
+            TypeNode::Account
+                | TypeNode::Struct { .. }
+                | TypeNode::Tuple { .. }
+                | TypeNode::Union { .. }
+                | TypeNode::Sized { .. }
+        ) || matches!(&symbol.type_info, TypeNode::Named(name) if name == symbol_name)
+        {
             Some(ImportedSymbolKind::Type)
         } else {
             Some(ImportedSymbolKind::Value)

@@ -81,13 +81,15 @@ fn test_multiple_functions_integration() {
 /// Adapted from five-cli/test-scripts/05-blockchain-integration/clock-access.v
 #[test]
 fn test_clock_access_integration() {
-    // Bytecode for: pub test() -> u64 { let time = get_clock(); return time; }
+    // Bytecode for: pub test() -> u64 { return get_clock().slot; }
     let bytecode = vec![
         0x35, 0x49, 0x56, 0x45, // 5IVE magic
         0x02, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, // Function table
         0x15, 0x00, 0x01, 0x00, // Function offset
         // Function body:
         0x82, // GET_CLOCK opcode
+        0x18, 0x00, // PUSH_U8 0 (Clock.slot index)
+        0xF9, // TUPLE_GET
         0x07, // RETURN_VALUE
         0x00, // HALT
     ];

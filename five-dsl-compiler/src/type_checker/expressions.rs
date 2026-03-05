@@ -323,6 +323,19 @@ impl TypeCheckerContext {
                         }
                     }
                     TypeNode::Named(name) => {
+                        if let Some(type_def) = self.resolve_named_type_definition(&name) {
+                            if let TypeNode::Struct { fields } = type_def {
+                                if let Some(field_def) = fields.iter().find(|f| f.name == *field) {
+                                    return if field_def.is_optional {
+                                        Ok(())
+                                    } else {
+                                        Ok(())
+                                    };
+                                }
+                                return Err(VMError::UndefinedField);
+                            }
+                        }
+
                         // Look up account fields with namespace-aware matching
                         // Account names may be namespaced (e.g., "amm_types::AMMPool") but referenced by simple name ("AMMPool")
                         let namespace_suffix = format!("::{}", name);
@@ -672,11 +685,18 @@ impl TypeCheckerContext {
                 Ok(TypeNode::Primitive("void".to_string()))
             }
             "get_clock" => {
-                // get_clock() -> u64 (Unix timestamp, matches Solana Clock)
+                // get_clock() -> Clock (complete Solana clock sysvar view)
                 if !args.is_empty() {
                     return Err(VMError::InvalidOperation);
                 }
-                Ok(TypeNode::Primitive("u64".to_string()))
+                Ok(TypeNode::Named("Clock".to_string()))
+            }
+            "get_clock_sysvar" => {
+                // get_clock_sysvar() -> Clock
+                if !args.is_empty() {
+                    return Err(VMError::InvalidOperation);
+                }
+                Ok(TypeNode::Named("Clock".to_string()))
             }
             "load_account_u64" | "load_account_u64_word" => {
                 // load_account_u64(account, literal_offset) -> u64
@@ -757,6 +777,29 @@ impl TypeCheckerContext {
                         ],
                     })
                 }
+            }
+            "create_program_address" => {
+                // create_program_address(seeds, program_id) -> pubkey
+                if args.len() != 2 {
+                    return Err(VMError::InvalidOperation);
+                }
+                self.infer_type(&args[0])?;
+                self.infer_type(&args[1])?;
+                Ok(TypeNode::Primitive("pubkey".to_string()))
+            }
+            "try_find_program_address" => {
+                // try_find_program_address(seeds, program_id) -> (pubkey, u8)
+                if args.len() != 2 {
+                    return Err(VMError::InvalidOperation);
+                }
+                self.infer_type(&args[0])?;
+                self.infer_type(&args[1])?;
+                Ok(TypeNode::Tuple {
+                    elements: vec![
+                        TypeNode::Primitive("pubkey".to_string()),
+                        TypeNode::Primitive("u8".to_string()),
+                    ],
+                })
             }
             "invoke_signed" => {
                 // invoke_signed(program_id, instruction_data, accounts, seeds) -> void

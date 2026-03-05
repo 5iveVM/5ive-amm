@@ -465,7 +465,9 @@ pub(crate) fn store_value_into_buffer(
                     return Err(VMErrorCode::InvalidAccountData);
                 }
                 data[offset..offset + 8].copy_from_slice(&v.to_le_bytes());
+                return Ok(());
             }
+            return Err(VMErrorCode::TypeMismatch);
         }
     }
     Ok(())

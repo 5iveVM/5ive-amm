@@ -133,6 +133,7 @@ define_token_types! {
     Fn,
     Async,
     Script,
+    TypeDecl,
     Enum,
     Field,
     Pub,

@@ -16,7 +16,7 @@ pub init_staking_pool(
     pool.reward_mint = reward_mint;
     pool.total_staked = 0;
     pool.reward_rate_bps = reward_rate_bps;
-    pool.last_update_slot = get_clock();
+    pool.last_update_slot = get_clock().slot;
     pool.is_paused = false;
     pool.name = name;
     return pool.key;
@@ -30,7 +30,7 @@ pub update_reward_rate(
     require(pool.authority == authority.key);
     require(reward_rate_bps <= 10000);
     pool.reward_rate_bps = reward_rate_bps;
-    pool.last_update_slot = get_clock();
+    pool.last_update_slot = get_clock().slot;
 }
 
 pub pause_pool(pool: StakingPool @mut, authority: account @signer) {

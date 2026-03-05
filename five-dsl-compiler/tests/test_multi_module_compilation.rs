@@ -52,6 +52,7 @@ fn create_program(name: &str, functions: Vec<AstNode>) -> AstNode {
         instruction_definitions: functions,
         event_definitions: vec![],
         account_definitions: vec![],
+        type_definitions: vec![],
         interface_definitions: vec![],
         import_statements: vec![],
         init_block: None,

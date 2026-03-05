@@ -173,6 +173,7 @@ impl ASTGenerator {
             | AstNode::ContinueStatement { .. }
             | AstNode::ErrorTypeDefinition { .. }
             | AstNode::AccountDefinition { .. }
+            | AstNode::TypeDefinition { .. }
             | AstNode::FieldDefinition { .. }
             | AstNode::InstructionDefinition { .. }
             | AstNode::EventDefinition { .. }

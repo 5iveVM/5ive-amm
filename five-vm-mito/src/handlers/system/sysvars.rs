@@ -81,15 +81,30 @@ pub(crate) fn get_rent_cached(ctx: &mut ExecutionManager) -> CompactResult<Rent>
     Ok(rent)
 }
 
-/// Serialize Clock sysvar data to buffer in little-endian format.
-/// Layout: [slot:8][epoch_start_timestamp:8][epoch:8][leader_schedule_epoch:8][unix_timestamp:8]
 #[inline(always)]
-pub fn serialize_clock_to_buffer(clock: &Clock, buffer: &mut [u8]) {
-    buffer[0..8].copy_from_slice(&clock.slot.to_le_bytes());
-    buffer[8..16].copy_from_slice(&clock.epoch_start_timestamp.to_le_bytes());
-    buffer[16..24].copy_from_slice(&clock.epoch.to_le_bytes());
-    buffer[24..32].copy_from_slice(&clock.leader_schedule_epoch.to_le_bytes());
-    buffer[32..40].copy_from_slice(&clock.unix_timestamp.to_le_bytes());
+fn push_clock_tuple(ctx: &mut ExecutionManager, clock: &Clock) -> CompactResult<()> {
+    let values = [
+        ValueRef::U64(clock.slot),
+        ValueRef::I64(clock.epoch_start_timestamp),
+        ValueRef::U64(clock.epoch),
+        ValueRef::U64(clock.leader_schedule_epoch),
+        ValueRef::I64(clock.unix_timestamp),
+    ];
+
+    let total_size: usize = values.iter().map(ValueRef::serialized_size).sum();
+    let tuple_size = u8::try_from(total_size).map_err(|_| VMErrorCode::OutOfMemory)?;
+    let tuple_offset = ctx.alloc_temp(tuple_size)?;
+
+    let mut cursor = tuple_offset as usize;
+    for value in &values {
+        let written = value
+            .serialize_into(&mut ctx.temp_buffer_mut()[cursor..])
+            .map_err(|_| VMErrorCode::ProtocolError)?;
+        cursor += written;
+    }
+
+    ctx.push(ValueRef::TupleRef(tuple_offset, tuple_size))?;
+    Ok(())
 }
 
 /// Handle system sysvar operations.
@@ -99,15 +114,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         GET_CLOCK => {
             debug_log!("MitoVM: GET_CLOCK operation");
             let clock = get_clock_cached(ctx)?;
-
-            // Clock structure requires 40 bytes.
-            let temp_buffer = ctx.temp_buffer_mut();
-            if temp_buffer.len() < 40 {
-                return Err(VMErrorCode::MemoryViolation);
-            }
-
-            serialize_clock_to_buffer(&clock, temp_buffer);
-            ctx.push(ValueRef::TupleRef(0, 40))?;
+            push_clock_tuple(ctx, &clock)?;
         }
         GET_RENT => {
             debug_log!("MitoVM: GET_RENT operation");
@@ -130,15 +137,7 @@ pub fn handle_sysvar_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 pub fn handle_syscall_get_clock_sysvar(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_GET_CLOCK_SYSVAR");
     let clock = get_clock_cached(ctx)?;
-
-    let temp_buffer = ctx.temp_buffer_mut();
-    if temp_buffer.len() < 40 {
-        return Err(VMErrorCode::MemoryViolation);
-    }
-
-    serialize_clock_to_buffer(&clock, temp_buffer);
-    ctx.push(ValueRef::TupleRef(0, 40))?;
-    Ok(())
+    push_clock_tuple(ctx, &clock)
 }
 
 /// Handle sol_get_rent_sysvar syscall.

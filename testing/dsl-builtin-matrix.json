@@ -3,7 +3,7 @@
   "builtin_groups": [
     {
       "id": "time",
-      "description": "Clock/time wrappers and compute-unit helpers"
+      "description": "Clock/time wrappers (typed Clock + i64 now_seconds) and compute-unit helpers"
     },
     {
       "id": "account_io",

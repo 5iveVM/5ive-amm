@@ -12,7 +12,7 @@ pub init_lending_market(
     market.quote_mint = quote_mint;
     market.is_paused = false;
     market.name = name;
-    market.created_slot = get_clock();
+    market.created_slot = get_clock().slot;
     return market.ctx.key;
 }
 
@@ -41,7 +41,7 @@ pub init_reserve(
     reserve.borrow_rate_bps = borrow_rate_bps;
     reserve.collateral_factor_bps = collateral_factor_bps;
     reserve.liquidation_threshold_bps = liquidation_threshold_bps;
-    reserve.last_update_slot = get_clock();
+    reserve.last_update_slot = get_clock().slot;
     reserve.is_paused = false;
     reserve.name = name;
     return reserve.ctx.key;

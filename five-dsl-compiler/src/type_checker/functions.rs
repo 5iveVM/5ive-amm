@@ -650,6 +650,19 @@ impl TypeCheckerContext {
         Ok(())
     }
 
+    pub(crate) fn check_type_definition(
+        &mut self,
+        name: &str,
+        definition: &TypeNode,
+        visibility: crate::ast::Visibility,
+    ) -> Result<(), VMError> {
+        self.validate_type(definition)?;
+        self.type_definitions
+            .insert(name.to_string(), definition.clone());
+        self.add_to_module_scope(name.to_string(), definition.clone(), false, visibility);
+        Ok(())
+    }
+
     pub(crate) fn check_error_type_definition(
         &mut self,
         name: &str,

@@ -25,14 +25,14 @@ pub update_price(
     require(feed.authority == authority.key);
     require(!feed.is_paused);
     feed.price = price;
-    feed.last_update_slot = get_clock();
+    feed.last_update_slot = get_clock().slot;
 }
 
 pub get_price(feed: OracleFeed) -> u64 {
     if (feed.last_update_slot == 0) {
         return 0;
     }
-    let now: u64 = get_clock();
+    let now: u64 = get_clock().slot;
     require(now >= feed.last_update_slot);
     require((now - feed.last_update_slot) <= feed.max_staleness_slots);
     return feed.price;

@@ -318,6 +318,22 @@ impl TypeCheckerContext {
                         }
                     }
                     TypeNode::Named(name) => {
+                        if let Some(type_def) = self.resolve_named_type_definition(&name) {
+                            if let TypeNode::Struct { fields } = type_def {
+                                if let Some(field_def) = fields.iter().find(|f| f.name == *field) {
+                                    return if field_def.is_optional {
+                                        Ok(TypeNode::Generic {
+                                            base: "Option".to_string(),
+                                            args: vec![field_def.field_type.clone()],
+                                        })
+                                    } else {
+                                        Ok(field_def.field_type.clone())
+                                    };
+                                }
+                                return Err(VMError::UndefinedField);
+                            }
+                        }
+
                         // Look up account fields with namespace-aware matching
                         // Account names may be namespaced (e.g., "amm_types::AMMPool") but referenced by simple name ("AMMPool")
                         let namespace_suffix = format!("::{}", name);

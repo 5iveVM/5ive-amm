@@ -21,7 +21,7 @@ pub init_auction(state: AuctionState @mut, seller: pubkey, end_time: u64, min_in
 
 // Place bid (accounting only)
 pub bid(state: AuctionState @mut, bidder: pubkey, amount: u64) {
-    let now = get_clock();
+    let now = get_clock().slot;
     require(now < state.end_time);
     require(amount >= state.highest_bid + state.min_increment);
     state.highest_bid = amount;
@@ -30,7 +30,7 @@ pub bid(state: AuctionState @mut, bidder: pubkey, amount: u64) {
 
 // Settle after auction end (no transfers here; just flag)
 pub settle(state: AuctionState @mut) {
-    let now = get_clock();
+    let now = get_clock().slot;
     require(now >= state.end_time);
     require(!state.settled);
     state.settled = true;

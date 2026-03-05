@@ -155,11 +155,11 @@ fn validator_stdlib_time_and_sysvar_onchain() {
     };
 
     let now_source = r#"
-pub now_seconds() -> u64 {
-    return get_clock();
+pub now_seconds() -> i64 {
+    return get_clock().unix_timestamp;
 }
 
-pub run() -> u64 {
+pub run() -> i64 {
     return now_seconds();
 }
 "#;
@@ -170,7 +170,7 @@ pub clock_sysvar() {
 
 pub run() -> u64 {
     clock_sysvar();
-    return get_clock();
+    return get_clock().slot;
 }
 "#;
 

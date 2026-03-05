@@ -11,7 +11,7 @@ pub init_obligation(
     obligation.reserve = reserve;
     obligation.deposited_collateral = 0;
     obligation.borrowed_amount = 0;
-    obligation.last_update_slot = get_clock();
+    obligation.last_update_slot = get_clock().slot;
     return obligation.ctx.key;
 }
 
@@ -29,6 +29,6 @@ pub deposit_collateral(
     reserve.total_deposits = reserve.total_deposits + amount;
     reserve.available_liquidity = reserve.available_liquidity + amount;
     obligation.deposited_collateral = obligation.deposited_collateral + amount;
-    obligation.last_update_slot = get_clock();
-    reserve.last_update_slot = get_clock();
+    obligation.last_update_slot = get_clock().slot;
+    reserve.last_update_slot = get_clock().slot;
 }

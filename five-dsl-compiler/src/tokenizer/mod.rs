@@ -598,6 +598,7 @@ impl<'a> DslTokenizer<'a> {
             "fn" => Token::Fn,
             "async" => Token::Async,
             "script" => Token::Script,
+            "type" => Token::TypeDecl,
             "enum" => Token::Enum,
             "field" => Token::Field,
             "pub" => Token::Pub,
