@@ -52,7 +52,9 @@ pub const SCRIPT_BYTECODE_HEADER_V1_SIZE: usize = 10;
 pub const FIVE_HEADER_OPTIMIZED_SIZE: usize = SCRIPT_BYTECODE_HEADER_V1_SIZE;
 pub const FIVE_MAGIC: [u8; 4] = *b"5IVE";
 pub const FIVE_DEPLOY_MAGIC: [u8; 4] = *b"5DEP";
-pub const TEMP_BUFFER_SIZE: usize = 512;
+// Temp scratch space shared by VM handlers. 512 bytes is too small for
+// account-heavy instructions with many pubkey constraint checks.
+pub const TEMP_BUFFER_SIZE: usize = 2048;
 pub const MAX_SCRIPT_SIZE: usize = 10_000;
 
 // Feature flags for header
