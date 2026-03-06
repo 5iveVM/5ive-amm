@@ -1,0 +1,315 @@
+{
+  "bytecode": "NUlWRQ90AAAEBAkABBUAGAAbAB4AKAAAADoCAAAAAAAAAwAAAAAAAAACAAAAAAAAAgAAAAAAAAABAAAAAAAAANwKAFUA3AoBWADcCgJbANwKA14AAAEMAQHhAQFtAAF+AXEBcQJxA3EEcQVwBsQBQwGgAAAA2CUEQwGoAAAA2CUE2NbY194DmgBDAaAAAADWQwGoAAAA1wGoAEMBqAAAANZDAaAAAADX3UMBwAAAAEMBuAAAACEiQwHAAAAAI6IE06MEItKjBCAjogXMBaMF0yYE3gPvAMIBoAAAAAFDAagAAACjBSFCAagAAAABBQHCAagAAAABQwGgAAAAowUhQgGgAAAABnACxgHGAnUB2BsAgxgBGwAYAoTEB6UGpQcmBMcBAAAAAAHHASAAAAACxwFAAAAAA8cBYAAAAATHAYAAAAAFyAGgAAAAyAGoAAAAyAGwAAAAxwG4AAAABscBwAAAAAfJAcgAAAACVwEHcQFxAnEDcQRxBXEGcQdwCMQB3UMBsAAAACkE3UMBoAAAACJDAbAAAAAj1d1DAagAAAAiQwGwAAAAI9bMAcwCQwGgAAAA0SFCAaAAAABDAagAAADSIUIBqAAAAMMBsAAAAAEGcQFxAnEDcQRxBXEGcQdwCMQBxALY1kMBsAAAAAkAJQDdQwGoAAAAIt5DAaAAAAAiJwTdQwGwAAAAIkMBoAAAACPWARoC3d4g1swCwgGgAAAAAcIBqAAAAAJDAbAAAADSIEIBsAAAAAYA",
+  "abi": {
+    "program_name": "Module",
+    "functions": [
+      {
+        "name": "init_pool",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "init",
+              "signer"
+            ]
+          },
+          {
+            "name": "creator",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "signer"
+            ]
+          },
+          {
+            "name": "token_a_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_b_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_a_vault",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_b_vault",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "lp_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "fee_numerator",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "fee_denominator",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": "pubkey",
+        "is_public": true,
+        "bytecode_offset": 0
+      },
+      {
+        "name": "add_liquidity",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_token_a",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_token_b",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_token_a_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_token_b_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "lp_mint",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_lp_account",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_authority",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "signer"
+            ]
+          },
+          {
+            "name": "amount_a",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "amount_b",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      },
+      {
+        "name": "swap",
+        "index": 2,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_source",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_destination",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_source_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_destination_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_authority",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "signer"
+            ]
+          },
+          {
+            "name": "amount_in",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "is_a_to_b",
+            "param_type": "bool",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      },
+      {
+        "name": "remove_liquidity",
+        "index": 3,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_lp_account",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_token_a",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_token_b",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_token_a_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_token_b_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "lp_mint",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_authority",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "signer"
+            ]
+          },
+          {
+            "name": "lp_amount",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0",
+  "metadata": {}
+}

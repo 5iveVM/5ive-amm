@@ -1,0 +1,82 @@
+{
+  "bytecode": "NUlWRQ90AAABAQMAAQYAIAAAAKoAAAAAAAAAAwAAAAAAAgAAAAAAAAIAAAAAAAAAAQAAAAAAAADcCgA+AAABRwBwAsYBxgJ1AdgbAIMYARsAGAKExAelBqUHJgTHAQAAAAABxwEgAAAAAscBQAAAAAPHAWAAAAAExwGAAAAABcgBoAAAAMgBqAAAAMgBsAAAAMcBuAAAAAbHAcAAAAAHyQHIAAAAAlcBBwA=",
+  "abi": {
+    "program_name": "Module",
+    "functions": [
+      {
+        "name": "init_pool",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "init",
+              "signer"
+            ]
+          },
+          {
+            "name": "creator",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "signer"
+            ]
+          },
+          {
+            "name": "token_a_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_b_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_a_vault",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "token_b_vault",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "lp_mint",
+            "param_type": "pubkey",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "fee_numerator",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "fee_denominator",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": "pubkey",
+        "is_public": true,
+        "bytecode_offset": 0
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0",
+  "metadata": {}
+}
