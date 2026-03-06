@@ -3,6 +3,15 @@
 This file is written for agents with zero prior 5IVE knowledge.
 It is intentionally self-contained and should be treated as the baseline technical specification for authoring, testing, deploying, and integrating 5IVE programs.
 
+## Policy Overrides (2026-03)
+
+These rules are authoritative and override any older examples below:
+1. Typed account metadata access must use `acct.ctx.*` (for example `acct.ctx.key`), not `acct.key`.
+2. Account serializer keywords are `raw`, `borsh`, `bincode`.
+3. Default account serializer is `raw`.
+4. Serializer precedence is parameter override > account type default > interface/program default.
+5. `anchor` is not a serializer keyword.
+
 ## 1) What 5IVE Is
 
 5IVE is a DSL and toolchain for compiling compact bytecode programs for Solana execution paths.
@@ -36,8 +45,8 @@ Never rely on stale docs when behavior is high-stakes (deploy/execute/CPI encodi
 These rules are non-negotiable and prevent the most common compilation failures:
 
 1. **All account fields must end with `;`** — missing semicolons cause parser failure.
-2. **Use `account @signer` for authorization** — not `pubkey @signer`. This preserves the `.key` accessor.
-3. **Use `.key` on `account`-typed parameters** to extract public keys for comparisons and assignments.
+2. **Use `account @signer` for authorization** — not `pubkey @signer`.
+3. **Use `.ctx.key` on account-typed values** for pubkey metadata access.
 4. **Use `-> ReturnType` for functions with return values** — e.g. `-> u64`, `-> pubkey`, `-> bool`.
 5. **`pubkey(0)` and `0` are valid** for zero-initializing pubkey fields (disabling authorities).
 6. **`string<N>` is production-safe** — use freely in accounts and function parameters.
@@ -144,7 +153,7 @@ Supported/parsed type families:
 ### 4.6 Statements
 Observed and parser-supported:
 1. `let` declarations (with `mut` and optional type annotation)
-   - Type inference works: `let is_owner = source.owner == authority.key;` infers `bool`
+   - Type inference works: `let is_owner = source.owner == authority.ctx.key;` infers `bool`
    - Use `let` without explicit annotation for boolean and scalar expressions
    - **Immutability by default**: `let x = value;` creates an immutable binding; reassignment will fail
    - **For reassignable variables, use `let mut`**: `let mut x: u64 = 0; ... x = new_value;`
@@ -220,21 +229,21 @@ Interfaces define external program calls. **Empirically verified rules:**
 
 1. **Program binding:** always use `@program("...")` (the `@` prefix is required)
 2. **Serializer options:**
-   - **Default (bincode):** omit `@serializer(...)` — bincode is the default, works for SPL programs and most Solana programs
-   - **Anchor programs (borsh):** use `@anchor` marker — automatically sets borsh serializer **and** auto-generates discriminators from method names
-   - **Explicit borsh:** use `@serializer("borsh")` if needed without `@anchor`
+   - `raw` (default)
+   - `borsh`
+   - `bincode`
+   - Set via `@serializer("...")` on account types or account params when needed
 3. **Discriminators:**
    - **Manual:** use single `u8` value inline on method: `method @discriminator(N) (...)`
-   - **Anchor auto-generation:** `@anchor` interface automatically computes discriminators from method names — **do not** manually specify `@discriminator` with `@anchor`
    - **Format:** single u8 value, **not** array format `@discriminator([3, 0, 0, 0])`
 4. **Account parameters in interfaces:** use `Account` type, **not** `pubkey`
    - `pubkey` is for data values only; `Account` represents an on-chain account passed to the CPI
 5. **Calling interface methods:** use dot notation `InterfaceName.method(...)`, **not** `InterfaceName::method(...)`
-6. **Passing accounts to CPI:** pass `account`-typed parameters directly, **not** `param.key`
+6. **Passing accounts to CPI:** pass `account`-typed parameters directly, **not** `param.ctx.key`
 7. **Function parameters for CPI accounts:** must be typed `account @mut` (not `pubkey`)
 
 ```v
-// ✅ CORRECT: SPL Token (bincode, manual discriminators)
+// ✅ CORRECT: SPL Token (raw account decoding, manual discriminators)
 interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
     transfer @discriminator(3) (
         source: Account,
@@ -244,22 +253,13 @@ interface SPLToken @program("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") {
     );
 }
 
-// ✅ CORRECT: Anchor program (borsh, auto discriminators)
-interface MyAnchorProgram @anchor @program("...") {
-    initialize(          // discriminator auto-generated from "initialize"
-        state: Account,
-        authority: Account,
-        value: u64
-    );
-}
-
 // ✅ CORRECT: CPI call
 pub call_external(
     external_account: account @mut,
     authority: account @signer,
     value: u64
 ) {
-    MyAnchorProgram.initialize(external_account, authority, value);
+    SPLToken.transfer(external_account, external_account, authority, value);
 }
 
 // ❌ WRONG — common mistakes
@@ -267,14 +267,13 @@ pub call_external(
 // @discriminator([3, 0, 0, 0])              ← array format, not u8
 // transfer(src: pubkey, dst: pubkey, ...)   ← pubkey instead of Account
 // Program::method(...)                      ← :: instead of .
-// Program.method(account.key, ...)          ← .key unnecessary for accounts
-// @anchor with @discriminator(3)            ← @anchor auto-generates, don't specify manually
+// Program.method(account.ctx.key, ...)          ← use account params directly for CPI
 ```
 
 CPI hard rules for agents:
 1. Always use `@program("...")` with correct program ID
-2. For Anchor programs: use `@anchor`, omit `@discriminator`
-3. For non-Anchor programs: set `@discriminator(N)` as single u8 on each method, omit `@serializer`
+2. Use `@discriminator(N)` where required by the target interface ABI.
+3. Use serializer keywords only from `raw|borsh|bincode`.
 4. Use `Account` for on-chain account params, scalar types for data params
 5. Call with dot notation and pass account params directly
 
@@ -308,7 +307,7 @@ Core built-ins available in all contracts:
 1. `derive_pda(...)` (including bump-return and bump-specified variants)
 2. `get_clock()`
 3. `get_key(...)`
-4. **Account key access: `param.key`** — **core pattern for all `account`-typed parameters.** Use `.key` to extract pubkeys for comparisons and assignments.
+4. **Account key access: `param.ctx.key`** — **core pattern for all `account`-typed parameters.** Use `.ctx.key` to extract pubkeys for comparisons and assignments.
 
 ```v
 pub action(
@@ -316,8 +315,8 @@ pub action(
     caller: account @signer,
     ...
 ) {
-    require(state.authority == caller.key);   // ownership check
-    state.last_actor = caller.key;            // record who acted
+    require(state.authority == caller.ctx.key);   // ownership check
+    state.last_actor = caller.ctx.key;            // record who acted
 }
 ```
 
@@ -339,7 +338,7 @@ pub initialize(
     creator: account @mut @signer,
     ...
 ) -> pubkey {
-    state.authority = creator.key;
+    state.authority = creator.ctx.key;
     return state.key;
 }
 ```
@@ -357,7 +356,7 @@ Confirmed return types: `u8`, `u16`, `u32`, `u64`, `u128`, `i8`..`i64`, `bool`, 
 6. `interface` + explicit discriminator + explicit serializer CPI patterns
 7. Return type declarations (`-> Type`) with `return value;`
 8. `string<N>` fixed-size strings in accounts and parameters
-9. `account.key` extraction from `account`-typed parameters
+9. `account.ctx.key` extraction from `account`-typed parameters
 10. Authority disabling via `0` assignment to pubkey fields
 11. `let` with type inference for scalar/boolean expressions
 12. `pubkey(0)` zero-initialization
@@ -501,7 +500,7 @@ pub update_value(
     authority: account @signer,
     new_value: u64
 ) {
-    require(config.authority == authority.key);
+    require(config.authority == authority.ctx.key);
     require(!config.is_locked);
     config.value = new_value;
 }
@@ -528,7 +527,7 @@ pub withdraw(
     authority: account @signer,
     amount: u64
 ) {
-    require(vault.authority == authority.key);
+    require(vault.authority == authority.ctx.key);
     require(vault.balance >= amount);
     require(amount > 0);
     vault.balance = vault.balance - amount;
@@ -554,7 +553,7 @@ pub fund_escrow(
     buyer: account @signer,
     amount: u64
 ) {
-    require(escrow.buyer == buyer.key);
+    require(escrow.buyer == buyer.ctx.key);
     require(escrow.status == 0);
     require(amount == escrow.amount);
     escrow.status = 1;
@@ -564,7 +563,7 @@ pub release_escrow(
     escrow: Escrow @mut,
     buyer: account @signer
 ) {
-    require(escrow.buyer == buyer.key);
+    require(escrow.buyer == buyer.ctx.key);
     require(escrow.status == 1);
     escrow.status = 2;
 }
@@ -583,7 +582,7 @@ pub mint_to(
     authority: account @signer,
     amount: u64
 ) {
-    require(supply_state.authority == authority.key);
+    require(supply_state.authority == authority.ctx.key);
     require(amount > 0);
     supply_state.total_supply = supply_state.total_supply + amount;
     destination.balance = destination.balance + amount;
@@ -595,7 +594,7 @@ pub burn(
     owner: account @signer,
     amount: u64
 ) {
-    require(source.owner == owner.key);
+    require(source.owner == owner.ctx.key);
     require(source.balance >= amount);
     source.balance = source.balance - amount;
     supply_state.total_supply = supply_state.total_supply - amount;
@@ -615,7 +614,7 @@ pub approve(
     delegate: pubkey,
     limit: u64
 ) {
-    require(state.owner == owner.key);
+    require(state.owner == owner.ctx.key);
     state.delegate = delegate;
     state.delegated_limit = limit;
 }
@@ -624,7 +623,7 @@ pub revoke(
     state: DelegableAccount @mut,
     owner: account @signer
 ) {
-    require(state.owner == owner.key);
+    require(state.owner == owner.ctx.key);
     state.delegate = 0;
     state.delegated_limit = 0;
 }
@@ -645,7 +644,7 @@ pub swap(
     trader: account @signer,
     amount_in: u64
 ) {
-    require(user_a.owner == trader.key);
+    require(user_a.owner == trader.ctx.key);
     require(user_a.balance >= amount_in);
     require(amount_in > 0);
     let amount_out = (pool_b.reserve * amount_in) / (pool_a.reserve + amount_in);
@@ -670,7 +669,7 @@ pub borrow(
     collateral_value: u64,
     borrow_amount: u64
 ) {
-    require(position.owner == borrower.key);
+    require(position.owner == borrower.ctx.key);
     require(borrow_amount > 0);
     // Enforce 150% collateral ratio: collateral * 100 >= total_debt * 150
     let new_debt = position.debt + borrow_amount;
@@ -710,7 +709,7 @@ pub perform_action(
     user: account @signer,
     amount: u64
 ) {
-    require(local_state.authority == user.key);
+    require(local_state.authority == user.ctx.key);
     require(amount > 0);
     
     // CPI to external program
@@ -786,17 +785,17 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 - The account parameter uses the full attribute stack: `Type @mut @init(payer=name, space=bytes) @signer`.
 - The payer is `account @mut @signer`.
 - Set every field to a known value (don't leave uninitialized fields).
-- Return `-> pubkey` with `return account.key;` when callers need the address.
+- Return `-> pubkey` with `return account.ctx.key;` when callers need the address.
 
 ### Step 3: Define interfaces (if calling external programs)
 - Declare `interface Name @program("...") { ... }` at the top of your file.
 - Each method gets `@discriminator(N)` as a single u8 inline: `method @discriminator(N) (...)`.
 - Use `Account` type for on-chain account params, scalar types for data params.
-- **Do not** add `@serializer(...)` — bincode is the default.
+- Use `@serializer("raw" | "borsh" | "bincode")` only when needed; account default is `raw`.
 
 ### Step 4: Define action functions
 - Every state-mutating function takes the relevant account(s) as `AccountType @mut`.
-- Authorization: take an `account @signer` parameter, then `require(state.authority == signer.key);`.
+- Authorization: take an `account @signer` parameter, then `require(state.authority == signer.ctx.key);`.
 - Guards: use `require()` with any comparison operator (`==`, `!=`, `<`, `<=`, `>`, `>=`, `!`).
 - For balance operations: always check `require(source.balance >= amount);` before subtraction.
 - For state machines: check `require(state.status == EXPECTED_STATUS);` before transition.
@@ -808,7 +807,7 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 - `return state.field;` to return account data.
 
 ### Step 6: Compile and verify
-- Run `5ive build` or `5ive compile src/main.v -o build/main.five`.
+- Run `node ../five-cli/dist/index.js build --project .` (or `node ../five-cli/dist/index.js compile src/main.v -o build/main.five`).
 - Fix any parser errors (most common: missing `;` in account fields).
 
 ### Syntax quick-reference
@@ -818,7 +817,7 @@ Follow this procedure to produce correct 5IVE contracts on first compilation, re
 | Account field | `name: type;` (semicolon required) |
 | Init parameter | `acc: Type @mut @init(payer=p, space=N) @signer` |
 | Signer parameter | `caller: account @signer` or `caller: account @mut @signer` |
-| Ownership check | `require(state.authority == caller.key);` |
+| Ownership check | `require(state.authority == caller.ctx.key);` |
 | Balance guard | `require(state.balance >= amount);` |
 | Boolean guard | `require(!state.is_locked);` |
 | Zero-amount guard | `require(amount > 0);` |
@@ -869,13 +868,13 @@ pub init_mint(
     symbol: string<32>
 ) -> pubkey {
     require(decimals <= 20);
-    mint_account.authority = authority.key;
+    mint_account.authority = authority.ctx.key;
     mint_account.freeze_authority = freeze_authority;
     mint_account.supply = 0;
     mint_account.decimals = decimals;
     mint_account.name = name;
     mint_account.symbol = symbol;
-    return mint_account.key;
+    return mint_account.ctx.key;
 }
 
 pub transfer(
@@ -884,7 +883,7 @@ pub transfer(
     owner: account @signer,
     amount: u64
 ) {
-    require(source.owner == owner.key);
+    require(source.owner == owner.ctx.key);
     require(source.balance >= amount);
     require(source.mint == destination.mint);
     require(!source.is_frozen);
@@ -900,7 +899,7 @@ pub approve(
     delegate: pubkey,
     amount: u64
 ) {
-    require(source.owner == owner.key);
+    require(source.owner == owner.ctx.key);
     source.delegate = delegate;
     source.delegated_amount = amount;
 }
@@ -921,10 +920,10 @@ pub init_vault(
     vault: Vault @mut @init(payer=creator, space=128) @signer,
     creator: account @mut @signer
 ) -> pubkey {
-    vault.authority = creator.key;
+    vault.authority = creator.ctx.key;
     vault.balance = 0;
     vault.is_locked = false;
-    return vault.key;
+    return vault.ctx.key;
 }
 
 pub deposit(
@@ -942,7 +941,7 @@ pub withdraw(
     authority: account @signer,
     amount: u64
 ) {
-    require(vault.authority == authority.key);
+    require(vault.authority == authority.ctx.key);
     require(!vault.is_locked);
     require(vault.balance >= amount);
     require(amount > 0);
@@ -953,7 +952,7 @@ pub lock_vault(
     vault: Vault @mut,
     authority: account @signer
 ) {
-    require(vault.authority == authority.key);
+    require(vault.authority == authority.ctx.key);
     vault.is_locked = true;
 }
 
@@ -986,11 +985,11 @@ pub create_escrow(
     amount: u64
 ) -> pubkey {
     require(amount > 0);
-    escrow.seller = seller.key;
+    escrow.seller = seller.ctx.key;
     escrow.buyer = buyer;
     escrow.amount = amount;
     escrow.status = 0;
-    return escrow.key;
+    return escrow.ctx.key;
 }
 
 pub fund_escrow(
@@ -998,7 +997,7 @@ pub fund_escrow(
     buyer: account @signer,
     amount: u64
 ) {
-    require(escrow.buyer == buyer.key);
+    require(escrow.buyer == buyer.ctx.key);
     require(escrow.status == 0);
     require(amount == escrow.amount);
     escrow.status = 1;
@@ -1008,7 +1007,7 @@ pub release(
     escrow: Escrow @mut,
     buyer: account @signer
 ) {
-    require(escrow.buyer == buyer.key);
+    require(escrow.buyer == buyer.ctx.key);
     require(escrow.status == 1);
     escrow.status = 2;
 }
@@ -1017,7 +1016,7 @@ pub cancel(
     escrow: Escrow @mut,
     seller: account @signer
 ) {
-    require(escrow.seller == seller.key);
+    require(escrow.seller == seller.ctx.key);
     require(escrow.status == 0);
     escrow.status = 3;
 }
@@ -1056,10 +1055,10 @@ pub init_controller(
     controller: Controller @mut @init(payer=creator, space=128) @signer,
     creator: account @mut @signer
 ) -> pubkey {
-    controller.authority = creator.key;
+    controller.authority = creator.ctx.key;
     controller.counter = 0;
     controller.last_value = 0;
-    return controller.key;
+    return controller.ctx.key;
 }
 
 pub call_external(
@@ -1068,7 +1067,7 @@ pub call_external(
     authority: account @signer,
     value: u64
 ) {
-    require(controller.authority == authority.key);
+    require(controller.authority == authority.ctx.key);
     require(value > 0);
     
     // CPI to external program
@@ -1085,7 +1084,7 @@ pub call_anchor(
     user: account @signer,
     amount: u64
 ) {
-    require(controller.authority == user.key);
+    require(controller.authority == user.ctx.key);
     
     // CPI to Anchor program
     AnchorProgram.process(anchor_config, user, amount);

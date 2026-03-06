@@ -1,0 +1,93 @@
+{
+  "bytecode": "NUlWRQ90AAACAgUAAgsADgAoAAAA2AAAAAAAAAADAAAAAAAAAAAAAAACAAAAAAAAAgAAAAAAAAABAAAAAAAAANwKAEsA3AoBTgAAAVcAAX8AcALGAcYCdQHYGwCDGAEbABgChMgBAAAAAMgBCAAAAMgBEAAAAAZxAXECcQNwBMQBxALY1kMBEAAAAAkAJQDdQwEIAAAAIt5DAQAAAAAiJwTdQwEQAAAAIkMBAAAAACPWAbgA3d4g1swCwgEAAAAAAcIBCAAAAAJDARAAAADSIEIBEAAAAAYA",
+  "abi": {
+    "program_name": "Module",
+    "functions": [
+      {
+        "name": "init_pool",
+        "index": 0,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "init",
+              "signer"
+            ]
+          },
+          {
+            "name": "creator",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut",
+              "signer"
+            ]
+          }
+        ],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      },
+      {
+        "name": "add_liquidity",
+        "index": 1,
+        "parameters": [
+          {
+            "name": "pool",
+            "param_type": "Pool",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_token_a",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "pool_token_a_vault",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "mut"
+            ]
+          },
+          {
+            "name": "user_authority",
+            "param_type": "Account",
+            "is_account": true,
+            "attributes": [
+              "signer"
+            ]
+          },
+          {
+            "name": "amount_a",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          },
+          {
+            "name": "amount_b",
+            "param_type": "u64",
+            "is_account": false,
+            "attributes": []
+          }
+        ],
+        "return_type": null,
+        "is_public": true,
+        "bytecode_offset": 0
+      }
+    ],
+    "fields": [],
+    "version": "1.0"
+  },
+  "version": "1.0",
+  "metadata": {}
+}
