@@ -55,3 +55,4 @@ test-ledger*/
 /.reports
 /.localnet-escrow-2026-ledger-probe
 /.localnet-escrow-2026-ledger
+/.localnet-validator-ledger

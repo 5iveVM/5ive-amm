@@ -145,9 +145,24 @@ If none are set, on-chain commands fail fast with a program ID setup error.
 # On-chain manager flow
 5ive namespace register @acme --manager <MANAGER_SCRIPT_ACCOUNT>
 5ive namespace bind @acme/payments --script <SCRIPT_ACCOUNT_PUBKEY> --manager <MANAGER_SCRIPT_ACCOUNT>
+5ive namespace set-price '$' 10000000000 --manager <MANAGER_SCRIPT_ACCOUNT>
+5ive namespace get-price '$' --manager <MANAGER_SCRIPT_ACCOUNT>
 
 # Local lockfile-only flow (no manager RPC)
 5ive namespace resolve @acme/payments --local
+```
+
+Namespace manager default symbol prices:
+- `@`: 1 SOL (`1_000_000_000` lamports)
+- `!`: 2 SOL (`2_000_000_000` lamports)
+- `#`: 1.5 SOL (`1_500_000_000` lamports)
+- `$`: 10 SOL (`10_000_000_000` lamports)
+- `%`: 1.25 SOL (`1_250_000_000` lamports)
+
+Migration note: existing deployed namespace manager instances keep their current stored values. To migrate `$` pricing, run:
+
+```bash
+5ive namespace set-price '$' 10000000000 --manager <MANAGER_SCRIPT_ACCOUNT>
 ```
 
 ### Config layering and explicit RPC overrides

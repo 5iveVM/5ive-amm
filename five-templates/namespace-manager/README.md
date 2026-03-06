@@ -21,6 +21,13 @@ Fee enforcement:
 - It debits `owner.lamports` and credits `treasury_account.lamports`.
 - `treasury_account.key` must match configured `cfg.treasury`.
 - `cfg.treasury` should be set to the VM state authority account (same destination used for VM fee flow).
+- Supported symbol defaults at init:
+  - `@`: `1_000_000_000` lamports (1 SOL)
+  - `!`: `2_000_000_000` lamports (2 SOL)
+  - `#`: `1_500_000_000` lamports (1.5 SOL)
+  - `$`: `10_000_000_000` lamports (10 SOL)
+  - `%`: `1_250_000_000` lamports (1.25 SOL)
+- Existing deployments keep their stored values; run admin `set_symbol_price` to migrate `$` to `10_000_000_000` lamports.
 
 PDA-backed state accounts:
 

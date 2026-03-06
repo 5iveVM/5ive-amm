@@ -1590,12 +1590,46 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
 
     const SYMBOL: &str = "@";
     const DOMAIN: &str = "5ive-tech";
+    const DOLLAR_SYMBOL: &str = "$";
+    const DOLLAR_DOMAIN_DEFAULT: &str = "5ive-dollar-default";
+    const DOLLAR_DOMAIN_UPDATED: &str = "5ive-dollar-updated";
+    const INVALID_SYMBOL: &str = "^";
+    const INVALID_DOMAIN: &str = "5ive-invalid";
     const SUBPROGRAM: &str = "program";
-    const REGISTER_PRICE_LAMPORTS: u64 = 1_000_000_000;
+    const REGISTER_AT_PRICE_LAMPORTS: u64 = 1_000_000_000;
+    const REGISTER_DOLLAR_DEFAULT_PRICE_LAMPORTS: u64 = 10_000_000_000;
+    const REGISTER_DOLLAR_UPDATED_PRICE_LAMPORTS: u64 = 3_000_000_000;
 
     let cfg_pda = Pubkey::find_program_address(&[b"5ns_config"], &program_id).0;
     let tld_pda = Pubkey::find_program_address(
         &[b"5ns_tld", SYMBOL.as_bytes(), DOMAIN.as_bytes()],
+        &program_id,
+    )
+    .0;
+    let tld_dollar_default_pda = Pubkey::find_program_address(
+        &[
+            b"5ns_tld",
+            DOLLAR_SYMBOL.as_bytes(),
+            DOLLAR_DOMAIN_DEFAULT.as_bytes(),
+        ],
+        &program_id,
+    )
+    .0;
+    let tld_dollar_updated_pda = Pubkey::find_program_address(
+        &[
+            b"5ns_tld",
+            DOLLAR_SYMBOL.as_bytes(),
+            DOLLAR_DOMAIN_UPDATED.as_bytes(),
+        ],
+        &program_id,
+    )
+    .0;
+    let tld_invalid_symbol_pda = Pubkey::find_program_address(
+        &[
+            b"5ns_tld",
+            INVALID_SYMBOL.as_bytes(),
+            INVALID_DOMAIN.as_bytes(),
+        ],
         &program_id,
     )
     .0;
@@ -1634,7 +1668,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             pubkey: owner_pubkey,
             signer: Some(owner_signer),
             owner: system_program::id(),
-            lamports: 4_000_000_000,
+            lamports: 30_000_000_000,
             data: vec![],
             is_signer: true,
             is_writable: true,
@@ -1647,7 +1681,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             pubkey: attacker_pubkey,
             signer: Some(attacker_signer),
             owner: system_program::id(),
-            lamports: 4_000_000_000,
+            lamports: 10_000_000_000,
             data: vec![],
             is_signer: true,
             is_writable: true,
@@ -1724,6 +1758,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     for (name, pubkey) in [
         ("ns_cfg", cfg_pda),
         ("ns_tld", tld_pda),
+        ("ns_tld_dollar_default", tld_dollar_default_pda),
+        ("ns_tld_dollar_updated", tld_dollar_updated_pda),
+        ("ns_tld_invalid", tld_invalid_symbol_pda),
         ("ns_binding", binding_pda),
         ("ns_binding_bad", bad_binding_pda),
     ] {
@@ -1917,13 +1954,319 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     let tld_rent_debit = tld_after.saturating_sub(tld_before);
     assert_eq!(
         owner_before.saturating_sub(owner_after),
-        REGISTER_PRICE_LAMPORTS + tld_rent_debit,
+        REGISTER_AT_PRICE_LAMPORTS + tld_rent_debit,
         "register_tld should debit owner by @-symbol price plus @init rent"
     );
     assert_eq!(
         treasury_after.saturating_sub(treasury_before),
-        REGISTER_PRICE_LAMPORTS,
+        REGISTER_AT_PRICE_LAMPORTS,
         "register_tld should credit treasury by @-symbol price"
+    );
+
+    let owner_before_dollar_default = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch before $ register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_before_dollar_default = ctx
+        .banks_client
+        .get_account(accounts["ns_tld_dollar_default"].pubkey)
+        .await
+        .expect("$ tld fetch before register")
+        .map(|a| a.lamports)
+        .unwrap_or(0);
+    let treasury_before_dollar_default = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch before $ register")
+        .expect("treasury account must exist")
+        .lamports;
+
+    let register_dollar_default_step = StepFixture {
+        name: "namespace_register_tld_dollar_default".to_string(),
+        function_index: 3,
+        extras: vec![
+            "ns_cfg".to_string(),
+            "ns_tld_dollar_default".to_string(),
+            "owner".to_string(),
+            "treasury".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: DOLLAR_SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: DOLLAR_DOMAIN_DEFAULT.to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_111 },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let register_dollar_default_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &register_dollar_default_step,
+        build_payload(&accounts, &register_dollar_default_step),
+    );
+    let register_dollar_default = simulate_and_process(
+        &mut ctx,
+        vec![register_dollar_default_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        register_dollar_default.success,
+        "register_tld ($ default) failed: {:?}",
+        register_dollar_default.error
+    );
+
+    let owner_after_dollar_default = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch after $ default register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_after_dollar_default = ctx
+        .banks_client
+        .get_account(accounts["ns_tld_dollar_default"].pubkey)
+        .await
+        .expect("$ default tld fetch after register")
+        .expect("$ default tld account must exist")
+        .lamports;
+    let treasury_after_dollar_default = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch after $ default register")
+        .expect("treasury account must exist")
+        .lamports;
+    let tld_dollar_default_rent_debit =
+        tld_after_dollar_default.saturating_sub(tld_before_dollar_default);
+    assert_eq!(
+        owner_before_dollar_default.saturating_sub(owner_after_dollar_default),
+        REGISTER_DOLLAR_DEFAULT_PRICE_LAMPORTS + tld_dollar_default_rent_debit,
+        "register_tld should debit owner by $ default symbol price plus @init rent"
+    );
+    assert_eq!(
+        treasury_after_dollar_default.saturating_sub(treasury_before_dollar_default),
+        REGISTER_DOLLAR_DEFAULT_PRICE_LAMPORTS,
+        "register_tld should credit treasury by $ default symbol price"
+    );
+
+    let set_price_admin_step = StepFixture {
+        name: "namespace_set_symbol_price_admin".to_string(),
+        function_index: 1,
+        extras: vec!["ns_cfg".to_string(), "owner".to_string()],
+        params: vec![
+            ParamFixture::String {
+                value: DOLLAR_SYMBOL.to_string(),
+            },
+            ParamFixture::U64 {
+                value: REGISTER_DOLLAR_UPDATED_PRICE_LAMPORTS,
+            },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let set_price_admin_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &set_price_admin_step,
+        build_payload(&accounts, &set_price_admin_step),
+    );
+    let set_price_admin = simulate_and_process(
+        &mut ctx,
+        vec![set_price_admin_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        set_price_admin.success,
+        "set_symbol_price (admin) failed: {:?}",
+        set_price_admin.error
+    );
+
+    let owner_before_dollar_updated = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch before $ updated register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_before_dollar_updated = ctx
+        .banks_client
+        .get_account(accounts["ns_tld_dollar_updated"].pubkey)
+        .await
+        .expect("$ updated tld fetch before register")
+        .map(|a| a.lamports)
+        .unwrap_or(0);
+    let treasury_before_dollar_updated = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch before $ updated register")
+        .expect("treasury account must exist")
+        .lamports;
+
+    let register_dollar_updated_step = StepFixture {
+        name: "namespace_register_tld_dollar_updated".to_string(),
+        function_index: 3,
+        extras: vec![
+            "ns_cfg".to_string(),
+            "ns_tld_dollar_updated".to_string(),
+            "owner".to_string(),
+            "treasury".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: DOLLAR_SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: DOLLAR_DOMAIN_UPDATED.to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_222 },
+        ],
+        expected: ExpectedFixture::Success,
+    };
+    let register_dollar_updated_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &register_dollar_updated_step,
+        build_payload(&accounts, &register_dollar_updated_step),
+    );
+    let register_dollar_updated = simulate_and_process(
+        &mut ctx,
+        vec![register_dollar_updated_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        register_dollar_updated.success,
+        "register_tld ($ updated) failed: {:?}",
+        register_dollar_updated.error
+    );
+
+    let owner_after_dollar_updated = ctx
+        .banks_client
+        .get_account(owner_pubkey)
+        .await
+        .expect("owner fetch after $ updated register")
+        .expect("owner account must exist")
+        .lamports;
+    let tld_after_dollar_updated = ctx
+        .banks_client
+        .get_account(accounts["ns_tld_dollar_updated"].pubkey)
+        .await
+        .expect("$ updated tld fetch after register")
+        .expect("$ updated tld account must exist")
+        .lamports;
+    let treasury_after_dollar_updated = ctx
+        .banks_client
+        .get_account(treasury_pubkey)
+        .await
+        .expect("treasury fetch after $ updated register")
+        .expect("treasury account must exist")
+        .lamports;
+    let tld_dollar_updated_rent_debit =
+        tld_after_dollar_updated.saturating_sub(tld_before_dollar_updated);
+    assert_eq!(
+        owner_before_dollar_updated.saturating_sub(owner_after_dollar_updated),
+        REGISTER_DOLLAR_UPDATED_PRICE_LAMPORTS + tld_dollar_updated_rent_debit,
+        "register_tld should debit owner by updated $ symbol price plus @init rent"
+    );
+    assert_eq!(
+        treasury_after_dollar_updated.saturating_sub(treasury_before_dollar_updated),
+        REGISTER_DOLLAR_UPDATED_PRICE_LAMPORTS,
+        "register_tld should credit treasury by updated $ symbol price"
+    );
+
+    let set_price_non_admin_step = StepFixture {
+        name: "namespace_set_symbol_price_non_admin".to_string(),
+        function_index: 1,
+        extras: vec!["ns_cfg".to_string(), "attacker".to_string()],
+        params: vec![
+            ParamFixture::String {
+                value: DOLLAR_SYMBOL.to_string(),
+            },
+            ParamFixture::U64 {
+                value: 4_000_000_000,
+            },
+        ],
+        expected: ExpectedFixture::Error,
+    };
+    let set_price_non_admin_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &set_price_non_admin_step,
+        build_payload(&accounts, &set_price_non_admin_step),
+    );
+    let set_price_non_admin = simulate_and_process(
+        &mut ctx,
+        vec![set_price_non_admin_ix],
+        collect_signers(&accounts, &["attacker"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        !set_price_non_admin.success,
+        "set_symbol_price by non-admin should fail, got success"
+    );
+
+    let register_invalid_symbol_step = StepFixture {
+        name: "namespace_register_tld_invalid_symbol".to_string(),
+        function_index: 3,
+        extras: vec![
+            "ns_cfg".to_string(),
+            "ns_tld_invalid".to_string(),
+            "owner".to_string(),
+            "treasury".to_string(),
+            "system_program".to_string(),
+        ],
+        params: vec![
+            ParamFixture::String {
+                value: INVALID_SYMBOL.to_string(),
+            },
+            ParamFixture::String {
+                value: INVALID_DOMAIN.to_string(),
+            },
+            ParamFixture::U64 { value: 1_700_000_333 },
+        ],
+        expected: ExpectedFixture::Error,
+    };
+    let register_invalid_symbol_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "namespace_script",
+        "vm_state",
+        &register_invalid_symbol_step,
+        build_payload(&accounts, &register_invalid_symbol_step),
+    );
+    let register_invalid_symbol = simulate_and_process(
+        &mut ctx,
+        vec![register_invalid_symbol_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        !register_invalid_symbol.success,
+        "register_tld with unsupported symbol should fail, got success"
     );
 
     let bind_step = StepFixture {
@@ -2062,21 +2405,31 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
         .units_consumed
         .saturating_add(init.units_consumed)
         .saturating_add(register.units_consumed)
+        .saturating_add(register_dollar_default.units_consumed)
+        .saturating_add(set_price_admin.units_consumed)
+        .saturating_add(register_dollar_updated.units_consumed)
+        .saturating_add(set_price_non_admin.units_consumed)
+        .saturating_add(register_invalid_symbol.units_consumed)
         .saturating_add(bind.units_consumed)
         .saturating_add(resolve.units_consumed)
         .saturating_add(non_owner_bind.units_consumed);
     println!(
-        "BPF_CU namespace_manager deploy={} init={} register={} bind={} resolve={} bind_non_owner={} total={}",
+        "BPF_CU namespace_manager deploy={} init={} register_at={} register_dollar_default={} set_price_admin={} register_dollar_updated={} set_price_non_admin={} register_invalid_symbol={} bind={} resolve={} bind_non_owner={} total={}",
         deploy.units_consumed,
         init.units_consumed,
         register.units_consumed,
+        register_dollar_default.units_consumed,
+        set_price_admin.units_consumed,
+        register_dollar_updated.units_consumed,
+        set_price_non_admin.units_consumed,
+        register_invalid_symbol.units_consumed,
         bind.units_consumed,
         resolve.units_consumed,
         non_owner_bind.units_consumed,
         total
     );
     assert!(
-        total < 700_000,
+        total < 1_600_000,
         "namespace manager flow consumed too many CU: {}",
         total
     );

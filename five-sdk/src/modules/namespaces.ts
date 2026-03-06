@@ -9,6 +9,7 @@ const SYMBOLS = new Set(["!", "@", "#", "$", "%"]);
 const NAMESPACE_CONFIG_SEED = "5ns_config";
 const NAMESPACE_TLD_SEED = "5ns_tld";
 const NAMESPACE_BINDING_SEED = "5ns_binding";
+const LAMPORTS_PER_SOL = 1_000_000_000;
 
 export function canonicalizeScopedNamespace(input: string): ScopedNamespace {
   const value = input.trim();
@@ -65,6 +66,22 @@ export function resolveNamespaceFromLockfile(
 
 function asBuffer(value: string): Buffer {
   return Buffer.from(value, "utf8");
+}
+
+function validateSymbol(symbol: string): ScopedNamespace["symbol"] {
+  if (!SYMBOLS.has(symbol)) {
+    throw new Error("namespace symbol must be one of ! @ # $ %");
+  }
+  return symbol as ScopedNamespace["symbol"];
+}
+
+async function deriveNamespaceConfigAccount(fiveVMProgramId: string): Promise<string> {
+  const { PDAUtils } = await import("../crypto/index.js");
+  const cfg = await PDAUtils.findProgramAddress(
+    [asBuffer(NAMESPACE_CONFIG_SEED)],
+    fiveVMProgramId,
+  );
+  return cfg.address;
 }
 
 export interface NamespaceDerivedAccounts {
@@ -281,5 +298,92 @@ export async function resolveNamespaceOnChain(
     transactionId: result.transactionId,
     resolvedScript,
     bindingAddress: addresses.binding!,
+  };
+}
+
+export async function setNamespaceSymbolPriceOnChain(
+  symbol: string,
+  priceLamports: number,
+  options: NamespaceOnChainOptions,
+): Promise<{ transactionId?: string; symbol: ScopedNamespace["symbol"]; priceLamports: number }> {
+  const { ProgramIdResolver } = await import("../config/ProgramIdResolver.js");
+  const { executeOnSolana } = await import("./execute.js");
+
+  const validatedSymbol = validateSymbol(symbol);
+  if (!Number.isFinite(priceLamports) || priceLamports <= 0 || !Number.isInteger(priceLamports)) {
+    throw new Error("priceLamports must be a positive integer");
+  }
+
+  const vmProgramId = ProgramIdResolver.resolve(options.fiveVMProgramId);
+  const configAddress = await deriveNamespaceConfigAccount(vmProgramId);
+  const admin = options.signerKeypair.publicKey.toBase58();
+
+  const result = await executeOnSolana(
+    options.managerScriptAccount,
+    options.connection,
+    options.signerKeypair,
+    "set_symbol_price",
+    [configAddress, admin, validatedSymbol, priceLamports],
+    [configAddress, admin],
+    {
+      debug: options.debug,
+      fiveVMProgramId: vmProgramId,
+      computeUnitLimit: 300000,
+    },
+  );
+
+  if (!result.success) {
+    throw new Error(result.error || "set_symbol_price failed");
+  }
+
+  return {
+    transactionId: result.transactionId,
+    symbol: validatedSymbol,
+    priceLamports,
+  };
+}
+
+export async function getNamespaceSymbolPriceOnChain(
+  symbol: string,
+  options: NamespaceOnChainOptions,
+): Promise<{ transactionId?: string; symbol: ScopedNamespace["symbol"]; priceLamports: number; priceSol: number }> {
+  const { ProgramIdResolver } = await import("../config/ProgramIdResolver.js");
+  const { executeOnSolana } = await import("./execute.js");
+
+  const validatedSymbol = validateSymbol(symbol);
+  const vmProgramId = ProgramIdResolver.resolve(options.fiveVMProgramId);
+  const configAddress = await deriveNamespaceConfigAccount(vmProgramId);
+
+  const result = await executeOnSolana(
+    options.managerScriptAccount,
+    options.connection,
+    options.signerKeypair,
+    "get_symbol_price",
+    [configAddress, validatedSymbol],
+    [configAddress],
+    {
+      debug: options.debug,
+      fiveVMProgramId: vmProgramId,
+      computeUnitLimit: 300000,
+    },
+  );
+
+  if (!result.success) {
+    throw new Error(result.error || "get_symbol_price failed");
+  }
+
+  const priceLamportsRaw = typeof result.result === "number"
+    ? result.result
+    : Number(result.result);
+  if (!Number.isFinite(priceLamportsRaw) || priceLamportsRaw < 0) {
+    throw new Error(`invalid get_symbol_price result: ${String(result.result)}`);
+  }
+  const priceLamports = Math.trunc(priceLamportsRaw);
+
+  return {
+    transactionId: result.transactionId,
+    symbol: validatedSymbol,
+    priceLamports,
+    priceSol: priceLamports / LAMPORTS_PER_SOL,
   };
 }

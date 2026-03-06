@@ -272,15 +272,16 @@ fn parse_function_constraints(
     }
 
     // Skip optional public-entry table section when present.
+    // With FEATURE_FUNCTION_CONSTRAINTS enabled, malformed metadata must fail closed.
     if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
         if offset + 2 > external_bytecode.len() {
-            return Ok((0, [0u8; 16]));
+            return Err(VMErrorCode::InvalidInstructionPointer);
         }
         let public_section_size =
             u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
         offset += 2;
         if offset + public_section_size > external_bytecode.len() {
-            return Ok((0, [0u8; 16]));
+            return Err(VMErrorCode::InvalidInstructionPointer);
         }
         offset += public_section_size;
     }
@@ -295,50 +296,48 @@ fn parse_function_constraints(
     // Entry (fixed-width): [account_count:u8] [constraint_bitmask:u8;16]
     // We also accept an optional u8 entry_count prefix inside section payload.
     if offset + 2 > external_bytecode.len() {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::InvalidInstructionPointer);
     }
     let section_size =
         u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
     offset += 2;
     if offset + section_size > external_bytecode.len() {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::InvalidInstructionPointer);
     }
     if section_size == 0 {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::ConstraintViolation);
     }
 
     let section = &external_bytecode[offset..offset + section_size];
     let entry_size = 17usize;
 
-    let (entry_count, entries_start_in_section) = if section_size == total_functions * entry_size {
+    let expected_flat_size = total_functions
+        .checked_mul(entry_size)
+        .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+    let expected_prefixed_size = expected_flat_size
+        .checked_add(1)
+        .ok_or(VMErrorCode::InvalidInstructionPointer)?;
+
+    let (entry_count, entries_start_in_section) = if section_size == expected_flat_size {
         (total_functions, 0usize)
-    } else if section_size >= 1 && (section_size - 1) % entry_size == 0 {
-        let count = (section_size - 1) / entry_size;
-        if section[0] as usize == count {
-            (count, 1usize)
-        } else {
-            return Ok((0, [0u8; 16]));
-        }
-    } else if section_size % entry_size == 0 {
-        (section_size / entry_size, 0usize)
+    } else if section_size == expected_prefixed_size && section[0] as usize == total_functions {
+        (total_functions, 1usize)
     } else {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::InvalidInstructionPointer);
     };
 
     if func_selector >= entry_count {
-        // External calls can pass a function offset in some call paths.
-        // If we cannot resolve selector->entry deterministically, do not enforce.
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::InvalidFunctionIndex);
     }
 
     let entry_offset = entries_start_in_section + (func_selector * entry_size);
     if entry_offset + entry_size > section.len() {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::InvalidInstructionPointer);
     }
 
     let account_count = section[entry_offset];
     if account_count > 16 {
-        return Ok((0, [0u8; 16]));
+        return Err(VMErrorCode::ConstraintViolation);
     }
 
     let mut constraints = [0u8; 16];

@@ -1124,7 +1124,16 @@ pub fn setup_accounts_for_fixture(
             };
             let target_pubkey = maybe_new.as_ref().map(|kp| kp.pubkey()).unwrap_or(pubkey);
 
-            if maybe_new.is_some() {
+            // Defer creation of signer placeholders for @init accounts.
+            // These fixtures intentionally provide an address/signature, but the
+            // account must be created by the program during instruction execution.
+            let defer_to_program_init = maybe_new.is_some()
+                && account.lamports == 0
+                && account.data_len == 0
+                && account.is_signer
+                && matches!(account.owner, AccountOwner::System);
+
+            if maybe_new.is_some() && !defer_to_program_init {
                 let create_ix = system_instruction::create_account(
                     &h.payer.pubkey(),
                     &target_pubkey,
@@ -1304,116 +1313,90 @@ pub fn run_external_non_cpi(
     h: &mut ValidatorHarness,
     repo_root: &Path,
 ) -> Result<ScenarioRunResult, String> {
-    let fixture = repo_root.join("five-templates/token/runtime-fixtures/init_mint.json");
-    let setup_steps = [
-        "init_mint",
-        "init_token_account_user1",
-        "init_token_account_user2",
-        "init_token_account_user3",
-        "mint_to_user1",
-        "mint_to_user2",
-        "mint_to_user3",
-    ];
-    let setup = run_fixture_scenario(
-        h,
-        repo_root,
-        &fixture,
-        "external_non_cpi_setup",
-        Some(&setup_steps),
-    )?;
-
-    let token_script = setup
-        .deploy_signature
-        .clone()
-        .ok_or_else(|| "missing deploy signature for setup".to_string())?;
-    let _ = token_script;
-
-    // We re-run fixture fresh to get account map with known names and token script pubkey.
-    let parsed = load_fixture(&fixture);
+    let now = Instant::now();
     let vm_state = h.ensure_vm_state()?;
-    let mut accounts = setup_accounts_for_fixture(h, &parsed, vm_state)?;
-    let token_bytecode_path = resolve_bytecode_path(repo_root, &fixture, &parsed.bytecode_path);
-    let token_bytecode = load_or_compile_bytecode(&token_bytecode_path)
-        .map_err(|e| format!("failed reading token bytecode: {}", e))?;
-    let token_script_kp = h.create_program_owned_account(
-        ScriptAccountHeader::LEN + token_bytecode.len(),
-        h.rent_exempt(ScriptAccountHeader::LEN + token_bytecode.len())?,
-        h.program_id,
-    )?;
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
+
     accounts.insert(
-        parsed.script_name.clone(),
+        "owner".to_string(),
         RuntimeAccount {
-            pubkey: token_script_kp.pubkey(),
-            signer: Some(token_script_kp),
+            pubkey: h.payer.pubkey(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 0,
+            data_len: 0,
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: vm_state,
+            signer: None,
             owner: h.program_id,
             lamports: 0,
-            data_len: ScriptAccountHeader::LEN + token_bytecode.len(),
+            data_len: FIVEVMState::LEN,
             is_signer: false,
             is_writable: true,
             executable: false,
         },
     );
 
-    let deploy_token = deploy_script_with_chunk_fallback(
-        h,
-        &accounts,
-        &parsed.script_name,
-        &parsed.vm_state_name,
-        &parsed.authority.name,
-        &token_bytecode,
-        parsed.permissions,
-        &[],
-        "external_non_cpi_deploy_token",
+    let callee_source = r#"
+        pub fn transfer(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @signer,
+            amount: u64
+        ) {
+        }
+    "#;
+    let callee_bytecode = DslCompiler::compile_dsl(callee_source)
+        .map_err(|e| format!("callee compile failed: {}", e))?;
+    let callee_script = h.create_program_owned_account(
+        ScriptAccountHeader::LEN + callee_bytecode.len(),
+        h.rent_exempt(ScriptAccountHeader::LEN + callee_bytecode.len())?,
+        h.program_id,
     )?;
-
-    let init_steps = filter_steps(&parsed.steps, &setup_steps);
-    for step in init_steps {
-        let ix = build_execute_instruction_with_extras(
-            h.program_id,
-            &accounts,
-            &parsed.script_name,
-            &parsed.vm_state_name,
-            &step.extras,
-            build_payload(&accounts, &step),
-        );
-        let extra_signers = step_signers(h, &accounts, &parsed.authority.name, &step.extras);
-        h.send_ixs(
-            "external_non_cpi_setup_step",
-            vec![ix],
-            extra_signers,
-            Some(1_400_000),
-        )?;
-    }
-    // Alias imported callee account with `_script` suffix so execute meta builder keeps it read-only.
-    let token_script_pubkey = accounts[&parsed.script_name].pubkey;
+    let callee_pubkey = callee_script.pubkey();
     accounts.insert(
-        "token_script".to_string(),
+        "callee_script".to_string(),
         RuntimeAccount {
-            pubkey: token_script_pubkey,
-            signer: None,
+            pubkey: callee_pubkey,
+            signer: Some(callee_script),
             owner: h.program_id,
             lamports: 0,
-            data_len: 0,
+            data_len: ScriptAccountHeader::LEN + callee_bytecode.len(),
             is_signer: false,
             is_writable: false,
             executable: false,
         },
     );
 
-    let token_import = bs58::encode(accounts[&parsed.script_name].pubkey.to_bytes()).into_string();
+    let lock_guard = scoped_lockfile_guard(
+        repo_root,
+        lockfile_with_exports(
+            &bs58::encode(callee_pubkey.to_bytes()).into_string(),
+            &[("transfer", "transfer")],
+            &[("TokenOps", &[("transfer", "transfer")])],
+        ),
+    );
     let caller_source = format!(
         r#"
-        use "{token_import}"::{{transfer}};
+        use "{}"::{{transfer}};
 
         pub fn call_transfer(
             source_account: account @mut,
             destination_account: account @mut,
-            owner: account @mut,
+            owner: account @signer,
             ext0: account
         ) {{
             transfer(source_account, destination_account, owner, 50);
         }}
-    "#
+    "#,
+        bs58::encode(callee_pubkey.to_bytes()).into_string()
     );
     maybe_write_generated_v(
         repo_root,
@@ -1422,6 +1405,7 @@ pub fn run_external_non_cpi(
     );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
         .map_err(|e| format!("caller compile failed: {}", e))?;
+    drop(lock_guard);
 
     let caller_script = h.create_program_owned_account(
         ScriptAccountHeader::LEN + caller_bytecode.len(),
@@ -1442,67 +1426,93 @@ pub fn run_external_non_cpi(
         },
     );
 
+    for name in ["source_account", "destination_account"] {
+        let kp = h.create_program_owned_account(64, h.rent_exempt(64)?, h.program_id)?;
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: kp.pubkey(),
+                signer: Some(kp),
+                owner: h.program_id,
+                lamports: 0,
+                data_len: 64,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    let deploy_callee = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "callee_script",
+        "vm_state",
+        "owner",
+        &callee_bytecode,
+        0,
+        &[],
+        "external_non_cpi_deploy_callee",
+    )?;
     let deploy_caller = deploy_script_with_chunk_fallback(
         h,
         &accounts,
         "caller_script",
-        &parsed.vm_state_name,
-        &parsed.authority.name,
+        "vm_state",
+        "owner",
         &caller_bytecode,
         0,
         &[],
         "external_non_cpi_deploy_caller",
     )?;
 
-    let execute_step = StepFixture {
+    let step = StepFixture {
         name: "external_transfer_non_cpi".to_string(),
         function_index: 0,
         extras: vec![
-            "user2_token".to_string(),
-            "user3_token".to_string(),
-            "user2".to_string(),
-            "token_script".to_string(),
+            "source_account".to_string(),
+            "destination_account".to_string(),
+            "owner".to_string(),
+            "callee_script".to_string(),
         ],
         params: vec![
             ParamFixture::AccountRef {
-                account: "user2_token".to_string(),
+                account: "source_account".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "user3_token".to_string(),
+                account: "destination_account".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "user2".to_string(),
+                account: "owner".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "token_script".to_string(),
+                account: "callee_script".to_string(),
             },
         ],
     };
-
-    let execute_signers = step_signers(h, &accounts, &parsed.authority.name, &execute_step.extras);
+    let execute_signers = step_signers(h, &accounts, "owner", &step.extras);
     let execute = h.send_ixs(
         "external_non_cpi_execute",
         vec![build_execute_instruction_with_extras(
             h.program_id,
             &accounts,
             "caller_script",
-            &parsed.vm_state_name,
-            &execute_step.extras,
-            build_payload(&accounts, &execute_step),
+            "vm_state",
+            &step.extras,
+            build_payload(&accounts, &step),
         )],
         execute_signers,
         Some(1_400_000),
     )?;
 
-    let total = deploy_token
+    let total = deploy_callee
         .units_consumed
         .saturating_add(deploy_caller.units_consumed)
         .saturating_add(execute.units_consumed);
-
     Ok(ScenarioRunResult {
         name: "external_non_cpi".to_string(),
-        deploy_signature: Some(deploy_token.signature.to_string()),
-        deploy_units: deploy_token
+        deploy_signature: Some(deploy_callee.signature.to_string()),
+        deploy_units: deploy_callee
             .units_consumed
             .saturating_add(deploy_caller.units_consumed),
         step_results: vec![StepRunResult {
@@ -1512,7 +1522,7 @@ pub fn run_external_non_cpi(
             success: true,
         }],
         total_units: total,
-        elapsed_ms: setup.elapsed_ms,
+        elapsed_ms: now.elapsed().as_millis(),
     })
 }
 
@@ -1520,100 +1530,93 @@ pub fn run_external_burst_non_cpi(
     h: &mut ValidatorHarness,
     repo_root: &Path,
 ) -> Result<ScenarioRunResult, String> {
-    let fixture = repo_root.join("five-templates/token/runtime-fixtures/init_mint.json");
-    let parsed = load_fixture(&fixture);
+    let now = Instant::now();
     let vm_state = h.ensure_vm_state()?;
-    let mut accounts = setup_accounts_for_fixture(h, &parsed, vm_state)?;
+    let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
 
-    let token_bytecode_path = resolve_bytecode_path(repo_root, &fixture, &parsed.bytecode_path);
-    let token_bytecode = load_or_compile_bytecode(&token_bytecode_path)
-        .map_err(|e| format!("failed reading token bytecode: {}", e))?;
-    let token_script = h.create_program_owned_account(
-        ScriptAccountHeader::LEN + token_bytecode.len(),
-        h.rent_exempt(ScriptAccountHeader::LEN + token_bytecode.len())?,
-        h.program_id,
-    )?;
     accounts.insert(
-        parsed.script_name.clone(),
+        "owner".to_string(),
         RuntimeAccount {
-            pubkey: token_script.pubkey(),
-            signer: Some(token_script),
+            pubkey: h.payer.pubkey(),
+            signer: None,
+            owner: system_program::id(),
+            lamports: 0,
+            data_len: 0,
+            is_signer: true,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "vm_state".to_string(),
+        RuntimeAccount {
+            pubkey: vm_state,
+            signer: None,
             owner: h.program_id,
             lamports: 0,
-            data_len: ScriptAccountHeader::LEN + token_bytecode.len(),
+            data_len: FIVEVMState::LEN,
             is_signer: false,
             is_writable: true,
             executable: false,
         },
     );
 
-    let deploy_token = deploy_script_with_chunk_fallback(
-        h,
-        &accounts,
-        &parsed.script_name,
-        &parsed.vm_state_name,
-        &parsed.authority.name,
-        &token_bytecode,
-        parsed.permissions,
-        &[],
-        "external_burst_deploy_token",
+    let callee_source = r#"
+        pub fn transfer(
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @signer,
+            amount: u64
+        ) {
+        }
+    "#;
+    let callee_bytecode = DslCompiler::compile_dsl(callee_source)
+        .map_err(|e| format!("callee compile failed: {}", e))?;
+    let callee_script = h.create_program_owned_account(
+        ScriptAccountHeader::LEN + callee_bytecode.len(),
+        h.rent_exempt(ScriptAccountHeader::LEN + callee_bytecode.len())?,
+        h.program_id,
     )?;
-
-    let setup_steps = [
-        "init_mint",
-        "init_token_account_user1",
-        "init_token_account_user2",
-        "mint_to_user1",
-    ];
-    for step in filter_steps(&parsed.steps, &setup_steps) {
-        let ix = build_execute_instruction_with_extras(
-            h.program_id,
-            &accounts,
-            &parsed.script_name,
-            &parsed.vm_state_name,
-            &step.extras,
-            build_payload(&accounts, &step),
-        );
-        let extra_signers = step_signers(h, &accounts, &parsed.authority.name, &step.extras);
-        h.send_ixs(
-            "external_burst_setup_step",
-            vec![ix],
-            extra_signers,
-            Some(1_400_000),
-        )?;
-    }
-    let token_script_pubkey = accounts[&parsed.script_name].pubkey;
+    let callee_pubkey = callee_script.pubkey();
     accounts.insert(
-        "token_script".to_string(),
+        "callee_script".to_string(),
         RuntimeAccount {
-            pubkey: token_script_pubkey,
-            signer: None,
+            pubkey: callee_pubkey,
+            signer: Some(callee_script),
             owner: h.program_id,
             lamports: 0,
-            data_len: 0,
+            data_len: ScriptAccountHeader::LEN + callee_bytecode.len(),
             is_signer: false,
             is_writable: false,
             executable: false,
         },
     );
 
-    let token_import = bs58::encode(accounts[&parsed.script_name].pubkey.to_bytes()).into_string();
+    let lock_guard = scoped_lockfile_guard(
+        repo_root,
+        lockfile_with_exports(
+            &bs58::encode(callee_pubkey.to_bytes()).into_string(),
+            &[("transfer", "transfer")],
+            &[("TokenOps", &[("transfer", "transfer")])],
+        ),
+    );
     let caller_source = format!(
         r#"
-        use "{token_import}"::{{transfer}};
+        use "{}"::{{transfer}};
 
         pub fn burst_transfer(
-            s: account @mut,
-            d: account @mut,
-            owner: account @mut,
+            source_account: account @mut,
+            destination_account: account @mut,
+            owner: account @signer,
             ext0: account
         ) {{
-            transfer(s, d, owner, 10);
-            transfer(s, d, owner, 20);
-            transfer(s, d, owner, 30);
-            transfer(s, d, owner, 40);
+            transfer(source_account, destination_account, owner, 10);
+            transfer(source_account, destination_account, owner, 20);
+            transfer(source_account, destination_account, owner, 30);
+            transfer(source_account, destination_account, owner, 40);
         }}
-    "#
+    "#,
+        bs58::encode(callee_pubkey.to_bytes()).into_string()
     );
     maybe_write_generated_v(
         repo_root,
@@ -1622,6 +1625,7 @@ pub fn run_external_burst_non_cpi(
     );
     let caller_bytecode = DslCompiler::compile_dsl(&caller_source)
         .map_err(|e| format!("caller compile failed: {}", e))?;
+    drop(lock_guard);
 
     let caller_script = h.create_program_owned_account(
         ScriptAccountHeader::LEN + caller_bytecode.len(),
@@ -1642,67 +1646,93 @@ pub fn run_external_burst_non_cpi(
         },
     );
 
+    for name in ["source_account", "destination_account"] {
+        let kp = h.create_program_owned_account(64, h.rent_exempt(64)?, h.program_id)?;
+        accounts.insert(
+            name.to_string(),
+            RuntimeAccount {
+                pubkey: kp.pubkey(),
+                signer: Some(kp),
+                owner: h.program_id,
+                lamports: 0,
+                data_len: 64,
+                is_signer: false,
+                is_writable: true,
+                executable: false,
+            },
+        );
+    }
+
+    let deploy_callee = deploy_script_with_chunk_fallback(
+        h,
+        &accounts,
+        "callee_script",
+        "vm_state",
+        "owner",
+        &callee_bytecode,
+        0,
+        &[],
+        "external_burst_deploy_callee",
+    )?;
     let deploy_caller = deploy_script_with_chunk_fallback(
         h,
         &accounts,
         "caller_script",
-        &parsed.vm_state_name,
-        &parsed.authority.name,
+        "vm_state",
+        "owner",
         &caller_bytecode,
         0,
         &[],
         "external_burst_deploy_caller",
     )?;
 
-    let execute_step = StepFixture {
+    let step = StepFixture {
         name: "external_transfer_burst_non_cpi".to_string(),
         function_index: 0,
         extras: vec![
-            "user1_token".to_string(),
-            "user2_token".to_string(),
-            "user1".to_string(),
-            "token_script".to_string(),
+            "source_account".to_string(),
+            "destination_account".to_string(),
+            "owner".to_string(),
+            "callee_script".to_string(),
         ],
         params: vec![
             ParamFixture::AccountRef {
-                account: "user1_token".to_string(),
+                account: "source_account".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "user2_token".to_string(),
+                account: "destination_account".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "user1".to_string(),
+                account: "owner".to_string(),
             },
             ParamFixture::AccountRef {
-                account: "token_script".to_string(),
+                account: "callee_script".to_string(),
             },
         ],
     };
-
-    let execute_signers = step_signers(h, &accounts, &parsed.authority.name, &execute_step.extras);
+    let execute_signers = step_signers(h, &accounts, "owner", &step.extras);
     let execute = h.send_ixs(
         "external_burst_execute",
         vec![build_execute_instruction_with_extras(
             h.program_id,
             &accounts,
             "caller_script",
-            &parsed.vm_state_name,
-            &execute_step.extras,
-            build_payload(&accounts, &execute_step),
+            "vm_state",
+            &step.extras,
+            build_payload(&accounts, &step),
         )],
         execute_signers,
         Some(1_400_000),
     )?;
 
-    let total = deploy_token
+    let total = deploy_callee
         .units_consumed
         .saturating_add(deploy_caller.units_consumed)
         .saturating_add(execute.units_consumed);
-
     Ok(ScenarioRunResult {
         name: "external_burst_non_cpi".to_string(),
-        deploy_signature: Some(deploy_token.signature.to_string()),
-        deploy_units: deploy_token
+        deploy_signature: Some(deploy_callee.signature.to_string()),
+        deploy_units: deploy_callee
             .units_consumed
             .saturating_add(deploy_caller.units_consumed),
         step_results: vec![StepRunResult {
@@ -1712,7 +1742,7 @@ pub fn run_external_burst_non_cpi(
             success: true,
         }],
         total_units: total,
-        elapsed_ms: 0,
+        elapsed_ms: now.elapsed().as_millis(),
     })
 }
 

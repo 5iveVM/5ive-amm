@@ -225,6 +225,33 @@ export class FiveSDK {
     return Namespaces.resolveNamespaceOnChain(namespaceValue, options);
   }
 
+  static async setNamespaceSymbolPriceOnChain(
+    symbol: string,
+    priceLamports: number,
+    options: {
+      managerScriptAccount: string;
+      connection: any;
+      signerKeypair: any;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) {
+    return Namespaces.setNamespaceSymbolPriceOnChain(symbol, priceLamports, options);
+  }
+
+  static async getNamespaceSymbolPriceOnChain(
+    symbol: string,
+    options: {
+      managerScriptAccount: string;
+      connection: any;
+      signerKeypair: any;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) {
+    return Namespaces.getNamespaceSymbolPriceOnChain(symbol, options);
+  }
+
   // ==================== Script Compilation ====================
 
   static async compile(

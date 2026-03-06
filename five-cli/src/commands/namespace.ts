@@ -10,7 +10,7 @@ import { ConfigManager } from "../config/ConfigManager.js";
 import { VmClusterConfigResolver } from "../config/VmClusterConfigResolver.js";
 import { loadProjectConfig } from "../project/ProjectLoader.js";
 import { section, success as uiSuccess, error as uiError, keyValue } from "../utils/cli-ui.js";
-import { FiveSDK, ProgramIdResolver } from "@5ive-tech/sdk";
+import { FiveSDK } from "@5ive-tech/sdk";
 
 type NamespaceLock = {
   version?: number;
@@ -21,6 +21,33 @@ type NamespaceLock = {
 };
 
 const SYMBOLS = new Set(["!", "@", "#", "$", "%"]);
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+type NamespacePricingSDK = typeof FiveSDK & {
+  setNamespaceSymbolPriceOnChain: (
+    symbol: string,
+    priceLamports: number,
+    options: {
+      managerScriptAccount: string;
+      connection: Connection;
+      signerKeypair: Keypair;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) => Promise<{ transactionId?: string; symbol: string; priceLamports: number }>;
+  getNamespaceSymbolPriceOnChain: (
+    symbol: string,
+    options: {
+      managerScriptAccount: string;
+      connection: Connection;
+      signerKeypair: Keypair;
+      fiveVMProgramId?: string;
+      debug?: boolean;
+    },
+  ) => Promise<{ transactionId?: string; symbol: string; priceLamports: number; priceSol: number }>;
+};
+
+const namespacePricingSDK = FiveSDK as NamespacePricingSDK;
 
 function canonicalizeNamespace(input: string): {
   symbol: string;
@@ -131,19 +158,23 @@ export const namespaceCommand: CommandDefinition = {
     },
   ],
   arguments: [
-    { name: "action", description: "register | bind | resolve", required: true },
-    { name: "namespace", description: "@domain or @domain/subprogram", required: true },
+    { name: "action", description: "register | bind | resolve | set-price | get-price", required: true },
+    { name: "value", description: "namespace or symbol depending on action", required: false },
+    { name: "priceLamports", description: "lamports value for set-price", required: false },
   ],
   examples: [
     { command: "5ive namespace register @5ive-tech", description: "Register top-level namespace in local cache" },
     { command: "5ive namespace bind @5ive-tech/program --script <pubkey>", description: "Bind namespace to script account" },
     { command: "5ive namespace resolve @5ive-tech/program", description: "Resolve namespace from lockfile cache" },
+    { command: "5ive namespace set-price '$' 10000000000 --manager <MANAGER_SCRIPT_ACCOUNT>", description: "Set symbol price in lamports" },
+    { command: "5ive namespace get-price '$' --manager <MANAGER_SCRIPT_ACCOUNT>", description: "Read symbol price from on-chain manager" },
   ],
   handler: async (args: string[], options: any, context: CommandContext): Promise<void> => {
     const action = (args[0] || "").toLowerCase();
-    const nsInput = args[1];
-    if (!action || !nsInput) {
-      throw new Error("usage: five namespace <register|bind|resolve> <namespace>");
+    const valueInput = args[1];
+    const priceInput = args[2];
+    if (!action) {
+      throw new Error("usage: five namespace <register|bind|resolve|set-price|get-price> <value>");
     }
     const projectContext = await loadProjectConfig(options.project, process.cwd());
     const rootDir = projectContext?.rootDir || options.project || process.cwd();
@@ -185,6 +216,75 @@ export const namespaceCommand: CommandDefinition = {
 
     const signerOwner = (await ensureSigner()).publicKey.toBase58();
     const owner = useLocalOnly ? (options.owner || signerOwner) : signerOwner;
+
+    if (action === "set-price" || action === "get-price") {
+      const symbol = (valueInput || "").trim();
+      if (!SYMBOLS.has(symbol)) {
+        throw new Error("symbol must be one of ! @ # $ %");
+      }
+      if (!managerScriptAccount) {
+        throw new Error("--manager <script-account> is required for namespace price actions");
+      }
+
+      if (action === "set-price") {
+        const parsedLamports = Number(priceInput);
+        if (!Number.isFinite(parsedLamports) || !Number.isInteger(parsedLamports) || parsedLamports <= 0) {
+          throw new Error("set-price requires a positive integer lamports value");
+        }
+
+        const updated = await namespacePricingSDK.setNamespaceSymbolPriceOnChain(symbol, parsedLamports, {
+          managerScriptAccount,
+          connection: ensureConnection(),
+          signerKeypair: await ensureSigner(),
+          fiveVMProgramId: vmProgramId,
+          debug: context.options.debug,
+        });
+
+        lock.namespace_manager = {
+          script_account: managerScriptAccount,
+          treasury_account: lock.namespace_manager?.treasury_account,
+          updated_at: new Date().toISOString(),
+        };
+        await writeLockfile(rootDir, lock);
+
+        console.log(uiSuccess(`Updated ${symbol} symbol price on-chain`));
+        console.log(keyValue("Price (lamports)", String(updated.priceLamports)));
+        console.log(keyValue("Price (SOL)", (updated.priceLamports / LAMPORTS_PER_SOL).toString()));
+        if (updated.transactionId) {
+          console.log(keyValue("Transaction", updated.transactionId));
+        }
+        return;
+      }
+
+      const resolved = await namespacePricingSDK.getNamespaceSymbolPriceOnChain(symbol, {
+        managerScriptAccount,
+        connection: ensureConnection(),
+        signerKeypair: await ensureSigner(),
+        fiveVMProgramId: vmProgramId,
+        debug: context.options.debug,
+      });
+
+      lock.namespace_manager = {
+        script_account: managerScriptAccount,
+        treasury_account: lock.namespace_manager?.treasury_account,
+        updated_at: new Date().toISOString(),
+      };
+      await writeLockfile(rootDir, lock);
+
+      console.log(section("Namespace Symbol Price"));
+      console.log(keyValue("Symbol", resolved.symbol));
+      console.log(keyValue("Price (lamports)", String(resolved.priceLamports)));
+      console.log(keyValue("Price (SOL)", resolved.priceSol.toString()));
+      if (resolved.transactionId) {
+        console.log(keyValue("Transaction", resolved.transactionId));
+      }
+      return;
+    }
+
+    const nsInput = valueInput;
+    if (!nsInput) {
+      throw new Error("usage: five namespace <register|bind|resolve> <namespace>");
+    }
 
     if (action === "register") {
       const parsed = canonicalizeNamespace(nsInput);

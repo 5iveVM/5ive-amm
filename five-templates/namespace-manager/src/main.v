@@ -50,7 +50,7 @@ pub init_manager(
     cfg.at_price_lamports = 1_000_000_000;
     cfg.bang_price_lamports = 2_000_000_000;
     cfg.hash_price_lamports = 1_500_000_000;
-    cfg.dollar_price_lamports = 1_250_000_000;
+    cfg.dollar_price_lamports = 10_000_000_000;
     cfg.percent_price_lamports = 1_250_000_000;
     cfg.version_nonce = 0;
 }
@@ -88,7 +88,8 @@ pub register_tld(
     now: u64
 ) {
     require(treasury_account.ctx.key == cfg.treasury);
-    let price: u64 = cfg.at_price_lamports;
+    let price: u64 = get_symbol_price(cfg, symbol);
+    require(price > 0);
     transfer_lamports(owner, treasury_account, price);
 
     tld.symbol = symbol;
