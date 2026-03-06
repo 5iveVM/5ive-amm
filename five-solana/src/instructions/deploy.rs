@@ -33,6 +33,21 @@ fn is_closed_tombstone(data: &[u8]) -> bool {
     data.len() >= CLOSED_MARKER.len() && data[..CLOSED_MARKER.len()] == CLOSED_MARKER
 }
 
+#[inline]
+fn resolve_fee_shard_index(
+    program_id: &Pubkey,
+    fee_vault_account: &AccountInfo,
+    shard_count: u8,
+) -> Result<u8, ProgramError> {
+    for shard_index in 0..shard_count {
+        let (expected_key, _) = crate::common::derive_fee_vault_pda(program_id, shard_index)?;
+        if fee_vault_account.key() == &expected_key {
+            return Ok(shard_index);
+        }
+    }
+    Err(ProgramError::InvalidArgument)
+}
+
 /// Initialize the VM state account
 pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> ProgramResult {
     require_min_accounts(accounts, 2)?;
@@ -329,6 +344,8 @@ fn init_large_program_internal(
     // This closes the fee-bypass path where finalize_script_upload could complete upload
     // without ever entering append_bytecode's completion fee branch.
     if chunk_len == expected_size {
+        let fee_shard_index =
+            resolve_fee_shard_index(program_id, fee_vault_account, state.fee_vault_shard_count())?;
         let final_size = ScriptAccountHeader::LEN + metadata_len + bytecode_size;
         collect_deploy_fee(
             program_id,
@@ -336,7 +353,7 @@ fn init_large_program_internal(
             owner,
             fee_vault_account,
             system_program,
-            0,
+            fee_shard_index,
             final_size,
         )?;
     }
@@ -451,6 +468,13 @@ pub fn append_bytecode(
 
         // Collect deployment fee if configured
         {
+            let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+            let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+            let fee_shard_index = resolve_fee_shard_index(
+                program_id,
+                fee_vault_account,
+                vm_state.fee_vault_shard_count(),
+            )?;
             let final_size = ScriptAccountHeader::LEN + metadata_len + bytecode_len;
             collect_deploy_fee(
                 program_id,
@@ -458,7 +482,7 @@ pub fn append_bytecode(
                 owner,
                 fee_vault_account,
                 system_program,
-                0,
+                fee_shard_index,
                 final_size,
             )?;
         }
@@ -832,6 +856,90 @@ mod tests {
         let admin_key = Pubkey::from([45u8; 32]);
         let (fee_vault_key, _fee_vault_bump) =
             crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
+
+        let bytecode = minimal_valid_bytecode();
+        let expected_size = bytecode.len() as u32;
+
+        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
+        let mut vm_data = [0u8; FIVEVMState::LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(admin_key, 0);
+            vm_state.deploy_fee_lamports = 25;
+        }
+
+        let mut script_lamports = 1_000_000;
+        let mut owner_lamports = 1_000;
+        let mut vm_lamports = 1_000_000;
+        let mut fee_vault_lamports = 100;
+        let mut system_lamports = 1;
+        let mut owner_data = [];
+        let mut fee_vault_data = [];
+        let mut system_data = [];
+        let system_owner = Pubkey::default();
+
+        let script_account = create_account_info(
+            &script_key,
+            false,
+            true,
+            &mut script_lamports,
+            script_data.as_mut_slice(),
+            &program_id,
+        );
+        let owner = create_account_info(
+            &owner_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let vm_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let fee_vault = create_account_info(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program = create_account_info(
+            &system_owner,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_owner,
+        );
+
+        let owner_before = owner.lamports();
+        let vault_before = fee_vault.lamports();
+        let accounts = [script_account, owner, vm_account, fee_vault, system_program];
+
+        assert_eq!(
+            init_large_program(&program_id, &accounts, expected_size, Some(&bytecode)),
+            Ok(())
+        );
+        assert_eq!(accounts[1].lamports(), owner_before - 25);
+        assert_eq!(accounts[3].lamports(), vault_before + 25);
+    }
+
+    #[test]
+    fn init_large_program_full_chunk_collects_deploy_fee_from_nonzero_shard() {
+        let program_id = Pubkey::from([51u8; 32]);
+        let script_key = Pubkey::from([52u8; 32]);
+        let owner_key = Pubkey::from([53u8; 32]);
+        let (vm_key, _vm_bump) = canonical_vm_key(&program_id);
+        let admin_key = Pubkey::from([55u8; 32]);
+        let (fee_vault_key, _fee_vault_bump) =
+            crate::common::derive_fee_vault_pda(&program_id, 1).unwrap();
 
         let bytecode = minimal_valid_bytecode();
         let expected_size = bytecode.len() as u32;
