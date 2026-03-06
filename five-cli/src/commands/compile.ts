@@ -290,7 +290,10 @@ async function compileProject(
     comprehensiveMetrics: Boolean(options.comprehensiveMetrics),
     metricsOutput: options.metricsOutput,
     target: options.target || cfg.target || 'vm',
-    flatNamespace: Boolean(options.flatNamespace)
+    flatNamespace: Boolean(options.flatNamespace),
+    disableRequireBatch:
+      Boolean(options.disableRequireBatch) ||
+      isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH)
   };
 
   const entryPointRel = cfg.entryPoint || 'src/main.v';
@@ -505,6 +508,9 @@ async function compileSingleFile(
     comprehensiveMetrics: Boolean(options.comprehensiveMetrics),
     metricsOutput: options.metricsOutput,
     flatNamespace: Boolean(options.flatNamespace),
+    disableRequireBatch:
+      Boolean(options.disableRequireBatch) ||
+      isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH),
     sourceFile: entryPoint
   };
 
@@ -688,6 +694,18 @@ function parseOptimizationLevel(optimize: any): boolean {
     return false;
   }
   return true;
+}
+
+function isTruthyFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  );
 }
 
 function displayBytecodeAnalysis(analysis: any): void {

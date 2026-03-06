@@ -281,6 +281,10 @@ export class WasmCompilationOptions {
      */
     with_debug_info(enabled: boolean): WasmCompilationOptions;
     /**
+     * Enable or disable REQUIRE_BATCH lowering.
+     */
+    with_disable_require_batch(enabled: boolean): WasmCompilationOptions;
+    /**
      * Enable or disable enhanced error reporting
      */
     with_enhanced_errors(enabled: boolean): WasmCompilationOptions;
@@ -348,6 +352,10 @@ export class WasmCompilationOptions {
      * Enable bytecode compression
      */
     compress_output: boolean;
+    /**
+     * Disable REQUIRE_BATCH lowering in compiler pipeline.
+     */
+    disable_require_batch: boolean;
     /**
      * Enable constraint caching optimization
      */

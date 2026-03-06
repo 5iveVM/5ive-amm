@@ -54,6 +54,8 @@ pub struct CompilationConfig {
     pub include_debug_info: bool,
     /// Enable module namespace qualification (module::function)
     pub enable_module_namespaces: bool,
+    /// Disable REQUIRE_BATCH lowering (benchmark/testing toggle).
+    pub disable_require_batch: bool,
 }
 
 impl CompilationConfig {
@@ -67,6 +69,7 @@ impl CompilationConfig {
             include_debug_info: matches!(mode, CompilationMode::Testing),
 
             enable_module_namespaces: true,
+            disable_require_batch: false,
         }
     }
 
@@ -97,6 +100,12 @@ impl CompilationConfig {
     /// Enable or disable module namespace qualification
     pub fn with_module_namespaces(mut self, enable: bool) -> Self {
         self.enable_module_namespaces = enable;
+        self
+    }
+
+    /// Enable or disable REQUIRE_BATCH lowering.
+    pub fn with_disable_require_batch(mut self, disable: bool) -> Self {
+        self.disable_require_batch = disable;
         self
     }
 

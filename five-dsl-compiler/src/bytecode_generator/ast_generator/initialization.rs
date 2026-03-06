@@ -10,6 +10,16 @@ use sha2::Digest;
 use std::collections::HashMap;
 
 impl ASTGenerator {
+    fn require_batch_enabled_from_env() -> bool {
+        match std::env::var("FIVE_DISABLE_REQUIRE_BATCH")
+            .ok()
+            .map(|v| v.to_ascii_lowercase())
+        {
+            Some(v) if matches!(v.as_str(), "1" | "true" | "yes" | "on") => false,
+            _ => true,
+        }
+    }
+
     /// Internal constructor with configurable v2_preview flag.
     fn new_internal(v2_preview: bool) -> Self {
         Self {
@@ -32,6 +42,7 @@ impl ASTGenerator {
             label_counter: 0,
             interface_registry: HashMap::new(),
             v2_preview,
+            require_batch_enabled: Self::require_batch_enabled_from_env(),
             // Resource tracking initialization
             max_locals_used: 0,
             max_stack_depth_seen: 0,
@@ -100,6 +111,11 @@ impl ASTGenerator {
     /// Set the account system for proper field offset resolution
     pub fn set_account_system(&mut self, account_system: AccountSystem) {
         self.account_system = Some(account_system);
+    }
+
+    /// Enable or disable REQUIRE_BATCH lowering.
+    pub fn set_require_batch_enabled(&mut self, enabled: bool) {
+        self.require_batch_enabled = enabled;
     }
 
     /// Set precomputed variable allocations from ScopeAnalyzer

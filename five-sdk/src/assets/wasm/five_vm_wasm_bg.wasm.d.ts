@@ -116,6 +116,8 @@ export const __wbg_get_wasmcompilationoptions_compress_output: (a: number) => nu
 export const __wbg_set_wasmcompilationoptions_compress_output: (a: number, b: number) => void;
 export const __wbg_get_wasmcompilationoptions_enable_module_namespaces: (a: number) => number;
 export const __wbg_set_wasmcompilationoptions_enable_module_namespaces: (a: number, b: number) => void;
+export const __wbg_get_wasmcompilationoptions_disable_require_batch: (a: number) => number;
+export const __wbg_set_wasmcompilationoptions_disable_require_batch: (a: number, b: number) => void;
 export const wasmcompilationoptions_new: () => number;
 export const wasmcompilationoptions_with_mode: (a: number, b: number, c: number) => number;
 export const wasmcompilationoptions_with_optimization_level: (a: number, b: number, c: number) => number;
@@ -137,6 +139,7 @@ export const wasmcompilationoptions_with_export_format: (a: number, b: number, c
 export const wasmcompilationoptions_with_debug_info: (a: number, b: number) => number;
 export const wasmcompilationoptions_with_compression: (a: number, b: number) => number;
 export const wasmcompilationoptions_with_module_namespaces: (a: number, b: number) => number;
+export const wasmcompilationoptions_with_disable_require_batch: (a: number, b: number) => number;
 export const wasmcompilationoptions_production_optimized: () => number;
 export const wasmcompilationoptions_development_debug: () => number;
 export const wasmcompilationoptions_fast_iteration: () => number;

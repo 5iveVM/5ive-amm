@@ -97,6 +97,8 @@ pub struct ASTGenerator {
     /// V2 preview mode flag for enabling optimizations
     #[allow(dead_code)]
     pub(super) v2_preview: bool,
+    /// Benchmark toggle to disable REQUIRE_BATCH lowering without changing DSL source.
+    pub(super) require_batch_enabled: bool,
 
     /// Resource tracking for V3 header generation
     pub(super) max_locals_used: u8,

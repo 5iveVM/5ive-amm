@@ -26,6 +26,18 @@ let WasmCompilationOptions: any;
 let wasmModuleRef: any | null = null;
 const BUNDLED_STDLIB_PACKAGE = "@5ive/std";
 
+function isTruthyFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
 export class FiveCompilerWasm {
   private compiler: any = null;
   private logger: Logger;
@@ -148,6 +160,9 @@ export class FiveCompilerWasm {
         const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput) || Boolean(options?.metricsFormat);
         const errorFormat = options?.errorFormat || "terminal";
         const comprehensiveMetrics = options?.comprehensiveMetrics || Boolean(options?.metricsOutput);
+        const disableRequireBatch =
+          Boolean(options?.disableRequireBatch) ||
+          isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
 
         const compilationOptions = new WasmCompilationOptions()
           .with_mode(options?.target || "deployment")
@@ -160,6 +175,7 @@ export class FiveCompilerWasm {
           .with_metrics_format(metricsFormat)
           .with_error_format(errorFormat)
           .with_module_namespaces(!Boolean(options?.flatNamespace))
+          .with_disable_require_batch(disableRequireBatch)
           .with_source_file(options?.sourceFile || "input.v");
 
         // Execute compilation
@@ -277,6 +293,9 @@ export class FiveCompilerWasm {
           (options as any).includeMetrics || Boolean((options as any).metricsOutput) || Boolean((options as any).metricsFormat);
         const errorFormat = (options as any).errorFormat || "terminal";
         const comprehensiveMetrics = (options as any).comprehensiveMetrics || Boolean((options as any).metricsOutput);
+        const disableRequireBatch =
+          Boolean((options as any).disableRequireBatch) ||
+          isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
         const compilationOptions = new WasmCompilationOptions()
           .with_mode(options.target || "deployment")
           .with_optimization_level((options as any).optimizationLevel || "production")
@@ -289,6 +308,7 @@ export class FiveCompilerWasm {
           .with_comprehensive_metrics(comprehensiveMetrics)
           .with_metrics_format(metricsFormat)
           .with_error_format(errorFormat)
+          .with_disable_require_batch(disableRequireBatch)
           .with_source_file(options.sourceFile);
 
         // Execute compilation
@@ -1087,6 +1107,9 @@ export class FiveCompilerWasm {
     const includeMetrics = options?.includeMetrics || Boolean(options?.metricsOutput);
     const errorFormat = options?.errorFormat || "terminal";
     const comprehensiveMetrics = options?.comprehensiveMetrics || false;
+    const disableRequireBatch =
+      Boolean(options?.disableRequireBatch) ||
+      isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
 
     return new WasmCompilationOptions()
       .with_mode(options?.target || "deployment")
@@ -1099,6 +1122,7 @@ export class FiveCompilerWasm {
       .with_metrics_format(metricsFormat)
       .with_error_format(errorFormat)
       .with_module_namespaces(!Boolean(options?.flatNamespace))
+      .with_disable_require_batch(disableRequireBatch)
       .with_source_file(entryPoint);
   }
 

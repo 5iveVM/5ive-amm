@@ -2040,6 +2040,8 @@ pub struct WasmCompilationOptions {
     // === Namespace Control ===
     /// Enable module namespace qualification (module::function)
     pub enable_module_namespaces: bool,
+    /// Disable REQUIRE_BATCH lowering in compiler pipeline.
+    pub disable_require_batch: bool,
 }
 
 #[wasm_bindgen]
@@ -2085,6 +2087,7 @@ impl WasmCompilationOptions {
 
             // Namespace Control
             enable_module_namespaces: true,
+            disable_require_batch: false,
         }
     }
 
@@ -2231,6 +2234,13 @@ impl WasmCompilationOptions {
     #[wasm_bindgen]
     pub fn with_module_namespaces(mut self, enabled: bool) -> WasmCompilationOptions {
         self.enable_module_namespaces = enabled;
+        self
+    }
+
+    /// Enable or disable REQUIRE_BATCH lowering.
+    #[wasm_bindgen]
+    pub fn with_disable_require_batch(mut self, enabled: bool) -> WasmCompilationOptions {
+        self.disable_require_batch = enabled;
         self
     }
 
@@ -2749,6 +2759,7 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces,
             include_debug_info: options.include_debug_info,
+            disable_require_batch: options.disable_require_batch,
         };
 
         let metrics_format = if options.metrics_format.is_empty() {
@@ -2930,6 +2941,7 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces,
             include_debug_info: options.include_debug_info,
+            disable_require_batch: options.disable_require_batch,
         };
 
         // Use the new method that returns FiveFile (Bytecode + ABI)
@@ -3059,6 +3071,7 @@ impl WasmFiveCompiler {
             enable_constraint_cache: options.enable_constraint_cache,
             enable_module_namespaces: options.enable_module_namespaces, // Pass explicitly, though `with_module_namespaces` below overrides
             include_debug_info: options.include_debug_info,
+            disable_require_batch: options.disable_require_batch,
         };
         // Ensure module namespaces is propagated
         let config = config.with_module_namespaces(options.enable_module_namespaces);
@@ -3590,6 +3603,7 @@ impl WasmFiveCompiler {
                     enable_constraint_cache: options.enable_constraint_cache,
                     enable_module_namespaces: options.enable_module_namespaces,
                     include_debug_info: options.include_debug_info,
+                    disable_require_batch: options.disable_require_batch,
                 };
 
                 // Generate Bytecode

@@ -121,6 +121,10 @@ impl ASTGenerator {
         statements: &[AstNode],
         index: usize,
     ) -> Result<Option<usize>, VMError> {
+        if !self.require_batch_enabled {
+            return Ok(None);
+        }
+
         let AstNode::RequireStatement { .. } = &statements[index] else {
             return Ok(None);
         };
@@ -319,6 +323,36 @@ impl ASTGenerator {
                 return self.match_bool_field_access(operand);
             }
         }
+
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
+            if args.len() == 1 {
+                if method == "eq" && self.is_literal_false(&args[0]) {
+                    return self.match_bool_field_access(object);
+                }
+                if method == "ne" && self.is_literal_true(&args[0]) {
+                    return self.match_bool_field_access(object);
+                }
+            }
+        }
+
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
+            if operator == "==" && self.is_literal_false(right) {
+                return self.match_bool_field_access(left);
+            }
+            if operator == "!=" && self.is_literal_true(right) {
+                return self.match_bool_field_access(left);
+            }
+        }
         None
     }
 
@@ -349,6 +383,12 @@ impl ASTGenerator {
         } = condition
         {
             if operator == ">" {
+                let param_idx = self.match_parameter(left)?;
+                if self.is_literal_zero(right) {
+                    return Some(param_idx);
+                }
+            }
+            if operator == "!=" {
                 let param_idx = self.match_parameter(left)?;
                 if self.is_literal_zero(right) {
                     return Some(param_idx);
@@ -385,6 +425,9 @@ impl ASTGenerator {
         } = condition
         {
             if operator == ">" && self.is_literal_zero(right) {
+                return self.match_local_identifier(left);
+            }
+            if operator == "!=" && self.is_literal_zero(right) {
                 return self.match_local_identifier(left);
             }
             if operator == ">=" && self.is_literal_one(right) {
@@ -575,6 +618,20 @@ impl ASTGenerator {
 
     /// Check if node is literal 1
     fn is_literal_one(&self, node: &AstNode) -> bool {
+        if let AstNode::Literal(value) = node {
+            return value.as_u64() == Some(1);
+        }
+        false
+    }
+
+    fn is_literal_false(&self, node: &AstNode) -> bool {
+        if let AstNode::Literal(value) = node {
+            return value.as_u64() == Some(0);
+        }
+        false
+    }
+
+    fn is_literal_true(&self, node: &AstNode) -> bool {
         if let AstNode::Literal(value) = node {
             return value.as_u64() == Some(1);
         }
@@ -969,19 +1026,13 @@ impl ASTGenerator {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
-
-                    // Check if this is a pubkey field - owner, mint, delegate, authority, etc.
-                    let pubkey_fields =
-                        ["owner", "mint", "delegate", "authority", "freeze_authority"];
-                    if pubkey_fields.contains(&field.as_str()) {
-                        if let Ok(offset) =
-                            self.calculate_account_field_offset(account_type, field, account_name)
-                        {
-                            let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                                field_info.offset
-                            );
-                            return Some((acc_idx, offset));
-                        }
+                    if let Ok(offset) =
+                        self.calculate_account_field_offset(account_type, field, account_name)
+                    {
+                        let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
+                            field_info.offset
+                        );
+                        return Some((acc_idx, offset));
                     }
                 }
             }
@@ -1000,6 +1051,23 @@ impl ASTGenerator {
                             field_info.offset
                         );
                         return Some(acc_idx);
+                    }
+                }
+
+                if let AstNode::FieldAccess {
+                    object: inner_object,
+                    field: inner_field,
+                } = object.as_ref()
+                {
+                    if inner_field == "ctx" {
+                        if let AstNode::Identifier(account_name) = inner_object.as_ref() {
+                            if let Some(field_info) = self.local_symbol_table.get(account_name) {
+                                let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
+                                    field_info.offset
+                                );
+                                return Some(acc_idx);
+                            }
+                        }
                     }
                 }
             }

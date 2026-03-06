@@ -925,6 +925,14 @@ class WasmCompilationOptions {
         return ret !== 0;
     }
     /**
+     * Disable REQUIRE_BATCH lowering in compiler pipeline.
+     * @returns {boolean}
+     */
+    get disable_require_batch() {
+        const ret = wasm.__wbg_get_wasmcompilationoptions_disable_require_batch(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
      * Enable constraint caching optimization
      * @returns {boolean}
      */
@@ -1024,6 +1032,13 @@ class WasmCompilationOptions {
      */
     set compress_output(arg0) {
         wasm.__wbg_set_wasmcompilationoptions_compress_output(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Disable REQUIRE_BATCH lowering in compiler pipeline.
+     * @param {boolean} arg0
+     */
+    set disable_require_batch(arg0) {
+        wasm.__wbg_set_wasmcompilationoptions_disable_require_batch(this.__wbg_ptr, arg0);
     }
     /**
      * Enable constraint caching optimization
@@ -1321,6 +1336,16 @@ class WasmCompilationOptions {
     with_debug_info(enabled) {
         const ptr = this.__destroy_into_raw();
         const ret = wasm.wasmcompilationoptions_with_debug_info(ptr, enabled);
+        return WasmCompilationOptions.__wrap(ret);
+    }
+    /**
+     * Enable or disable REQUIRE_BATCH lowering.
+     * @param {boolean} enabled
+     * @returns {WasmCompilationOptions}
+     */
+    with_disable_require_batch(enabled) {
+        const ptr = this.__destroy_into_raw();
+        const ret = wasm.wasmcompilationoptions_with_disable_require_batch(ptr, enabled);
         return WasmCompilationOptions.__wrap(ret);
     }
     /**

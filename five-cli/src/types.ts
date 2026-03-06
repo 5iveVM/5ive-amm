@@ -61,6 +61,7 @@ export interface CompilationOptions {
   errorFormat?: "terminal" | "json" | "lsp";
   comprehensiveMetrics?: boolean;
   metricsOutput?: string;
+  disableRequireBatch?: boolean;
 }
 
 export type CompilationTarget = 'vm' | 'solana' | 'debug' | 'test';

@@ -93,6 +93,7 @@ pub struct DslBytecodeGenerator {
     v2_preview: bool,
 
     optimization_level: crate::compiler::OptimizationLevel,
+    require_batch_enabled: bool,
 
     interface_registry: Option<crate::interface_registry::InterfaceRegistry>,
 
@@ -140,6 +141,7 @@ impl DslBytecodeGenerator {
 
             // Default optimization level
             optimization_level: crate::compiler::OptimizationLevel::default(),
+            require_batch_enabled: true,
 
             // Interface registry starts empty
             interface_registry: None,
@@ -181,6 +183,8 @@ impl DslBytecodeGenerator {
             generator.enable_instruction_compression = true;
             generator.v2_preview = true; // Enable v2-preview mode
         }
+        generator.require_batch_enabled = !config.disable_require_batch;
+        generator.include_debug_info = config.include_debug_info;
 
         generator
     }
@@ -199,6 +203,7 @@ impl DslBytecodeGenerator {
 
         // Respect debug info setting from config
         generator.include_debug_info = config.include_debug_info;
+        generator.require_batch_enabled = !config.disable_require_batch;
 
         generator
     }
@@ -445,6 +450,7 @@ impl DslBytecodeGenerator {
 
             let mut scope_analyzer = scope_analyzer::ScopeAnalyzer::new();
             let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
+            ast_generator.set_require_batch_enabled(self.require_batch_enabled);
 
             // Seed interface registry from type-checking pipeline when available.
             if let Some(ref interface_registry) = self.interface_registry {
@@ -480,6 +486,7 @@ impl DslBytecodeGenerator {
         } else {
             // Use direct AST generation for simple scripts
             let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
+            ast_generator.set_require_batch_enabled(self.require_batch_enabled);
 
             // Seed interface registry from type-checking pipeline when available.
             if let Some(ref interface_registry) = self.interface_registry {
@@ -789,6 +796,7 @@ impl DslBytecodeGenerator {
             std::mem::discriminant(node)
         );
         let mut ast_generator = ASTGenerator::with_optimization_level(self.optimization_level);
+        ast_generator.set_require_batch_enabled(self.require_batch_enabled);
 
         // Initialize and configure AccountSystem with account definitions from AST
         let mut account_system = AccountSystem::new();
