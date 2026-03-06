@@ -90,10 +90,7 @@ impl TypeCheckerContext {
         name.rsplit("::").next().unwrap_or(name)
     }
 
-    fn resolve_account_definition_entry(
-        &self,
-        name: &str,
-    ) -> Option<(&String, &Vec<StructField>)> {
+    fn resolve_account_definition_entry(&self, name: &str) -> Option<(&String, &Vec<StructField>)> {
         if let Some(exact) = self.account_definitions.get_key_value(name) {
             return Some(exact);
         }

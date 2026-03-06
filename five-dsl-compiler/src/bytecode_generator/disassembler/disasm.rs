@@ -600,6 +600,134 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::REQUIRE_BATCH => {
+                if pc + 1 >= bytes.len() {
+                    lines.push(format!("{:04X}: REQUIRE_BATCH <truncated>", pc));
+                    break;
+                }
+
+                let count = bytes[pc + 1] as usize;
+                let mut cursor = pc + 2;
+                let mut clauses = Vec::new();
+                let mut malformed = false;
+
+                for _ in 0..count {
+                    if cursor >= bytes.len() {
+                        malformed = true;
+                        break;
+                    }
+
+                    let tag = bytes[cursor];
+                    let Some(clause_size) = opcodes::require_batch_clause_size(tag) else {
+                        clauses.push(format!("UNKNOWN(tag=0x{:02X})", tag));
+                        malformed = true;
+                        break;
+                    };
+                    if cursor + clause_size > bytes.len() {
+                        malformed = true;
+                        break;
+                    }
+
+                    match tag {
+                        opcodes::REQUIRE_BATCH_PARAM_GT_ZERO => {
+                            clauses.push(format!("PARAM_GT_ZERO(param={})", bytes[cursor + 1]));
+                        }
+                        opcodes::REQUIRE_BATCH_LOCAL_GT_ZERO => {
+                            clauses.push(format!("LOCAL_GT_ZERO(local={})", bytes[cursor + 1]));
+                        }
+                        opcodes::REQUIRE_BATCH_FIELD_NOT_BOOL => {
+                            let acc = bytes[cursor + 1];
+                            let off = u32::from_le_bytes([
+                                bytes[cursor + 2],
+                                bytes[cursor + 3],
+                                bytes[cursor + 4],
+                                bytes[cursor + 5],
+                            ]);
+                            clauses.push(format!("FIELD_NOT_BOOL(acc={} off={})", acc, off));
+                        }
+                        opcodes::REQUIRE_BATCH_FIELD_GTE_PARAM => {
+                            let acc = bytes[cursor + 1];
+                            let off = u32::from_le_bytes([
+                                bytes[cursor + 2],
+                                bytes[cursor + 3],
+                                bytes[cursor + 4],
+                                bytes[cursor + 5],
+                            ]);
+                            let param = bytes[cursor + 6];
+                            clauses.push(format!(
+                                "FIELD_GTE_PARAM(acc={} off={} param={})",
+                                acc, off, param
+                            ));
+                        }
+                        opcodes::REQUIRE_BATCH_OWNER_EQ_SIGNER => {
+                            let acc = bytes[cursor + 1];
+                            let signer = bytes[cursor + 2];
+                            let off = u32::from_le_bytes([
+                                bytes[cursor + 3],
+                                bytes[cursor + 4],
+                                bytes[cursor + 5],
+                                bytes[cursor + 6],
+                            ]);
+                            clauses.push(format!(
+                                "OWNER_EQ_SIGNER(acc={} signer={} off={})",
+                                acc, signer, off
+                            ));
+                        }
+                        opcodes::REQUIRE_BATCH_PARAM_LTE_IMM => {
+                            clauses.push(format!(
+                                "PARAM_LTE_IMM(param={} imm={})",
+                                bytes[cursor + 1],
+                                bytes[cursor + 2]
+                            ));
+                        }
+                        opcodes::REQUIRE_BATCH_FIELD_EQ_IMM => {
+                            let acc = bytes[cursor + 1];
+                            let off = u32::from_le_bytes([
+                                bytes[cursor + 2],
+                                bytes[cursor + 3],
+                                bytes[cursor + 4],
+                                bytes[cursor + 5],
+                            ]);
+                            let imm = bytes[cursor + 6];
+                            clauses
+                                .push(format!("FIELD_EQ_IMM(acc={} off={} imm={})", acc, off, imm));
+                        }
+                        opcodes::REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM => {
+                            let acc = bytes[cursor + 1];
+                            let off = u32::from_le_bytes([
+                                bytes[cursor + 2],
+                                bytes[cursor + 3],
+                                bytes[cursor + 4],
+                                bytes[cursor + 5],
+                            ]);
+                            let param = bytes[cursor + 6];
+                            clauses.push(format!(
+                                "PUBKEY_FIELD_EQ_PARAM(acc={} off={} param={})",
+                                acc, off, param
+                            ));
+                        }
+                        _ => {}
+                    }
+
+                    cursor += clause_size;
+                }
+
+                if malformed {
+                    lines.push(format!(
+                        "{:04X}: REQUIRE_BATCH count={} <malformed>",
+                        pc, count
+                    ));
+                    break;
+                }
+
+                lines.push(format!(
+                    "{:04X}: REQUIRE_BATCH count={} [{}]",
+                    pc,
+                    count,
+                    clauses.join(", ")
+                ));
+                pc = cursor;
+            }
             opcodes::LOAD_FIELD => {
                 // acc(u8) + offset(u32)
                 if pc + 5 < bytes.len() {

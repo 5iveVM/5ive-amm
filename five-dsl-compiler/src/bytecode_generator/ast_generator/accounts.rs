@@ -5,7 +5,9 @@ use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::InstructionParameter;
 use crate::ast::{AstNode, TypeNode};
-use crate::bytecode_generator::types::{AccountDecodingSerializer, AccountRegistry, AccountTypeInfo};
+use crate::bytecode_generator::types::{
+    AccountDecodingSerializer, AccountRegistry, AccountTypeInfo,
+};
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
@@ -78,9 +80,10 @@ impl ASTGenerator {
         }
 
         if let Some(account_system) = &self.account_system {
-            if let Some(info) =
-                Self::resolve_registry_account_info(account_system.get_account_registry(), account_type)
-            {
+            if let Some(info) = Self::resolve_registry_account_info(
+                account_system.get_account_registry(),
+                account_type,
+            ) {
                 if let Some(serializer) = info.serializer {
                     return serializer;
                 }
@@ -367,8 +370,8 @@ impl ASTGenerator {
                     println!("AST Generator: generic Account type, assuming 0 data size");
                     0
                 } else {
-                    let account_info =
-                        Self::resolve_registry_account_info(registry, &type_name).ok_or_else(|| {
+                    let account_info = Self::resolve_registry_account_info(registry, &type_name)
+                        .ok_or_else(|| {
                             println!(
                                 "AST Generator: ERROR - Account type '{}' not found in registry",
                                 type_name

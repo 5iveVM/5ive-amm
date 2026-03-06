@@ -35,7 +35,10 @@ pub mod validator;
 
 const LOCALNET_BUILD_CMD: &str = "./scripts/build-five-solana-cluster.sh --cluster localnet";
 
-pub fn validate_target_deploy_program_id_parity(expected: &str, actual: &str) -> Result<(), String> {
+pub fn validate_target_deploy_program_id_parity(
+    expected: &str,
+    actual: &str,
+) -> Result<(), String> {
     if expected == actual {
         return Ok(());
     }
@@ -101,14 +104,17 @@ fn extract_generated_vm_program_id(source: &str) -> Result<String, String> {
     let line = source
         .lines()
         .find(|line| line.trim_start().starts_with(prefix))
-        .ok_or_else(|| "missing VM_PROGRAM_ID in five-solana/src/generated_constants.rs".to_string())?;
+        .ok_or_else(|| {
+            "missing VM_PROGRAM_ID in five-solana/src/generated_constants.rs".to_string()
+        })?;
     let trimmed = line.trim_start();
-    let without_prefix = trimmed
-        .strip_prefix(prefix)
-        .ok_or_else(|| "failed parsing VM_PROGRAM_ID line in five-solana/src/generated_constants.rs".to_string())?;
-    let value = without_prefix
-        .strip_suffix("\";")
-        .ok_or_else(|| "failed parsing VM_PROGRAM_ID terminator in five-solana/src/generated_constants.rs".to_string())?;
+    let without_prefix = trimmed.strip_prefix(prefix).ok_or_else(|| {
+        "failed parsing VM_PROGRAM_ID line in five-solana/src/generated_constants.rs".to_string()
+    })?;
+    let value = without_prefix.strip_suffix("\";").ok_or_else(|| {
+        "failed parsing VM_PROGRAM_ID terminator in five-solana/src/generated_constants.rs"
+            .to_string()
+    })?;
     if value.is_empty() {
         return Err("empty VM_PROGRAM_ID in five-solana/src/generated_constants.rs".to_string());
     }

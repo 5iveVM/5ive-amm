@@ -233,7 +233,13 @@ impl MitoVM {
                 #[cfg(target_os = "solana")]
                 unsafe {
                     // Error-only telemetry: [marker, vm_error, opcode, ip, stack_size]
-                    pinocchio::log::sol_log_64(0xF1, e as u64, opcode as u64, current_ip as u64, ctx.size() as u64);
+                    pinocchio::log::sol_log_64(
+                        0xF1,
+                        e as u64,
+                        opcode as u64,
+                        current_ip as u64,
+                        ctx.size() as u64,
+                    );
                 }
                 return Err(e);
             }

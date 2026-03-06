@@ -216,7 +216,10 @@ fn parse_parameters_rejects_u8_and_u16_overflow() {
 
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&payload_u8, &mut storage);
-    assert_eq!(ctx.parse_parameters().unwrap_err(), VMErrorCode::TypeMismatch);
+    assert_eq!(
+        ctx.parse_parameters().unwrap_err(),
+        VMErrorCode::TypeMismatch
+    );
 
     let mut payload_u16 = Vec::new();
     payload_u16.extend_from_slice(&0u32.to_le_bytes());
@@ -226,7 +229,10 @@ fn parse_parameters_rejects_u8_and_u16_overflow() {
 
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&payload_u16, &mut storage);
-    assert_eq!(ctx.parse_parameters().unwrap_err(), VMErrorCode::TypeMismatch);
+    assert_eq!(
+        ctx.parse_parameters().unwrap_err(),
+        VMErrorCode::TypeMismatch
+    );
 }
 
 #[test]

@@ -172,9 +172,8 @@ async fn opcode_micro_call_external_cold_and_hot_bpf_cu() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(
-                ScriptAccountHeader::LEN + caller_bytecode.len(),
-            ),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,

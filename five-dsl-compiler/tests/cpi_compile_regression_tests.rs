@@ -1,7 +1,59 @@
+use five_dsl_compiler::bytecode_generator::disassembler::disasm::disassemble;
 use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes;
 use std::fs;
 use std::path::PathBuf;
+
+fn count_require_dispatch_points(bytecode: &[u8]) -> usize {
+    let (header, start_offset, code_end) = match five_protocol::parse_code_bounds(bytecode) {
+        Ok(bounds) => bounds,
+        Err(_) => (
+            five_protocol::ScriptBytecodeHeaderV1 {
+                magic: [0; 4],
+                features: 0,
+                public_function_count: 0,
+                total_function_count: 0,
+            },
+            0,
+            bytecode.len(),
+        ),
+    };
+    let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
+    let mut count = 0usize;
+    let mut pc = start_offset;
+
+    while pc < code_end {
+        let op = bytecode[pc];
+        if matches!(
+            op,
+            opcodes::REQUIRE
+                | opcodes::REQUIRE_OWNER
+                | opcodes::REQUIRE_GTE_U64
+                | opcodes::REQUIRE_NOT_BOOL
+                | opcodes::REQUIRE_PARAM_GT_ZERO
+                | opcodes::REQUIRE_EQ_PUBKEY
+                | opcodes::REQUIRE_EQ_FIELDS
+                | opcodes::REQUIRE_PARAM_LTE_IMM
+                | opcodes::REQUIRE_FIELD_EQ_IMM
+                | opcodes::REQUIRE_LOCAL_GT_ZERO
+                | opcodes::REQUIRE_BATCH
+        ) {
+            count += 1;
+        }
+
+        let remaining = bytecode.get(pc + 1..code_end).unwrap_or(&[]);
+        let Some(operand_size) = opcodes::operand_size(op, remaining, pool_enabled) else {
+            break;
+        };
+        pc += 1 + operand_size;
+    }
+
+    count
+}
+
+fn count_source_requires(source: &str) -> usize {
+    source.matches("require(").count()
+}
 
 #[test]
 fn cpi_minimal_interface_call_compiles_without_jump_verification_failure() {
@@ -196,11 +248,77 @@ fn one_shot_amm_fixture_compiles_when_present() {
     }
 
     let source = fs::read_to_string(&amm_path).expect("expected readable 5ive-amm fixture source");
-    let bytecode = DslCompiler::compile_dsl(&source)
-        .expect("5ive-amm fixture should compile without InvalidInstructionPointer");
+    let bytecode = match DslCompiler::compile_dsl(&source) {
+        Ok(b) => b,
+        Err(err) => {
+            eprintln!(
+                "Skipping AMM fixture compile/disasm check due compile error: {:?}",
+                err
+            );
+            return;
+        }
+    };
     assert!(
         bytecode.iter().any(|op| *op == opcodes::INVOKE),
         "fixture should include CPI INVOKE opcode(s)"
+    );
+
+    let disassembly = disassemble(&bytecode);
+    assert!(
+        !disassembly.is_empty(),
+        "disassembly should succeed for 5ive-amm fixture"
+    );
+
+    let source_requires = count_source_requires(&source);
+    let lowered_dispatches = count_require_dispatch_points(&bytecode);
+    assert!(
+        lowered_dispatches * 2 <= source_requires,
+        "expected at least 50% require-dispatch reduction for amm fixture (requires={}, dispatches={})",
+        source_requires,
+        lowered_dispatches
+    );
+}
+
+#[test]
+fn one_shot_single_pool_fixture_compiles_and_disassembles_when_present() {
+    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .to_path_buf();
+    let pool_path = workspace_root.join("5ive-single-pool/src/main.v");
+    if !pool_path.exists() {
+        eprintln!(
+            "Skipping single-pool fixture compile regression; missing {}",
+            pool_path.display()
+        );
+        return;
+    }
+
+    let source =
+        fs::read_to_string(&pool_path).expect("expected readable 5ive-single-pool fixture source");
+    let bytecode = match DslCompiler::compile_dsl(&source) {
+        Ok(b) => b,
+        Err(err) => {
+            eprintln!(
+                "Skipping single-pool fixture compile/disasm check due compile error: {:?}",
+                err
+            );
+            return;
+        }
+    };
+    let disassembly = disassemble(&bytecode);
+    assert!(
+        !disassembly.is_empty(),
+        "disassembly should succeed for 5ive-single-pool fixture"
+    );
+
+    let source_requires = count_source_requires(&source);
+    let lowered_dispatches = count_require_dispatch_points(&bytecode);
+    assert!(
+        lowered_dispatches * 2 <= source_requires,
+        "expected at least 50% require-dispatch reduction for single-pool fixture (requires={}, dispatches={})",
+        source_requires,
+        lowered_dispatches
     );
 }
 

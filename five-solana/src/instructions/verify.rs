@@ -1,6 +1,4 @@
-use pinocchio::{
-    ProgramResult, program_error::ProgramError,
-};
+use pinocchio::{program_error::ProgramError, ProgramResult};
 
 use five_protocol::{
     opcodes::{self, get_opcode_info, operand_size},
@@ -65,8 +63,8 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
         } else {
             &[]
         };
-        let operand_bytes = operand_size(opcode, remaining, pool_enabled)
-            .ok_or(ProgramError::Custom(8130))?;
+        let operand_bytes =
+            operand_size(opcode, remaining, pool_enabled).ok_or(ProgramError::Custom(8130))?;
         let next = offset
             .checked_add(1 + operand_bytes)
             .ok_or(ProgramError::Custom(8130))?;
@@ -76,7 +74,8 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
 
         // CALL param_count(u8) + function_address(u16)
         if opcode == opcodes::CALL {
-            let func_addr = u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]) as usize;
+            let func_addr =
+                u16::from_le_bytes([bytecode[offset + 2], bytecode[offset + 3]]) as usize;
             if func_addr >= code_end {
                 return Err(ProgramError::Custom(8122));
             }

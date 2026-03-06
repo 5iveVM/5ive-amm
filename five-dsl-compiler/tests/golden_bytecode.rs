@@ -251,6 +251,57 @@ fn parse_constant_pool_layout(bytecode: &[u8]) -> (Option<(usize, u16)>, usize) 
     )
 }
 
+fn collect_instruction_opcodes(bytecode: &[u8]) -> Vec<(usize, u8)> {
+    let (header, start_offset, code_end) = match five_protocol::parse_code_bounds(bytecode) {
+        Ok(bounds) => bounds,
+        Err(_) => (
+            five_protocol::ScriptBytecodeHeaderV1 {
+                magic: [0; 4],
+                features: 0,
+                public_function_count: 0,
+                total_function_count: 0,
+            },
+            0,
+            bytecode.len(),
+        ),
+    };
+
+    let mut out = Vec::new();
+    let pool_enabled = (header.features & FEATURE_CONSTANT_POOL) != 0;
+    let mut pc = start_offset;
+    while pc < code_end {
+        let op = bytecode[pc];
+        out.push((pc, op));
+
+        let remaining = bytecode.get(pc + 1..code_end).unwrap_or(&[]);
+        let Some(operand_size) = opcodes::operand_size(op, remaining, pool_enabled) else {
+            break;
+        };
+        pc += 1 + operand_size;
+    }
+    out
+}
+
+fn require_batch_counts(bytecode: &[u8]) -> Vec<u8> {
+    collect_instruction_opcodes(bytecode)
+        .into_iter()
+        .filter_map(|(pc, op)| {
+            if op == opcodes::REQUIRE_BATCH {
+                bytecode.get(pc + 1).copied()
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn count_instruction_opcode(bytecode: &[u8], opcode: u8) -> usize {
+    collect_instruction_opcodes(bytecode)
+        .iter()
+        .filter(|(_, op)| *op == opcode)
+        .count()
+}
+
 /// Golden test: verify left-associative division emits two DIVs in left-associative order for `6 / 2 / 3`
 #[test]
 fn golden_division_left_associative() {
@@ -369,6 +420,76 @@ fn golden_require_emitted() {
             );
         }
     }
+}
+
+#[test]
+fn golden_require_batch_adjacent_locals() {
+    let source = r#"
+        pub run() {
+            let a: u64 = 1;
+            let b: u64 = 2;
+            let c: u64 = 3;
+            require(a > 0);
+            require(b > 0);
+            require(c > 0);
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let batch_counts = require_batch_counts(&bytecode);
+    assert!(
+        batch_counts.iter().any(|count| *count == 3),
+        "expected one REQUIRE_BATCH with count=3, got counts={:?}",
+        batch_counts
+    );
+}
+
+#[test]
+fn golden_require_batch_mixed_supported_and_unsupported() {
+    let source = r#"
+        pub run() {
+            let a: u64 = 1;
+            let b: u64 = 2;
+            let c: u64 = 3;
+            let d: u64 = 4;
+
+            require(a > 0);
+            require(b > 0);
+            require(a == b);
+            require(c > 0);
+            require(d > 0);
+        }
+    "#;
+
+    let bytecode = DslCompiler::compile_dsl(source).expect("compile should succeed");
+    let batch_counts = require_batch_counts(&bytecode);
+    assert_eq!(batch_counts, vec![2, 2], "unexpected batch counts");
+
+    let require_count = count_instruction_opcode(&bytecode, opcodes::REQUIRE);
+    assert!(
+        require_count >= 1,
+        "expected fallback REQUIRE for unsupported condition"
+    );
+}
+
+#[test]
+fn golden_require_batch_splits_at_max_clause_count() {
+    let mut source = String::from("pub run() {\n");
+    for i in 0..18 {
+        source.push_str(&format!("    let v{}: u64 = 1;\n", i));
+    }
+    for i in 0..18 {
+        source.push_str(&format!("    require(v{} > 0);\n", i));
+    }
+    source.push_str("}\n");
+
+    let bytecode = DslCompiler::compile_dsl(&source).expect("compile should succeed");
+    let batch_counts = require_batch_counts(&bytecode);
+    assert_eq!(
+        batch_counts,
+        vec![16, 2],
+        "expected compiler to enforce max batch size splitting"
+    );
 }
 
 /// Golden test: ensure derive_pda without explicit bump emits FIND_PDA and pushes seeds count

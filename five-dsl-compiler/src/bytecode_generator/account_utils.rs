@@ -29,8 +29,8 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
                     return true;
                 }
 
-                 let tail = name.rsplit("::").next().unwrap_or(name);
-                 if registry
+                let tail = name.rsplit("::").next().unwrap_or(name);
+                if registry
                     .account_types
                     .keys()
                     .any(|key| key == name || key.rsplit("::").next() == Some(tail))

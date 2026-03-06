@@ -34,8 +34,7 @@ fn compile_probe(source: &str) -> Vec<u8> {
     let main_path = probe_dir.join("main.v");
     fs::write(&main_path, source).expect("write probe source");
     let config = CompilationConfig::new(CompilationMode::Testing);
-    DslCompiler::compile_with_auto_discovery(&main_path, &config)
-        .expect("compile account probe")
+    DslCompiler::compile_with_auto_discovery(&main_path, &config).expect("compile account probe")
 }
 
 fn execute_account_probe(
@@ -217,14 +216,15 @@ pub run(target: account) -> u64 {
     let lamports_bytecode = compile_probe(lamports_source);
     let owner_bytecode = compile_probe(owner_source);
     let key_bytecode = compile_probe(key_source);
-    let (load_deploy_signature, load_deploy_cu, load_execute_signature, load_execute_cu) = execute_account_probe(
-        &h,
-        "account_load_u64_word",
-        &load_bytecode,
-        target_owner,
-        target_lamports,
-        |_| vec![TypedParam::Account(1)],
-    );
+    let (load_deploy_signature, load_deploy_cu, load_execute_signature, load_execute_cu) =
+        execute_account_probe(
+            &h,
+            "account_load_u64_word",
+            &load_bytecode,
+            target_owner,
+            target_lamports,
+            |_| vec![TypedParam::Account(1)],
+        );
     let (
         lamports_deploy_signature,
         lamports_deploy_cu,
@@ -238,22 +238,24 @@ pub run(target: account) -> u64 {
         target_lamports,
         |_| vec![TypedParam::Account(1)],
     );
-    let (owner_deploy_signature, owner_deploy_cu, owner_execute_signature, owner_execute_cu) = execute_account_probe(
-        &h,
-        "account_ctx_owner",
-        &owner_bytecode,
-        target_owner,
-        target_lamports,
-        |_| vec![TypedParam::Account(1)],
-    );
-    let (key_deploy_signature, key_deploy_cu, key_execute_signature, key_execute_cu) = execute_account_probe(
-        &h,
-        "account_ctx_key",
-        &key_bytecode,
-        target_owner,
-        target_lamports,
-        |_| vec![TypedParam::Account(1)],
-    );
+    let (owner_deploy_signature, owner_deploy_cu, owner_execute_signature, owner_execute_cu) =
+        execute_account_probe(
+            &h,
+            "account_ctx_owner",
+            &owner_bytecode,
+            target_owner,
+            target_lamports,
+            |_| vec![TypedParam::Account(1)],
+        );
+    let (key_deploy_signature, key_deploy_cu, key_execute_signature, key_execute_cu) =
+        execute_account_probe(
+            &h,
+            "account_ctx_key",
+            &key_bytecode,
+            target_owner,
+            target_lamports,
+            |_| vec![TypedParam::Account(1)],
+        );
 
     maybe_write_probe_artifact(&format!(
         concat!(

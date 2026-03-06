@@ -1162,14 +1162,16 @@ mod tests {
         resolve_external_function_target,
     };
     use crate::{
+        context::ExecutionContext,
+        error::VMErrorCode,
         handlers::{
             accounts::handle_accounts, arrays::handle_arrays, constraints::handle_constraints,
             control_flow::handle_control_flow, locals::handle_locals, memory::handle_memory,
             option_result::handle_option_result_ops, stack_ops::handle_stack_ops,
             system::sysvars::handle_sysvar_ops,
         },
-        context::ExecutionContext, error::VMErrorCode, stack::StackStorage, MitoVM,
-        MAX_PARAMETERS,
+        stack::StackStorage,
+        MitoVM, MAX_PARAMETERS,
     };
     use five_dsl_compiler::DslCompiler;
     use five_protocol::ValueRef;
@@ -1627,7 +1629,10 @@ mod tests {
             five_protocol::opcodes::HALT,
         ];
 
-        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+        let function_code = [
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::RETURN,
+        ];
 
         let mut bytecode = vec![b'5', b'I', b'V', b'E'];
         bytecode.extend_from_slice(&0u32.to_le_bytes());
@@ -1652,8 +1657,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
 
         let opcode = ctx.fetch_byte().expect("fetch initial LOAD_PARAM");
         handle_locals(opcode, &mut ctx).expect("first LOAD_PARAM should succeed");
@@ -1690,7 +1697,10 @@ mod tests {
             five_protocol::opcodes::HALT,
         ];
 
-        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+        let function_code = [
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::RETURN,
+        ];
 
         let mut bytecode = vec![b'5', b'I', b'V', b'E'];
         bytecode.extend_from_slice(&0u32.to_le_bytes());
@@ -1715,8 +1725,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
         ctx.push(ValueRef::AccountRef(0, 0))
             .expect("push synthetic callee account arg");
 
@@ -1809,8 +1821,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
         ctx.push(ValueRef::AccountRef(1, 0))
             .expect("push synthetic callee account arg");
 
@@ -1860,7 +1874,10 @@ mod tests {
             five_protocol::opcodes::HALT,
         ];
 
-        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+        let function_code = [
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::RETURN,
+        ];
 
         let mut bytecode = vec![b'5', b'I', b'V', b'E'];
         bytecode.extend_from_slice(&0u32.to_le_bytes());
@@ -1885,8 +1902,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
         ctx.allocate_locals(3).expect("allocate caller locals");
 
         let opcode = ctx.fetch_byte().expect("fetch CALL");
@@ -1957,8 +1976,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
         ctx.allocate_locals(3).expect("allocate caller locals");
 
         let opcode = ctx.fetch_byte().expect("fetch CALL");
@@ -1998,7 +2019,10 @@ mod tests {
             five_protocol::opcodes::HALT,
         ];
 
-        let function_code = [five_protocol::opcodes::GET_CLOCK, five_protocol::opcodes::RETURN];
+        let function_code = [
+            five_protocol::opcodes::GET_CLOCK,
+            five_protocol::opcodes::RETURN,
+        ];
 
         let mut bytecode = vec![b'5', b'I', b'V', b'E'];
         bytecode.extend_from_slice(&0u32.to_le_bytes());
@@ -2023,8 +2047,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set caller param");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set caller param");
         ctx.allocate_locals(3).expect("allocate caller locals");
 
         let opcode = ctx.fetch_byte().expect("fetch CALL");
@@ -2140,8 +2166,10 @@ mod tests {
             0,
         );
         ctx.allocate_params(2).expect("allocate params");
-        ctx.set_parameter(0, ValueRef::U64(0)).expect("set func index");
-        ctx.set_parameter(1, ValueRef::U64(100)).expect("set amount");
+        ctx.set_parameter(0, ValueRef::U64(0))
+            .expect("set func index");
+        ctx.set_parameter(1, ValueRef::U64(100))
+            .expect("set amount");
         ctx.allocate_locals(3).expect("allocate caller locals");
 
         let opcode = ctx.fetch_byte().expect("fetch caller CHECK_WRITABLE");
@@ -2194,7 +2222,9 @@ mod tests {
         crate::handlers::locals::handle_nibble_locals(opcode, &mut ctx)
             .expect("SET_LOCAL_1 should succeed");
         assert_eq!(
-            ctx.get_local(1).expect("local 1 after SET_LOCAL_1").as_u64(),
+            ctx.get_local(1)
+                .expect("local 1 after SET_LOCAL_1")
+                .as_u64(),
             Some(100),
             "SET_LOCAL_1 should preserve the original amount"
         );
@@ -2226,14 +2256,20 @@ mod tests {
                 .try_into()
                 .expect("last_update_slot bytes"),
         );
-        let protocol_fees = u64::from_le_bytes(
-            reserve_data[8..16]
-                .try_into()
-                .expect("protocol_fees bytes"),
+        let protocol_fees =
+            u64::from_le_bytes(reserve_data[8..16].try_into().expect("protocol_fees bytes"));
+        assert_eq!(
+            account_protocol_fees, 100,
+            "account view should reflect STORE_FIELD"
         );
-        assert_eq!(account_protocol_fees, 100, "account view should reflect STORE_FIELD");
-        assert_eq!(last_update_slot, 0, "raw backing slice stays stale in host tests");
-        assert_eq!(protocol_fees, 0, "raw backing slice stays stale in host tests");
+        assert_eq!(
+            last_update_slot, 0,
+            "raw backing slice stays stale in host tests"
+        );
+        assert_eq!(
+            protocol_fees, 0,
+            "raw backing slice stays stale in host tests"
+        );
     }
 
     #[test]
@@ -2295,7 +2331,8 @@ mod tests {
         input.extend_from_slice(&100u64.to_le_bytes());
 
         let mut storage = StackStorage::new();
-        let result = MitoVM::execute_direct(&bytecode, &input, &accounts, &program_id, &mut storage);
+        let result =
+            MitoVM::execute_direct(&bytecode, &input, &accounts, &program_id, &mut storage);
         assert!(result.is_ok(), "reduction execution failed: {:?}", result);
 
         let account_protocol_fees = {
@@ -2303,19 +2340,14 @@ mod tests {
             let data = unsafe { account.borrow_data_unchecked() };
             u64::from_le_bytes(data[8..16].try_into().expect("protocol_fees bytes"))
         };
-        let raw_protocol_fees = u64::from_le_bytes(
-            reserve_data[8..16]
-                .try_into()
-                .expect("protocol_fees bytes"),
-        );
+        let raw_protocol_fees =
+            u64::from_le_bytes(reserve_data[8..16].try_into().expect("protocol_fees bytes"));
         assert_eq!(
-            account_protocol_fees,
-            100,
+            account_protocol_fees, 100,
             "amount param should survive helper call in the account view"
         );
         assert_eq!(
-            raw_protocol_fees,
-            0,
+            raw_protocol_fees, 0,
             "raw backing slice is stale in host execute_direct tests"
         );
     }

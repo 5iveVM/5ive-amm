@@ -282,16 +282,7 @@ impl ASTGenerator {
                 Ok(())
             }
 
-            AstNode::RequireStatement { condition } => {
-                // Try to emit fused opcode first for CU optimization
-                if self.try_emit_fused_require(emitter, condition)? {
-                    return Ok(());
-                }
-                // Fallback to standard require generation
-                self.generate_ast_node(emitter, condition)?;
-                emitter.emit_opcode(REQUIRE);
-                Ok(())
-            }
+            AstNode::RequireStatement { condition } => self.emit_single_require(emitter, condition),
 
             // Test framework AST nodes
             AstNode::TestFunction {

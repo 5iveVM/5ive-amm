@@ -198,12 +198,7 @@ async fn init_pda_account_executes_via_bpf_create_account_cpi() {
     assert_eq!(created.lamports, rent_lamports);
 }
 
-fn build_init_account_script(
-    account_idx: u8,
-    payer_idx: u8,
-    space: u64,
-    lamports: u64,
-) -> Vec<u8> {
+fn build_init_account_script(account_idx: u8, payer_idx: u8, space: u64, lamports: u64) -> Vec<u8> {
     let mut body = Vec::with_capacity(1 + 1 + 1 + 8 + 1 + 8 + 1 + 1 + 1 + 8 + 1 + 1 + 1);
     body.push(CHECK_UNINITIALIZED);
     body.push(account_idx);
@@ -236,8 +231,9 @@ fn build_init_pda_account_script(
     seed: &[u8],
     bump: u8,
 ) -> Vec<u8> {
-    let mut body =
-        Vec::with_capacity(2 + 2 + 1 + 1 + 4 + seed.len() + 2 + 1 + 8 + 1 + 8 + 1 + 1 + 1 + 8 + 1 + 1 + 1);
+    let mut body = Vec::with_capacity(
+        2 + 2 + 1 + 1 + 4 + seed.len() + 2 + 1 + 8 + 1 + 8 + 1 + 1 + 1 + 8 + 1 + 1 + 1,
+    );
     body.push(CHECK_UNINITIALIZED);
     body.push(account_idx);
 

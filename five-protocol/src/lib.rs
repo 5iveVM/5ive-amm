@@ -33,7 +33,9 @@ pub use value::*;
 pub const SCRIPT_MAGIC: u32 = 0x45564935;
 
 /// Legacy compatibility constant for the pre-v1 versioned header line.
-#[deprecated(note = "Legacy compatibility constant; use ScriptBytecodeHeaderV1 as the canonical header format")]
+#[deprecated(
+    note = "Legacy compatibility constant; use ScriptBytecodeHeaderV1 as the canonical header format"
+)]
 pub const SCRIPT_VERSION: u8 = 3;
 
 /// Opcode surface compatibility marker.

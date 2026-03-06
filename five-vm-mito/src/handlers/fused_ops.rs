@@ -490,10 +490,413 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             }
         }
 
+        // REQUIRE_BATCH: Evaluate multiple guard clauses in a single dispatch.
+        // Format: REQUIRE_BATCH count [tag + payload]...
+        REQUIRE_BATCH => {
+            let clause_count = ctx.fetch_byte()?;
+            if clause_count > REQUIRE_BATCH_MAX_CLAUSES {
+                return Err(VMErrorCode::InvalidInstruction);
+            }
+
+            for _ in 0..clause_count {
+                let tag = ctx.fetch_byte()?;
+                match tag {
+                    REQUIRE_BATCH_PARAM_GT_ZERO => {
+                        let param_idx = ctx.fetch_byte()?;
+                        if param_u64(ctx, param_idx)? == 0 {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_LOCAL_GT_ZERO => {
+                        let local_idx = ctx.fetch_byte()?;
+                        let local_value = ctx.get_local(local_idx)?;
+                        let local_u64 = local_value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+                        if local_u64 == 0 {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_FIELD_NOT_BOOL => {
+                        let acc_idx = ctx.fetch_byte()?;
+                        let offset = ctx.fetch_u32()?;
+                        let account = ctx.get_account_for_read(acc_idx)?;
+                        let data = unsafe { account.borrow_data_unchecked() };
+                        let off = offset as usize;
+                        if off >= data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+                        if data[off] != 0 {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_FIELD_GTE_PARAM => {
+                        let acc_idx = ctx.fetch_byte()?;
+                        let offset = ctx.fetch_u32()?;
+                        let param_idx = ctx.fetch_byte()?;
+                        let account = ctx.get_account_for_read(acc_idx)?;
+                        let data = unsafe { account.borrow_data_unchecked() };
+                        let off = offset as usize;
+                        if off + 8 > data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+                        let field_value = read_u64_le(&data, off);
+                        let param_value = param_u64(ctx, param_idx)?;
+                        if field_value < param_value {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_OWNER_EQ_SIGNER => {
+                        let acc_idx = ctx.fetch_byte()?;
+                        let signer_idx = ctx.fetch_byte()?;
+                        let offset = ctx.fetch_u32()?;
+
+                        let account = ctx.get_account_for_read(acc_idx)?;
+                        let data = unsafe { account.borrow_data_unchecked() };
+                        let off = offset as usize;
+                        if off + 32 > data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+
+                        let signer = ctx.get_account_for_read(signer_idx)?;
+                        if !eq_32_bytes(&data, off, signer.key().as_ref(), 0) {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_PARAM_LTE_IMM => {
+                        let param_idx = ctx.fetch_byte()?;
+                        let imm = ctx.fetch_byte()? as u64;
+                        if param_u64(ctx, param_idx)? > imm {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_FIELD_EQ_IMM => {
+                        let acc_idx = ctx.fetch_byte()?;
+                        let offset = ctx.fetch_u32()?;
+                        let imm = ctx.fetch_byte()? as u64;
+                        let account = ctx.get_account_for_read(acc_idx)?;
+                        let data = unsafe { account.borrow_data_unchecked() };
+                        let off = offset as usize;
+                        if off + 8 > data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+                        let field_val = read_u64_le(&data, off);
+                        if field_val != imm {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM => {
+                        let acc_idx = ctx.fetch_byte()?;
+                        let offset = ctx.fetch_u32()?;
+                        let param_idx = ctx.fetch_byte()?;
+
+                        let account = ctx.get_account_for_read(acc_idx)?;
+                        let data = unsafe { account.borrow_data_unchecked() };
+                        let off = offset as usize;
+                        if off + 32 > data.len() {
+                            return Err(VMErrorCode::InvalidAccountData);
+                        }
+
+                        let param_ref = param_value(ctx, param_idx)?;
+                        let param_pubkey = ctx.extract_pubkey(&param_ref)?;
+                        if !eq_32_bytes(&data, off, &param_pubkey, 0) {
+                            return Err(VMErrorCode::ConstraintViolation);
+                        }
+                    }
+                    _ => return Err(VMErrorCode::InvalidInstruction),
+                }
+            }
+        }
+
         _ => {
             debug_log!("MitoVM: Unknown fused opcode: {}", opcode);
             return Err(VMErrorCode::InvalidInstruction);
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{context::ExecutionContext, stack::StackStorage, FIVE_VM_PROGRAM_ID};
+    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
+
+    fn make_account(
+        key: Pubkey,
+        owner: Pubkey,
+        data: Vec<u8>,
+        is_signer: bool,
+        is_writable: bool,
+    ) -> AccountInfo {
+        let key_ref = Box::leak(Box::new(key));
+        let owner_ref = Box::leak(Box::new(owner));
+        let lamports_ref = Box::leak(Box::new(1u64));
+        let data_ref = Box::leak(data.into_boxed_slice());
+
+        AccountInfo::new(
+            key_ref,
+            is_signer,
+            is_writable,
+            lamports_ref,
+            data_ref,
+            owner_ref,
+            false,
+            0,
+        )
+    }
+
+    fn run_require_batch(
+        payload: &[u8],
+        accounts: &[AccountInfo],
+        params: &[(usize, ValueRef)],
+        locals: &[(u8, ValueRef)],
+    ) -> CompactResult<()> {
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            payload,
+            accounts,
+            FIVE_VM_PROGRAM_ID,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        for (idx, value) in params {
+            ctx.set_parameter(*idx, value.clone())?;
+        }
+
+        if let Some(max_local) = locals.iter().map(|(idx, _)| *idx).max() {
+            ctx.allocate_locals(max_local.saturating_add(1))?;
+            for (idx, value) in locals {
+                ctx.set_local(*idx, value.clone())?;
+            }
+        }
+
+        handle_fused_ops(REQUIRE_BATCH, &mut ctx)
+    }
+
+    #[test]
+    fn require_batch_tag_param_gt_zero_pass_and_fail() {
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_PARAM_GT_ZERO, 1],
+            &[],
+            &[(1, ValueRef::U64(7))],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_PARAM_GT_ZERO, 1],
+            &[],
+            &[(1, ValueRef::U64(0))],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_local_gt_zero_pass_and_fail() {
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_LOCAL_GT_ZERO, 0],
+            &[],
+            &[],
+            &[(0, ValueRef::U64(2))],
+        );
+        assert!(pass.is_ok());
+
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_LOCAL_GT_ZERO, 0],
+            &[],
+            &[],
+            &[(0, ValueRef::U64(0))],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_field_not_bool_pass_and_fail() {
+        let owner = FIVE_VM_PROGRAM_ID;
+        let account_pass = make_account([1; 32], owner, vec![0u8; 16], false, false);
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_NOT_BOOL, 0, 4, 0, 0, 0],
+            &[account_pass],
+            &[],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let mut fail_data = vec![0u8; 16];
+        fail_data[4] = 1;
+        let account_fail = make_account([2; 32], owner, fail_data, false, false);
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_NOT_BOOL, 0, 4, 0, 0, 0],
+            &[account_fail],
+            &[],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_field_gte_param_pass_and_fail() {
+        let owner = FIVE_VM_PROGRAM_ID;
+        let mut data = vec![0u8; 24];
+        data[8..16].copy_from_slice(&10u64.to_le_bytes());
+        let account = make_account([3; 32], owner, data, false, false);
+
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_GTE_PARAM, 0, 8, 0, 0, 0, 1],
+            &[account],
+            &[(1, ValueRef::U64(6))],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let mut data_fail = vec![0u8; 24];
+        data_fail[8..16].copy_from_slice(&5u64.to_le_bytes());
+        let account_fail = make_account([4; 32], owner, data_fail, false, false);
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_GTE_PARAM, 0, 8, 0, 0, 0, 1],
+            &[account_fail],
+            &[(1, ValueRef::U64(9))],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_owner_eq_signer_pass_and_fail() {
+        let owner = FIVE_VM_PROGRAM_ID;
+        let signer_key = [9u8; 32];
+        let mut account_data = vec![0u8; 80];
+        account_data[16..48].copy_from_slice(&signer_key);
+
+        let account = make_account([5; 32], owner, account_data, false, false);
+        let signer = make_account(signer_key, owner, vec![0u8; 1], true, false);
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_OWNER_EQ_SIGNER, 0, 1, 16, 0, 0, 0],
+            &[account, signer],
+            &[],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let mut bad_data = vec![0u8; 80];
+        bad_data[16..48].copy_from_slice(&[7u8; 32]);
+        let account_fail = make_account([6; 32], owner, bad_data, false, false);
+        let signer_fail = make_account(signer_key, owner, vec![0u8; 1], true, false);
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_OWNER_EQ_SIGNER, 0, 1, 16, 0, 0, 0],
+            &[account_fail, signer_fail],
+            &[],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_param_lte_imm_pass_and_fail() {
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_PARAM_LTE_IMM, 1, 9],
+            &[],
+            &[(1, ValueRef::U64(9))],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_PARAM_LTE_IMM, 1, 9],
+            &[],
+            &[(1, ValueRef::U64(10))],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_field_eq_imm_pass_and_fail() {
+        let owner = FIVE_VM_PROGRAM_ID;
+        let mut data = vec![0u8; 24];
+        data[8..16].copy_from_slice(&4u64.to_le_bytes());
+        let account = make_account([7; 32], owner, data, false, false);
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_EQ_IMM, 0, 8, 0, 0, 0, 4],
+            &[account],
+            &[],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let mut data_fail = vec![0u8; 24];
+        data_fail[8..16].copy_from_slice(&3u64.to_le_bytes());
+        let account_fail = make_account([8; 32], owner, data_fail, false, false);
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_EQ_IMM, 0, 8, 0, 0, 0, 4],
+            &[account_fail],
+            &[],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_tag_pubkey_field_eq_param_pass_and_fail() {
+        let owner = FIVE_VM_PROGRAM_ID;
+        let key = [11u8; 32];
+
+        let mut data = vec![0u8; 80];
+        data[24..56].copy_from_slice(&key);
+        let account = make_account([10; 32], owner, data, false, false);
+        let key_source = make_account(key, owner, vec![0u8; 1], false, false);
+        let pass = run_require_batch(
+            &[1, REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM, 0, 24, 0, 0, 0, 1],
+            &[account, key_source],
+            &[(1, ValueRef::PubkeyRef(0xFF01))],
+            &[],
+        );
+        assert!(pass.is_ok());
+
+        let mut bad_data = vec![0u8; 80];
+        bad_data[24..56].copy_from_slice(&[12u8; 32]);
+        let account_fail = make_account([12; 32], owner, bad_data, false, false);
+        let key_source_fail = make_account(key, owner, vec![0u8; 1], false, false);
+        let fail = run_require_batch(
+            &[1, REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM, 0, 24, 0, 0, 0, 1],
+            &[account_fail, key_source_fail],
+            &[(1, ValueRef::PubkeyRef(0xFF01))],
+            &[],
+        );
+        assert_eq!(fail, Err(VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn require_batch_enforces_max_count_and_invalid_tag() {
+        let too_many = run_require_batch(&[REQUIRE_BATCH_MAX_CLAUSES + 1], &[], &[], &[]);
+        assert_eq!(too_many, Err(VMErrorCode::InvalidInstruction));
+
+        let bad_tag = run_require_batch(&[1, 0xFE], &[], &[], &[]);
+        assert_eq!(bad_tag, Err(VMErrorCode::InvalidInstruction));
+    }
+
+    #[test]
+    fn require_batch_reports_invalid_param_and_oob_offset() {
+        let invalid_param =
+            run_require_batch(&[1, REQUIRE_BATCH_PARAM_GT_ZERO, 250], &[], &[], &[]);
+        assert_eq!(invalid_param, Err(VMErrorCode::InvalidParameter));
+
+        let owner = FIVE_VM_PROGRAM_ID;
+        let account = make_account([13; 32], owner, vec![0u8; 4], false, false);
+        let oob = run_require_batch(
+            &[1, REQUIRE_BATCH_FIELD_NOT_BOOL, 0, 99, 0, 0, 0],
+            &[account],
+            &[],
+            &[],
+        );
+        assert_eq!(oob, Err(VMErrorCode::InvalidAccountData));
+    }
 }

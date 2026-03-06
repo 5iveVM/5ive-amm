@@ -7,8 +7,8 @@
 use crate::{
     context::ExecutionManager,
     debug_log,
-    error_log,
     error::{CompactResult, VMErrorCode},
+    error_log,
 };
 use five_protocol::{opcodes::*, ValueRef};
 #[cfg(target_os = "solana")]
@@ -819,14 +819,13 @@ fn materialize_instruction_data(
                     return Err(VMErrorCode::MemoryViolation);
                 }
 
-                let value_ref = ValueRef::deserialize_from(&temp[offset..])
-                    .map_err(|_| {
-                        error_log!(
-                            "MitoVM: INVOKE failed to deserialize array element at offset {}",
-                            offset as u32
-                        );
-                        VMErrorCode::TypeMismatch
-                    })?;
+                let value_ref = ValueRef::deserialize_from(&temp[offset..]).map_err(|_| {
+                    error_log!(
+                        "MitoVM: INVOKE failed to deserialize array element at offset {}",
+                        offset as u32
+                    );
+                    VMErrorCode::TypeMismatch
+                })?;
                 append_serialized_value(ctx, value_ref, instruction_data_owned, &mut write_offset)?;
                 offset += value_ref.serialized_size();
             }
@@ -955,17 +954,14 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             );
 
             let mut instruction_data_owned = [0u8; MAX_CPI_DATA_LEN];
-            let instruction_data_len = match materialize_instruction_data(
-                ctx,
-                data_ref,
-                &mut instruction_data_owned,
-            ) {
-                Ok(len) => len,
-                Err(err) => {
-                    error_log!("MitoVM: INVOKE failed to materialize instruction data");
-                    return Err(err);
-                }
-            };
+            let instruction_data_len =
+                match materialize_instruction_data(ctx, data_ref, &mut instruction_data_owned) {
+                    Ok(len) => len,
+                    Err(err) => {
+                        error_log!("MitoVM: INVOKE failed to materialize instruction data");
+                        return Err(err);
+                    }
+                };
             let instruction_data = &instruction_data_owned[..instruction_data_len];
 
             let program_id_bytes = match ctx.extract_pubkey(&program_id_ref) {

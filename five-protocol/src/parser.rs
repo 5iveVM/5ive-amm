@@ -337,337 +337,365 @@ pub fn parse_instruction_with_features(
         }
     }
 
-    // Decode arg1 based on arg_type
-    match arg_type {
-        ArgType::None => {}
-        ArgType::U8 => {
+    if opcode == crate::opcodes::REQUIRE_BATCH {
+        if offset + total_size >= bytecode.len() {
+            return Err(ParseError::InstructionOutOfBounds);
+        }
+
+        let clause_count = bytecode[offset + total_size];
+        if clause_count > crate::opcodes::REQUIRE_BATCH_MAX_CLAUSES {
+            return Err(ParseError::InstructionOutOfBounds);
+        }
+        arg1 = clause_count as u64;
+        total_size += 1;
+
+        let mut i = 0usize;
+        while i < clause_count as usize {
             if offset + total_size >= bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            arg1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
-        }
-        ArgType::U16 | ArgType::U16Fixed => {
-            if offset + total_size + 2 > bytecode.len() {
+            let tag = bytecode[offset + total_size];
+            let clause_size = crate::opcodes::require_batch_clause_size(tag)
+                .ok_or(ParseError::InstructionOutOfBounds)?;
+            if offset + total_size + clause_size > bytecode.len() {
                 return Err(ParseError::InstructionOutOfBounds);
             }
-            let val = u16::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-            ]);
-            arg1 = val as u64;
-            total_size += 2;
+            total_size += clause_size;
+            i += 1;
         }
-        ArgType::U32 | ArgType::U32Fixed | ArgType::FunctionIndex => {
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let val = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]);
-            arg1 = val as u64;
-            total_size += 4;
-
-            // Special handling for PUSH_STRING (0x67) - uses ArgType::U32 for length
-            if opcode == crate::opcodes::PUSH_STRING {
-                let str_len = arg1 as usize;
-                if offset + total_size + str_len > bytecode.len() {
+    } else {
+        // Decode arg1 based on arg_type
+        match arg_type {
+            ArgType::None => {}
+            ArgType::U8 => {
+                if offset + total_size >= bytecode.len() {
                     return Err(ParseError::InstructionOutOfBounds);
                 }
-                total_size += str_len;
+                arg1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
             }
-        }
-        ArgType::U64 => {
-            if offset + total_size + 8 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+            ArgType::U16 | ArgType::U16Fixed => {
+                if offset + total_size + 2 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let val = u16::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                ]);
+                arg1 = val as u64;
+                total_size += 2;
             }
-            let val = u64::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-                bytecode[offset + total_size + 4],
-                bytecode[offset + total_size + 5],
-                bytecode[offset + total_size + 6],
-                bytecode[offset + total_size + 7],
-            ]);
-            arg1 = val;
-            total_size += 8;
-        }
-        ArgType::LocalIndex | ArgType::AccountIndex => {
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
-        }
-        ArgType::ValueType => {
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
-        }
-        ArgType::CallExternal => {
-            if offset + total_size + 3 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            // Consumes 4 bytes: account_index (u8) + func_offset (u16) + param_count (u8)
-            let account_idx = bytecode[offset + total_size] as u64;
-            let offset_bytes = [
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-            ];
-            let func_offset = u16::from_le_bytes(offset_bytes) as u64;
-            let param_count = bytecode[offset + total_size + 3] as u64;
+            ArgType::U32 | ArgType::U32Fixed | ArgType::FunctionIndex => {
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let val = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]);
+                arg1 = val as u64;
+                total_size += 4;
 
-            arg1 = (account_idx << 24) | func_offset;
-            arg2 = param_count;
-            total_size += 4;
-        }
-        ArgType::CallInternal => {
-            if offset + total_size + 3 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                // Special handling for PUSH_STRING (0x67) - uses ArgType::U32 for length
+                if opcode == crate::opcodes::PUSH_STRING {
+                    let str_len = arg1 as usize;
+                    if offset + total_size + str_len > bytecode.len() {
+                        return Err(ParseError::InstructionOutOfBounds);
+                    }
+                    total_size += str_len;
+                }
             }
-            // Consumes 3 operand bytes: param_count (u8) + function_address (u16)
-            // Total CALL size is fixed-width 4 bytes including opcode.
-            let param_count = bytecode[offset + total_size] as u64;
-            let addr_bytes = [
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-            ];
-            let func_addr = u16::from_le_bytes(addr_bytes) as u64;
+            ArgType::U64 => {
+                if offset + total_size + 8 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let val = u64::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                    bytecode[offset + total_size + 4],
+                    bytecode[offset + total_size + 5],
+                    bytecode[offset + total_size + 6],
+                    bytecode[offset + total_size + 7],
+                ]);
+                arg1 = val;
+                total_size += 8;
+            }
+            ArgType::LocalIndex | ArgType::AccountIndex => {
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                arg1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
+            }
+            ArgType::ValueType => {
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                arg1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
+            }
+            ArgType::CallExternal => {
+                if offset + total_size + 3 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                // Consumes 4 bytes: account_index (u8) + func_offset (u16) + param_count (u8)
+                let account_idx = bytecode[offset + total_size] as u64;
+                let offset_bytes = [
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                ];
+                let func_offset = u16::from_le_bytes(offset_bytes) as u64;
+                let param_count = bytecode[offset + total_size + 3] as u64;
 
-            arg1 = func_addr;
-            arg2 = param_count;
-            total_size += 3;
-        }
-        ArgType::AccountField => {
-            // acc(u8) + offset(u32)
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                arg1 = (account_idx << 24) | func_offset;
+                arg2 = param_count;
+                total_size += 4;
             }
-            arg1 = bytecode[offset + total_size] as u64; // account_index
-            total_size += 1;
+            ArgType::CallInternal => {
+                if offset + total_size + 3 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                // Consumes 3 operand bytes: param_count (u8) + function_address (u16)
+                // Total CALL size is fixed-width 4 bytes including opcode.
+                let param_count = bytecode[offset + total_size] as u64;
+                let addr_bytes = [
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                ];
+                let func_addr = u16::from_le_bytes(addr_bytes) as u64;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                arg1 = func_addr;
+                arg2 = param_count;
+                total_size += 3;
             }
-            let val = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]);
-            arg2 = val as u64; // field_offset
-            total_size += 4;
-        }
-        ArgType::AccountFieldParam => {
-            // acc(u8) + offset(u32) + param(u8)
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc = bytecode[offset + total_size] as u64;
-            total_size += 1;
+            ArgType::AccountField => {
+                // acc(u8) + offset(u32)
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                arg1 = bytecode[offset + total_size] as u64; // account_index
+                total_size += 1;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let val = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]);
+                arg2 = val as u64; // field_offset
+                total_size += 4;
             }
-            let field_offset = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+            ArgType::AccountFieldParam => {
+                // acc(u8) + offset(u32) + param(u8)
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let param = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let field_offset = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            // Pack args: arg1 = (acc << 32) | offset, arg2 = param
-            arg1 = (acc << 32) | field_offset;
-            arg2 = param;
-        }
-        ArgType::FusedAccAcc => {
-            // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let param = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                // Pack args: arg1 = (acc << 32) | offset, arg2 = param
+                arg1 = (acc << 32) | field_offset;
+                arg2 = param;
             }
-            let off1 = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+            ArgType::FusedAccAcc => {
+                // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc2 = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let off1 = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let off2 = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc2 = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            // Pack into args for inspection if needed:
-            // arg1 = (acc1 << 32) | off1
-            // arg2 = (acc2 << 32) | off2
-            arg1 = (acc1 << 32) | off1;
-            arg2 = (acc2 << 32) | off2;
-        }
-        ArgType::FusedSubAdd => {
-            // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc1 = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let off2 = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                // Pack into args for inspection if needed:
+                // arg1 = (acc1 << 32) | off1
+                // arg2 = (acc2 << 32) | off2
+                arg1 = (acc1 << 32) | off1;
+                arg2 = (acc2 << 32) | off2;
             }
-            let off1 = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+            ArgType::FusedSubAdd => {
+                // acc1(u8) + off1(u32) + acc2(u8) + off2(u32) + param(u8)
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc1 = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc2 = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let off1 = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let off2 = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc2 = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let param = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let off2 = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            // Pack: Arg1 = (param << 56) | (acc1 << 32) | off1
-            // Arg2 = (acc2 << 32) | off2
-            arg1 = (param << 56) | (acc1 << 32) | off1;
-            arg2 = (acc2 << 32) | off2;
-        }
-        ArgType::ParamImm => {
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            arg1 = bytecode[offset + total_size] as u64;
-            arg2 = bytecode[offset + total_size + 1] as u64;
-            total_size += 2;
-        }
-        ArgType::FieldImm => {
-            // acc(u8) + off(u32) + imm(u8)
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let acc = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let param = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size + 4 > bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                // Pack: Arg1 = (param << 56) | (acc1 << 32) | off1
+                // Arg2 = (acc2 << 32) | off2
+                arg1 = (param << 56) | (acc1 << 32) | off1;
+                arg2 = (acc2 << 32) | off2;
             }
-            let off = u32::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-                bytecode[offset + total_size + 3],
-            ]) as u64;
-            total_size += 4;
+            ArgType::ParamImm => {
+                if offset + total_size + 1 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                arg1 = bytecode[offset + total_size] as u64;
+                arg2 = bytecode[offset + total_size + 1] as u64;
+                total_size += 2;
+            }
+            ArgType::FieldImm => {
+                // acc(u8) + off(u32) + imm(u8)
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc = bytecode[offset + total_size] as u64;
+                total_size += 1;
 
-            if offset + total_size >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
-            }
-            let imm = bytecode[offset + total_size] as u64;
-            total_size += 1;
+                if offset + total_size + 4 > bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let off = u32::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                    bytecode[offset + total_size + 3],
+                ]) as u64;
+                total_size += 4;
 
-            arg1 = (acc << 32) | off;
-            arg2 = imm;
-        }
-        ArgType::CompareU8Offset16 => {
-            if offset + total_size + 2 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let imm = bytecode[offset + total_size] as u64;
+                total_size += 1;
+
+                arg1 = (acc << 32) | off;
+                arg2 = imm;
             }
-            let compare = bytecode[offset + total_size] as u64;
-            let rel = u16::from_le_bytes([
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-            ]) as u64;
-            arg1 = compare;
-            arg2 = rel;
-            total_size += 3;
-        }
-        ArgType::CompareU8Target16 => {
-            if offset + total_size + 2 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+            ArgType::CompareU8Offset16 => {
+                if offset + total_size + 2 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let compare = bytecode[offset + total_size] as u64;
+                let rel = u16::from_le_bytes([
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                ]) as u64;
+                arg1 = compare;
+                arg2 = rel;
+                total_size += 3;
             }
-            let compare = bytecode[offset + total_size] as u64;
-            let target = u16::from_le_bytes([
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-            ]) as u64;
-            arg1 = compare;
-            arg2 = target;
-            total_size += 3;
-        }
-        ArgType::TargetU16 => {
-            if offset + total_size + 1 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+            ArgType::CompareU8Target16 => {
+                if offset + total_size + 2 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let compare = bytecode[offset + total_size] as u64;
+                let target = u16::from_le_bytes([
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                ]) as u64;
+                arg1 = compare;
+                arg2 = target;
+                total_size += 3;
             }
-            let target = u16::from_le_bytes([
-                bytecode[offset + total_size],
-                bytecode[offset + total_size + 1],
-            ]) as u64;
-            arg1 = target;
-            total_size += 2;
-        }
-        ArgType::LocalTarget16 => {
-            if offset + total_size + 2 >= bytecode.len() {
-                return Err(ParseError::InstructionOutOfBounds);
+            ArgType::TargetU16 => {
+                if offset + total_size + 1 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let target = u16::from_le_bytes([
+                    bytecode[offset + total_size],
+                    bytecode[offset + total_size + 1],
+                ]) as u64;
+                arg1 = target;
+                total_size += 2;
             }
-            let local_index = bytecode[offset + total_size] as u64;
-            let target = u16::from_le_bytes([
-                bytecode[offset + total_size + 1],
-                bytecode[offset + total_size + 2],
-            ]) as u64;
-            arg1 = local_index;
-            arg2 = target;
-            total_size += 3;
+            ArgType::LocalTarget16 => {
+                if offset + total_size + 2 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let local_index = bytecode[offset + total_size] as u64;
+                let target = u16::from_le_bytes([
+                    bytecode[offset + total_size + 1],
+                    bytecode[offset + total_size + 2],
+                ]) as u64;
+                arg1 = local_index;
+                arg2 = target;
+                total_size += 3;
+            }
         }
     }
 
@@ -859,6 +887,59 @@ mod tests {
             parsed.errors[0],
             ParseError::InstructionOutOfBounds
         ));
+    }
+
+    #[test]
+    fn test_parse_require_batch_valid() {
+        let bytecode = [
+            REQUIRE_BATCH,
+            2, // count
+            REQUIRE_BATCH_PARAM_GT_ZERO,
+            1, // param
+            REQUIRE_BATCH_FIELD_NOT_BOOL,
+            0, // acc
+            8,
+            0,
+            0,
+            0, // off
+        ];
+
+        let (inst, size) = parse_instruction_with_features(&bytecode, 0, 0).expect("parse");
+        assert_eq!(inst.opcode, REQUIRE_BATCH);
+        assert_eq!(inst.arg1, 2);
+        assert_eq!(size, bytecode.len());
+        assert_eq!(inst.size, bytecode.len());
+    }
+
+    #[test]
+    fn test_parse_require_batch_unknown_tag_fails() {
+        let bytecode = [REQUIRE_BATCH, 1, 0xFF];
+        let err = parse_instruction_with_features(&bytecode, 0, 0).unwrap_err();
+        assert_eq!(err, ParseError::InstructionOutOfBounds);
+    }
+
+    #[test]
+    fn test_parse_require_batch_truncated_payload_fails() {
+        let bytecode = [
+            REQUIRE_BATCH,
+            1,
+            REQUIRE_BATCH_FIELD_GTE_PARAM,
+            0, // acc
+            0,
+            0,
+            0,
+            0, // off
+               // missing param
+        ];
+        let err = parse_instruction_with_features(&bytecode, 0, 0).unwrap_err();
+        assert_eq!(err, ParseError::InstructionOutOfBounds);
+    }
+
+    #[test]
+    fn test_parse_require_batch_too_many_clauses_fails() {
+        let bytecode = [REQUIRE_BATCH, REQUIRE_BATCH_MAX_CLAUSES + 1];
+        let err = parse_instruction_with_features(&bytecode, 0, 0).unwrap_err();
+        assert_eq!(err, ParseError::InstructionOutOfBounds);
     }
 
     #[test]

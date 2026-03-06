@@ -33,8 +33,8 @@
 use crate::{
     context::ExecutionManager,
     debug_log,
-    error_log,
     error::{CompactResult, VMErrorCode},
+    error_log,
     utils::ValueRefUtils,
 };
 use five_protocol::{opcodes::*, ValueRef};
@@ -194,22 +194,12 @@ fn append_raw_bytes_with_depth(
         ValueRef::TupleRef(offset, len) => {
             append_raw_temp_range(ctx, *offset as usize, *len as usize, out, depth + 1)
         }
-        ValueRef::OptionalRef(offset, len) => append_raw_optional_like(
-            ctx,
-            *offset as usize,
-            *len as usize,
-            out,
-            depth + 1,
-            true,
-        ),
-        ValueRef::ResultRef(offset, len) => append_raw_optional_like(
-            ctx,
-            *offset as usize,
-            *len as usize,
-            out,
-            depth + 1,
-            false,
-        ),
+        ValueRef::OptionalRef(offset, len) => {
+            append_raw_optional_like(ctx, *offset as usize, *len as usize, out, depth + 1, true)
+        }
+        ValueRef::ResultRef(offset, len) => {
+            append_raw_optional_like(ctx, *offset as usize, *len as usize, out, depth + 1, false)
+        }
         ValueRef::HeapArray(heap_id) => {
             let len_bytes = ctx.get_heap_data(*heap_id, 4)?;
             let payload_len = u32::from_le_bytes(
@@ -352,7 +342,10 @@ fn append_raw_optional_like(
     }
 
     if !is_optional && tag > 1 {
-        error_log!("MitoVM: extract_raw_bytes invalid result tag {}", tag as u32);
+        error_log!(
+            "MitoVM: extract_raw_bytes invalid result tag {}",
+            tag as u32
+        );
         return Err(VMErrorCode::TypeMismatch);
     }
 

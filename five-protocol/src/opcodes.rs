@@ -930,6 +930,13 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         stack_effect: 0,
         compute_cost: 2,
     },
+    OpcodeInfo {
+        opcode: REQUIRE_BATCH,
+        name: "REQUIRE_BATCH",
+        arg_type: ArgType::None, // dynamic: count + tagged clauses
+        stack_effect: 0,
+        compute_cost: 6,
+    },
     // Arithmetic operations
     OpcodeInfo {
         opcode: ADD,
@@ -1990,6 +1997,33 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
         PUSH_BYTES_W => return Some(2),
         // CREATE_TUPLE has an immediate tuple size byte in bytecode format.
         CREATE_TUPLE => return Some(1),
+        REQUIRE_BATCH => {
+            if remaining.is_empty() {
+                return None;
+            }
+
+            let clause_count = remaining[0] as usize;
+            if clause_count > REQUIRE_BATCH_MAX_CLAUSES as usize {
+                return None;
+            }
+
+            let mut cursor = 1usize; // count byte
+            let mut i = 0usize;
+            while i < clause_count {
+                if cursor >= remaining.len() {
+                    return None;
+                }
+                let tag = remaining[cursor];
+                let clause_size = require_batch_clause_size(tag)?;
+                if cursor + clause_size > remaining.len() {
+                    return None;
+                }
+                cursor += clause_size;
+                i += 1;
+            }
+
+            return Some(cursor);
+        }
         _ => {}
     }
 
@@ -2084,3 +2118,90 @@ pub const STORE_KEY_TO_FIELD: u8 = 0xC9;
 /// Encoding: REQUIRE_EQ_FIELDS acc1(u8) offset1(u32) acc2(u8) offset2(u32)
 /// Use: source.mint == dest.mint (field-to-field comparison)
 pub const REQUIRE_EQ_FIELDS: u8 = 0xCA;
+
+/// REQUIRE_BATCH: Single-dispatch batched require evaluation.
+/// Encoding: REQUIRE_BATCH count(u8) [clauses...]
+pub const REQUIRE_BATCH: u8 = 0xCF;
+
+/// Maximum number of clauses allowed in REQUIRE_BATCH.
+pub const REQUIRE_BATCH_MAX_CLAUSES: u8 = 16;
+
+// REQUIRE_BATCH clause tags.
+pub const REQUIRE_BATCH_PARAM_GT_ZERO: u8 = 0x01; // [param:u8]
+pub const REQUIRE_BATCH_LOCAL_GT_ZERO: u8 = 0x02; // [local:u8]
+pub const REQUIRE_BATCH_FIELD_NOT_BOOL: u8 = 0x03; // [acc:u8][off:u32]
+pub const REQUIRE_BATCH_FIELD_GTE_PARAM: u8 = 0x04; // [acc:u8][off:u32][param:u8]
+pub const REQUIRE_BATCH_OWNER_EQ_SIGNER: u8 = 0x05; // [acc:u8][signer:u8][off:u32]
+pub const REQUIRE_BATCH_PARAM_LTE_IMM: u8 = 0x06; // [param:u8][imm:u8]
+pub const REQUIRE_BATCH_FIELD_EQ_IMM: u8 = 0x07; // [acc:u8][off:u32][imm:u8]
+pub const REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM: u8 = 0x08; // [acc:u8][off:u32][param:u8]
+
+/// Return full clause size (including tag byte) for REQUIRE_BATCH tags.
+#[inline]
+pub const fn require_batch_clause_size(tag: u8) -> Option<usize> {
+    match tag {
+        REQUIRE_BATCH_PARAM_GT_ZERO => Some(2),
+        REQUIRE_BATCH_LOCAL_GT_ZERO => Some(2),
+        REQUIRE_BATCH_FIELD_NOT_BOOL => Some(6),
+        REQUIRE_BATCH_FIELD_GTE_PARAM => Some(7),
+        REQUIRE_BATCH_OWNER_EQ_SIGNER => Some(7),
+        REQUIRE_BATCH_PARAM_LTE_IMM => Some(3),
+        REQUIRE_BATCH_FIELD_EQ_IMM => Some(7),
+        REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM => Some(7),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn require_batch_operand_size_valid() {
+        let payload = [
+            3, // count
+            REQUIRE_BATCH_PARAM_GT_ZERO,
+            1, // clause 0
+            REQUIRE_BATCH_FIELD_NOT_BOOL,
+            2,
+            8,
+            0,
+            0,
+            0, // clause 1
+            REQUIRE_BATCH_PARAM_LTE_IMM,
+            3,
+            9, // clause 2
+        ];
+        assert_eq!(
+            operand_size(REQUIRE_BATCH, &payload, false),
+            Some(payload.len())
+        );
+    }
+
+    #[test]
+    fn require_batch_operand_size_rejects_too_many_clauses() {
+        let payload = [REQUIRE_BATCH_MAX_CLAUSES + 1];
+        assert_eq!(operand_size(REQUIRE_BATCH, &payload, false), None);
+    }
+
+    #[test]
+    fn require_batch_operand_size_rejects_unknown_tag() {
+        let payload = [1, 0xFF];
+        assert_eq!(operand_size(REQUIRE_BATCH, &payload, false), None);
+    }
+
+    #[test]
+    fn require_batch_operand_size_rejects_truncated_payload() {
+        let payload = [
+            1,
+            REQUIRE_BATCH_FIELD_GTE_PARAM,
+            0, // acc
+            0,
+            0,
+            0,
+            0, // off
+               // missing param byte
+        ];
+        assert_eq!(operand_size(REQUIRE_BATCH, &payload, false), None);
+    }
+}

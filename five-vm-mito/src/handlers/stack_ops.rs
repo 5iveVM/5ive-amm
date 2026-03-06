@@ -279,8 +279,7 @@ mod tests {
             pool_slots,
             0,
             0,
-        )
-        ;
+        );
         ctx.set_header_features(header_features);
         ctx
     }

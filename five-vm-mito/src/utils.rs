@@ -410,7 +410,10 @@ pub fn value_ref_to_seed_bytes(
             Vec::from_slice(&[val]).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::U16(val) => {
-            debug_log!("MitoVM: value_ref_to_seed_bytes - U16 value: {}", val as u32);
+            debug_log!(
+                "MitoVM: value_ref_to_seed_bytes - U16 value: {}",
+                val as u32
+            );
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::U32(val) => {
@@ -430,15 +433,24 @@ pub fn value_ref_to_seed_bytes(
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::I32(val) => {
-            debug_log!("MitoVM: value_ref_to_seed_bytes - I32 value: {}", val as u32);
+            debug_log!(
+                "MitoVM: value_ref_to_seed_bytes - I32 value: {}",
+                val as u32
+            );
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::I16(val) => {
-            debug_log!("MitoVM: value_ref_to_seed_bytes - I16 value: {}", val as i32 as u32);
+            debug_log!(
+                "MitoVM: value_ref_to_seed_bytes - I16 value: {}",
+                val as i32 as u32
+            );
             Vec::from_slice(&val.to_le_bytes()).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::I8(val) => {
-            debug_log!("MitoVM: value_ref_to_seed_bytes - I8 value: {}", val as i32 as u32);
+            debug_log!(
+                "MitoVM: value_ref_to_seed_bytes - I8 value: {}",
+                val as i32 as u32
+            );
             Vec::from_slice(&[val as u8]).map_err(|_| VMErrorCode::MemoryError)
         }
         ValueRef::Bool(val) => {

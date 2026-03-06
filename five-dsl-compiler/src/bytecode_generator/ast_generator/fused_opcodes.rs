@@ -99,6 +99,135 @@ impl ASTGenerator {
         Ok(false)
     }
 
+    /// Emit a single require with existing fused-opcode fallback behavior.
+    pub(super) fn emit_single_require<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        condition: &AstNode,
+    ) -> Result<(), VMError> {
+        if self.try_emit_fused_require(emitter, condition)? {
+            return Ok(());
+        }
+        self.generate_ast_node(emitter, condition)?;
+        emitter.emit_opcode(REQUIRE);
+        Ok(())
+    }
+
+    /// Try to lower consecutive require statements into one or more REQUIRE_BATCH opcodes.
+    /// Returns consumed statement count when the starting statement is a require.
+    pub(super) fn try_emit_require_batch_block<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        statements: &[AstNode],
+        index: usize,
+    ) -> Result<Option<usize>, VMError> {
+        let AstNode::RequireStatement { .. } = &statements[index] else {
+            return Ok(None);
+        };
+
+        let mut end = index;
+        while end < statements.len() {
+            match &statements[end] {
+                AstNode::RequireStatement { .. } => end += 1,
+                _ => break,
+            }
+        }
+
+        let mut pending_supported: Vec<(&AstNode, Vec<u8>)> = Vec::new();
+        for statement in &statements[index..end] {
+            let AstNode::RequireStatement { condition } = statement else {
+                continue;
+            };
+            if let Some(clause) = self.try_build_batch_clause(condition) {
+                pending_supported.push((condition.as_ref(), clause));
+                if pending_supported.len() == REQUIRE_BATCH_MAX_CLAUSES as usize {
+                    self.flush_require_batch_or_fallback(emitter, &mut pending_supported)?;
+                }
+            } else {
+                self.flush_require_batch_or_fallback(emitter, &mut pending_supported)?;
+                self.emit_single_require(emitter, condition)?;
+            }
+        }
+
+        self.flush_require_batch_or_fallback(emitter, &mut pending_supported)?;
+        Ok(Some(end - index))
+    }
+
+    fn flush_require_batch_or_fallback<T: OpcodeEmitter>(
+        &mut self,
+        emitter: &mut T,
+        pending: &mut Vec<(&AstNode, Vec<u8>)>,
+    ) -> Result<(), VMError> {
+        if pending.is_empty() {
+            return Ok(());
+        }
+
+        if pending.len() >= 2 {
+            emitter.emit_opcode(REQUIRE_BATCH);
+            emitter.emit_u8(pending.len() as u8);
+            for (_, clause) in pending.iter() {
+                emitter.emit_bytes(clause);
+            }
+        } else {
+            self.emit_single_require(emitter, pending[0].0)?;
+        }
+
+        pending.clear();
+        Ok(())
+    }
+
+    /// Try to map a require condition into a REQUIRE_BATCH clause encoding.
+    pub(super) fn try_build_batch_clause(&self, condition: &AstNode) -> Option<Vec<u8>> {
+        if let Some(param_idx) = self.match_param_gt_zero(condition) {
+            return Some(vec![REQUIRE_BATCH_PARAM_GT_ZERO, param_idx]);
+        }
+
+        if let Some(local_idx) = self.match_local_gt_zero(condition) {
+            return Some(vec![REQUIRE_BATCH_LOCAL_GT_ZERO, local_idx]);
+        }
+
+        if let Some((acc_idx, offset)) = self.match_not_bool_field(condition) {
+            let mut clause = vec![REQUIRE_BATCH_FIELD_NOT_BOOL, acc_idx];
+            clause.extend_from_slice(&offset.to_le_bytes());
+            return Some(clause);
+        }
+
+        if let Some((acc_idx, offset, param_idx)) = self.match_field_gte_param(condition) {
+            let mut clause = vec![REQUIRE_BATCH_FIELD_GTE_PARAM, acc_idx];
+            clause.extend_from_slice(&offset.to_le_bytes());
+            clause.push(param_idx);
+            return Some(clause);
+        }
+
+        if let Some((acc_idx, signer_idx, offset)) =
+            self.match_pubkey_field_eq_account_key(condition)
+        {
+            let mut clause = vec![REQUIRE_BATCH_OWNER_EQ_SIGNER, acc_idx, signer_idx];
+            clause.extend_from_slice(&offset.to_le_bytes());
+            return Some(clause);
+        }
+
+        if let Some((param_idx, imm)) = self.match_param_lte_imm(condition) {
+            return Some(vec![REQUIRE_BATCH_PARAM_LTE_IMM, param_idx, imm]);
+        }
+
+        if let Some((acc_idx, offset, imm)) = self.match_field_eq_imm(condition) {
+            let mut clause = vec![REQUIRE_BATCH_FIELD_EQ_IMM, acc_idx];
+            clause.extend_from_slice(&offset.to_le_bytes());
+            clause.push(imm);
+            return Some(clause);
+        }
+
+        if let Some((acc_idx, offset, param_idx)) = self.match_pubkey_field_eq_param(condition) {
+            let mut clause = vec![REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM, acc_idx];
+            clause.extend_from_slice(&offset.to_le_bytes());
+            clause.push(param_idx);
+            return Some(clause);
+        }
+
+        None
+    }
+
     /// Match pattern: field.gte(param) OR MethodCall with method="gte"
     /// Also matches BinaryExpression with operator=">=" for backwards compat
     fn match_field_gte_param(&self, condition: &AstNode) -> Option<(u8, u32, u8)> {
@@ -266,6 +395,109 @@ impl ASTGenerator {
         None
     }
 
+    /// Match pattern: param <= imm_u8
+    fn match_param_lte_imm(&self, condition: &AstNode) -> Option<(u8, u8)> {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
+            if method == "lte" && args.len() == 1 {
+                let param_idx = self.match_parameter(object)?;
+                let imm = self.literal_u8(&args[0])?;
+                return Some((param_idx, imm));
+            }
+        }
+
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
+            if operator == "<=" {
+                let param_idx = self.match_parameter(left)?;
+                let imm = self.literal_u8(right)?;
+                return Some((param_idx, imm));
+            }
+        }
+
+        None
+    }
+
+    /// Match pattern: u64 field == imm_u8
+    fn match_field_eq_imm(&self, condition: &AstNode) -> Option<(u8, u32, u8)> {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
+            if method == "eq" && args.len() == 1 {
+                let (acc_idx, offset) = self.match_u64_field_access(object)?;
+                let imm = self.literal_u8(&args[0])?;
+                return Some((acc_idx, offset, imm));
+            }
+        }
+
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
+            if operator == "==" {
+                if let Some((acc_idx, offset)) = self.match_u64_field_access(left) {
+                    let imm = self.literal_u8(right)?;
+                    return Some((acc_idx, offset, imm));
+                }
+                if let Some((acc_idx, offset)) = self.match_u64_field_access(right) {
+                    let imm = self.literal_u8(left)?;
+                    return Some((acc_idx, offset, imm));
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Match pattern: pubkey field == parameter (or reversed).
+    fn match_pubkey_field_eq_param(&self, condition: &AstNode) -> Option<(u8, u32, u8)> {
+        if let AstNode::MethodCall {
+            object,
+            method,
+            args,
+        } = condition
+        {
+            if method == "eq" && args.len() == 1 {
+                let (acc_idx, offset) = self.match_pubkey_field_access(object)?;
+                let param_idx = self.match_parameter(&args[0])?;
+                return Some((acc_idx, offset, param_idx));
+            }
+        }
+
+        if let AstNode::BinaryExpression {
+            left,
+            operator,
+            right,
+        } = condition
+        {
+            if operator == "==" {
+                if let Some((acc_idx, offset)) = self.match_pubkey_field_access(left) {
+                    let param_idx = self.match_parameter(right)?;
+                    return Some((acc_idx, offset, param_idx));
+                }
+                if let Some((acc_idx, offset)) = self.match_pubkey_field_access(right) {
+                    let param_idx = self.match_parameter(left)?;
+                    return Some((acc_idx, offset, param_idx));
+                }
+            }
+        }
+
+        None
+    }
+
     /// Match a local variable identifier (non-parameter).
     fn match_local_identifier(&self, node: &AstNode) -> Option<u8> {
         if let AstNode::Identifier(name) = node {
@@ -347,6 +579,18 @@ impl ASTGenerator {
             return value.as_u64() == Some(1);
         }
         false
+    }
+
+    fn literal_u8(&self, node: &AstNode) -> Option<u8> {
+        let AstNode::Literal(value) = node else {
+            return None;
+        };
+        let raw = value.as_u64()?;
+        if raw <= u8::MAX as u64 {
+            Some(raw as u8)
+        } else {
+            None
+        }
     }
 
     // ===== TIER 3: Multi-Statement Fused Opcodes (Block Level) =====

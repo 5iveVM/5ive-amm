@@ -145,24 +145,17 @@ fn test_caller_parameters_are_restored_after_internal_call() {
     let result = run_script(|script| {
         script
             .public_function("main", |f| {
-                f.push_u64(99)
-                    .call("wrapper", 1)
-                    .return_value();
+                f.push_u64(99).call("wrapper", 1).return_value();
             })
             .unwrap();
         script
             .private_function("wrapper", |f| {
-                f.call("callee", 0)
-                    .load_param(1)
-                    .return_value();
+                f.call("callee", 0).load_param(1).return_value();
             })
             .unwrap();
         script
             .private_function("callee", |f| {
-                f.push_u64(7)
-                    .emit(SET_LOCAL)
-                    .emit(0)
-                    .ret();
+                f.push_u64(7).emit(SET_LOCAL).emit(0).ret();
             })
             .unwrap();
     });

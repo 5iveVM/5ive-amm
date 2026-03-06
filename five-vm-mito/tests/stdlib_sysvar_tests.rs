@@ -60,7 +60,8 @@ fn epoch_schedule_sysvar_requires_runtime_integration() {
     let mut storage = StackStorage::new();
     let mut ctx = new_context(&mut storage);
 
-    let err = handle_syscall_get_epoch_schedule_sysvar(&mut ctx).expect_err("epoch schedule syscall");
+    let err =
+        handle_syscall_get_epoch_schedule_sysvar(&mut ctx).expect_err("epoch schedule syscall");
     assert_eq!(err, VMErrorCode::RuntimeIntegrationRequired);
     assert_eq!(ctx.pop(), Err(VMErrorCode::StackUnderflow));
 }

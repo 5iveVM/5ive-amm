@@ -142,7 +142,8 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 }
 
                 ctx.set_external_account_remap(frame.account_remap);
-                ctx.parameters_mut().copy_from_slice(&frame.saved_parameters);
+                ctx.parameters_mut()
+                    .copy_from_slice(&frame.saved_parameters);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
             } else {
                 // Top-level return, halt the script
@@ -211,7 +212,8 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                 }
 
                 ctx.set_external_account_remap(frame.account_remap);
-                ctx.parameters_mut().copy_from_slice(&frame.saved_parameters);
+                ctx.parameters_mut()
+                    .copy_from_slice(&frame.saved_parameters);
                 ctx.restore_parameters(frame.param_start, frame.param_len); // Restore caller's parameters
                 ctx.push(return_value)?;
 

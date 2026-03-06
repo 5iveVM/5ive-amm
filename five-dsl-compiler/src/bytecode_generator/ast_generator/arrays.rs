@@ -48,6 +48,12 @@ impl ASTGenerator {
     ) -> Result<(), VMError> {
         let mut i = 0;
         while i < statements.len() {
+            // Prefer batched require lowering to reduce opcode dispatch count.
+            if let Some(consumed) = self.try_emit_require_batch_block(emitter, statements, i)? {
+                i += consumed;
+                continue;
+            }
+
             // Tier 3 Optimization: Check for multi-statement fusion patterns
             // Example: double-entry bookkeeping (sub/add pairs) -> FIELD_SUB_ADD_PARAM
             if let Some(consumed) = self.try_emit_fused_assignment_block(emitter, statements, i)? {

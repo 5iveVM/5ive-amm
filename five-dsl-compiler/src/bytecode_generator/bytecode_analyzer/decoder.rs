@@ -120,6 +120,49 @@ fn decode_operands(
 
     let mut operands = Vec::new();
 
+    if opcode == REQUIRE_BATCH {
+        if analyzer.position >= analyzer.bytecode.len() {
+            return Err(VMError::InvalidOperation);
+        }
+
+        let clause_count = analyzer.bytecode[analyzer.position];
+        if clause_count > REQUIRE_BATCH_MAX_CLAUSES {
+            return Err(VMError::InvalidOperation);
+        }
+
+        operands.push(OperandInfo {
+            operand_type: "batch_count".to_string(),
+            raw_value: vec![clause_count],
+            decoded_value: Some(clause_count.to_string()),
+            size: 1,
+            description: "REQUIRE_BATCH clause count".to_string(),
+        });
+        analyzer.position += 1;
+
+        for clause_idx in 0..clause_count as usize {
+            if analyzer.position >= analyzer.bytecode.len() {
+                return Err(VMError::InvalidOperation);
+            }
+            let tag = analyzer.bytecode[analyzer.position];
+            let clause_size = require_batch_clause_size(tag).ok_or(VMError::InvalidOperation)?;
+            if analyzer.position + clause_size > analyzer.bytecode.len() {
+                return Err(VMError::InvalidOperation);
+            }
+
+            operands.push(OperandInfo {
+                operand_type: "batch_clause".to_string(),
+                raw_value: analyzer.bytecode[analyzer.position..analyzer.position + clause_size]
+                    .to_vec(),
+                decoded_value: Some(format!("#{} tag=0x{:02X}", clause_idx, tag)),
+                size: clause_size,
+                description: "REQUIRE_BATCH tagged clause".to_string(),
+            });
+            analyzer.position += clause_size;
+        }
+
+        return Ok(operands);
+    }
+
     if (analyzer.features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
         match opcode {
             PUSH_U8 | PUSH_U16 | PUSH_U32 | PUSH_U64 | PUSH_I64 | PUSH_BOOL | PUSH_PUBKEY

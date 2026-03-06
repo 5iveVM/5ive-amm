@@ -277,7 +277,13 @@ pub fn init_large_program_v2(
     metadata_len: u32,
     chunk_data: Option<&[u8]>,
 ) -> ProgramResult {
-    init_large_program_internal(program_id, accounts, bytecode_size, metadata_len, chunk_data)
+    init_large_program_internal(
+        program_id,
+        accounts,
+        bytecode_size,
+        metadata_len,
+        chunk_data,
+    )
 }
 
 fn init_large_program_internal(

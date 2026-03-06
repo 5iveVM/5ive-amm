@@ -240,6 +240,84 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
                 offset += 11;
             }
 
+            opcodes::REQUIRE_BATCH => {
+                if offset + 2 > scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "REQUIRE_BATCH",
+                        target: 0,
+                        reason: "Truncated: missing clause count".to_string(),
+                    });
+                    break;
+                }
+
+                let clause_count = bytecode[offset + 1];
+                if clause_count > opcodes::REQUIRE_BATCH_MAX_CLAUSES {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "REQUIRE_BATCH",
+                        target: clause_count as u16,
+                        reason: format!(
+                            "Clause count {} exceeds max {}",
+                            clause_count,
+                            opcodes::REQUIRE_BATCH_MAX_CLAUSES
+                        ),
+                    });
+                    break;
+                }
+
+                let mut cursor = offset + 2;
+                let mut malformed = false;
+                for clause_index in 0..clause_count as usize {
+                    if cursor >= scan_len {
+                        errors.push(VerificationError {
+                            offset,
+                            opcode,
+                            opcode_name: "REQUIRE_BATCH",
+                            target: clause_index as u16,
+                            reason: "Truncated clause stream".to_string(),
+                        });
+                        malformed = true;
+                        break;
+                    }
+
+                    let tag = bytecode[cursor];
+                    let Some(clause_size) = opcodes::require_batch_clause_size(tag) else {
+                        errors.push(VerificationError {
+                            offset,
+                            opcode,
+                            opcode_name: "REQUIRE_BATCH",
+                            target: tag as u16,
+                            reason: format!("Unknown clause tag 0x{:02X}", tag),
+                        });
+                        malformed = true;
+                        break;
+                    };
+
+                    if cursor + clause_size > scan_len {
+                        errors.push(VerificationError {
+                            offset,
+                            opcode,
+                            opcode_name: "REQUIRE_BATCH",
+                            target: clause_index as u16,
+                            reason: "Truncated clause payload".to_string(),
+                        });
+                        malformed = true;
+                        break;
+                    }
+
+                    cursor += clause_size;
+                }
+
+                if malformed {
+                    break;
+                }
+
+                offset = cursor;
+            }
+
             // BR_EQ_U8: compare_value(u8) + offset(u16)
             opcodes::BR_EQ_U8 => {
                 // Opcode(1) + Val(1) + Offset(2) = 4
@@ -469,5 +547,53 @@ mod tests {
         let result = verify_jump_targets(&bytecode);
         assert!(result.is_valid, "{}", result.error_summary());
         assert_eq!(result.jump_count, 1);
+    }
+
+    #[test]
+    fn test_require_batch_valid_structure_scans_cleanly() {
+        let bytecode = vec![
+            opcodes::REQUIRE_BATCH,
+            2, // count
+            opcodes::REQUIRE_BATCH_PARAM_GT_ZERO,
+            1, // param
+            opcodes::REQUIRE_BATCH_FIELD_NOT_BOOL,
+            0, // acc
+            8,
+            0,
+            0,
+            0, // off
+            opcodes::HALT,
+        ];
+
+        let result = verify_jump_targets(&bytecode);
+        assert!(result.is_valid, "{}", result.error_summary());
+    }
+
+    #[test]
+    fn test_require_batch_rejects_unknown_clause_tag() {
+        let bytecode = vec![opcodes::REQUIRE_BATCH, 1, 0xFF, opcodes::HALT];
+        let result = verify_jump_targets(&bytecode);
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].opcode_name, "REQUIRE_BATCH");
+    }
+
+    #[test]
+    fn test_require_batch_rejects_truncated_clause_payload() {
+        let bytecode = vec![
+            opcodes::REQUIRE_BATCH,
+            1,
+            opcodes::REQUIRE_BATCH_FIELD_GTE_PARAM,
+            0, // acc
+            0,
+            0,
+            0,
+            0, // off
+               // missing param
+        ];
+        let result = verify_jump_targets(&bytecode);
+        assert!(!result.is_valid);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].opcode_name, "REQUIRE_BATCH");
     }
 }

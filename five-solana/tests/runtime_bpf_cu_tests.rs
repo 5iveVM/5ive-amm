@@ -15,9 +15,7 @@ use five_protocol::{
     parser::parse_code_bounds,
 };
 use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
-use harness::compile::{
-    load_or_compile_bytecode, maybe_write_generated_v,
-};
+use harness::compile::{load_or_compile_bytecode, maybe_write_generated_v};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_scenario_line, CuMetrics};
 use serde::Deserialize;
@@ -344,8 +342,9 @@ async fn spl_token_interface_transfer_after_branch_bpf_compute_units() {
 #[tokio::test(flavor = "multi_thread")]
 async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let fixture_path = repo_root
-        .join("five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-with-state-account.json");
+    let fixture_path = repo_root.join(
+        "five-templates/cpi-examples/runtime-fixtures/spl-token-transfer-with-state-account.json",
+    );
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
 }
 
@@ -353,12 +352,10 @@ async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
 fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let source_path = repo_root.join("5ive-lending-2/src/main.v");
-    let source = fs::read_to_string(&source_path).unwrap_or_else(|e| {
-        panic!("failed reading {}: {}", source_path.display(), e)
-    });
-    let bytecode = DslCompiler::compile_dsl(&source).unwrap_or_else(|e| {
-        panic!("failed compiling {}: {}", source_path.display(), e)
-    });
+    let source = fs::read_to_string(&source_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", source_path.display(), e));
+    let bytecode = DslCompiler::compile_dsl(&source)
+        .unwrap_or_else(|e| panic!("failed compiling {}: {}", source_path.display(), e));
 
     let inspector = BytecodeInspector::new(&bytecode);
     let call_sites = inspector.find_calls();
@@ -378,7 +375,8 @@ fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
             opcodes::ARRAY_CONCAT => array_concat_count += 1,
             _ => {}
         }
-        let size = BytecodeInspector::instruction_size_with_pool(&bytecode, code_offset, pool_enabled);
+        let size =
+            BytecodeInspector::instruction_size_with_pool(&bytecode, code_offset, pool_enabled);
         assert!(size > 0, "decoded instruction size should make progress");
         code_offset += size;
     }
@@ -456,12 +454,10 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
         .expect("target/deploy artifact parity preflight failed");
 
     let lending_source_path = repo_root.join("5ive-lending-2/src/main.v");
-    let lending_source = fs::read_to_string(&lending_source_path).unwrap_or_else(|e| {
-        panic!("failed reading {}: {}", lending_source_path.display(), e)
-    });
-    let lending_bytecode = DslCompiler::compile_dsl(&lending_source).unwrap_or_else(|e| {
-        panic!("failed compiling {}: {}", lending_source_path.display(), e)
-    });
+    let lending_source = fs::read_to_string(&lending_source_path)
+        .unwrap_or_else(|e| panic!("failed reading {}: {}", lending_source_path.display(), e));
+    let lending_bytecode = DslCompiler::compile_dsl(&lending_source)
+        .unwrap_or_else(|e| panic!("failed compiling {}: {}", lending_source_path.display(), e));
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let owner_signer = Keypair::new();
@@ -1056,9 +1052,8 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(
-                ScriptAccountHeader::LEN + caller_bytecode.len(),
-            ),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -1392,9 +1387,8 @@ async fn external_interface_mapping_non_cpi_bpf_compute_units() {
             pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
-            lamports: Rent::default().minimum_balance(
-                ScriptAccountHeader::LEN + caller_bytecode.len(),
-            ),
+            lamports: Rent::default()
+                .minimum_balance(ScriptAccountHeader::LEN + caller_bytecode.len()),
             data: vec![0u8; ScriptAccountHeader::LEN + caller_bytecode.len()],
             is_signer: false,
             is_writable: true,
@@ -2002,7 +1996,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::String {
                 value: DOLLAR_DOMAIN_DEFAULT.to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_111 },
+            ParamFixture::U64 {
+                value: 1_700_000_111,
+            },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -2135,7 +2131,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::String {
                 value: DOLLAR_DOMAIN_UPDATED.to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_222 },
+            ParamFixture::U64 {
+                value: 1_700_000_222,
+            },
         ],
         expected: ExpectedFixture::Success,
     };
@@ -2245,7 +2243,9 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
             ParamFixture::String {
                 value: INVALID_DOMAIN.to_string(),
             },
-            ParamFixture::U64 { value: 1_700_000_333 },
+            ParamFixture::U64 {
+                value: 1_700_000_333,
+            },
         ],
         expected: ExpectedFixture::Error,
     };
@@ -3792,7 +3792,10 @@ fn fixture_uses_spl_token_setup(fixture: &RuntimeFixture) -> bool {
         .external_programs
         .iter()
         .any(|program| matches!(program.kind, ExternalProgramKind::SplToken))
-        && fixture.extra_accounts.iter().any(|account| account.name == "mint")
+        && fixture
+            .extra_accounts
+            .iter()
+            .any(|account| account.name == "mint")
 }
 
 fn anchor_token_comparison_stub_process(
