@@ -173,6 +173,8 @@ async function sendInstruction(connection, instructionData, signers, step = 'exe
         return { success: true, signature: sig, logs, cu };
     } catch (e) {
         let logs = [];
+        let confirmedSuccess = false;
+        let confirmedCu = null;
         if (e.signature) {
             try {
                 const txDetails = await connection.getTransaction(e.signature, {
@@ -180,11 +182,30 @@ async function sendInstruction(connection, instructionData, signers, step = 'exe
                     commitment: 'confirmed'
                 });
                 logs = txDetails?.meta?.logMessages || [];
-                console.log(`\n❌ Transaction Logs:`);
-                logs.forEach(log => console.log(`  ${log}`));
+                if (txDetails?.meta && !txDetails.meta.err) {
+                    confirmedSuccess = true;
+                    const cuLog = logs.find(l => l.includes('consumed'));
+                    if (cuLog) {
+                        const match = cuLog.match(/consumed (\d+) of/);
+                        if (match) confirmedCu = Number(match[1]);
+                    }
+                } else {
+                    console.log(`\n❌ Transaction Logs:`);
+                    logs.forEach(log => console.log(`  ${log}`));
+                }
             } catch (fetchErr) {
                 // Ignore
             }
+        }
+        if (confirmedSuccess) {
+            emitStepEvent({
+                step,
+                status: 'PASS',
+                signature: e.signature,
+                computeUnits: Number.isFinite(Number(confirmedCu)) && Number(confirmedCu) >= 0 ? Number(confirmedCu) : null,
+                missingCuReason: Number.isFinite(Number(confirmedCu)) && Number(confirmedCu) >= 0 ? null : 'compute units unavailable in transaction metadata/logs',
+            });
+            return { success: true, signature: e.signature, logs, cu: confirmedCu ?? -1 };
         }
         emitStepEvent({
             step,
@@ -317,6 +338,7 @@ async function testSPLTokenMint(connection, payerKeypair) {
                 authority: payerKeypair.publicKey,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payerKeypair.publicKey)
             .instruction();
 
         info('Executing mint via CPI...');
@@ -429,6 +451,7 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
                 pda_authority: payerKeypair.publicKey,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payerKeypair.publicKey)
             .instruction();
 
         info('Executing burn via INVOKE_SIGNED...');

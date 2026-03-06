@@ -324,6 +324,7 @@ async function main() {
                 mint: mint,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payer.publicKey)
             .instruction();
 
         success('Instruction built');

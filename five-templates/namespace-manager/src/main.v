@@ -58,7 +58,7 @@ pub init_manager(
 pub set_symbol_price(
     cfg: NamespaceConfig @mut,
     admin: account @signer,
-    symbol: string<4>,
+    symbol: string,
     price_lamports: u64
 ) {
     require(admin.ctx.key == cfg.admin);
@@ -69,7 +69,7 @@ pub set_symbol_price(
     if (symbol == "%") { cfg.percent_price_lamports = price_lamports; }
 }
 
-pub get_symbol_price(cfg: NamespaceConfig, symbol: string<4>) -> u64 {
+pub get_symbol_price(cfg: NamespaceConfig, symbol: string) -> u64 {
     if (symbol == "@") { return cfg.at_price_lamports; }
     if (symbol == "!") { return cfg.bang_price_lamports; }
     if (symbol == "#") { return cfg.hash_price_lamports; }
@@ -83,14 +83,14 @@ pub register_tld(
     tld: TldRecord @mut @init(payer=owner, seeds=["5ns_tld", symbol, domain]),
     owner: account @mut @signer,
     treasury_account: account @mut,
-    symbol: string<4>,
+    symbol: string,
     domain: string,
     now: u64
 ) {
     require(treasury_account.ctx.key == cfg.treasury);
-    let price: u64 = get_symbol_price(cfg, symbol);
-    require(price > 0);
-    transfer_lamports(owner, treasury_account, price);
+    let price_lamports = get_symbol_price(cfg, symbol);
+    require(price_lamports > 0);
+    transfer_lamports(owner, treasury_account, price_lamports);
 
     tld.symbol = symbol;
     tld.domain = domain;
@@ -104,7 +104,7 @@ pub bind_subprogram(
     tld: TldRecord,
     binding: SubprogramBinding @mut @init(payer=owner, seeds=["5ns_binding", symbol, domain, subprogram]),
     owner: account @mut @signer,
-    symbol: string<4>,
+    symbol: string,
     domain: string,
     subprogram: string,
     script_account: pubkey,

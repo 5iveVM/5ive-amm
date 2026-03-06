@@ -280,6 +280,7 @@ async function main() {
                 counter: counter.publicKey,
                 user: user.publicKey
             })
+            .payer(payer.publicKey)
             .instruction();
 
         success('Instruction built');

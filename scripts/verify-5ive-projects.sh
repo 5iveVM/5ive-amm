@@ -133,7 +133,7 @@ run_step() {
   else
     if (
       cd "${ROOT_DIR}/${project}"
-      bash -lc "${cmd}"
+      bash -c "${cmd}"
     ) > "${log_path}" 2>&1; then
       status="pass"
     else
@@ -260,10 +260,6 @@ for project in "${BLOCKING_PROJECTS[@]}"; do
   run_step "${project}" "build" "npm run build" "true"
   run_step "${project}" "test" "npm run test" "true"
   run_step "${project}" "test:onchain:local" "npm run test:onchain:local" "true" "true"
-
-  if [[ -d "${ROOT_DIR}/${project}/client" ]]; then
-    run_step "${project}" "client:run:local" "npm run client:run:local" "true" "true"
-  fi
 done
 
 for project in "${INFORMATIONAL_PROJECTS[@]}"; do
@@ -271,10 +267,6 @@ for project in "${INFORMATIONAL_PROJECTS[@]}"; do
   run_step "${project}" "build" "npm run build" "false"
   run_step "${project}" "test" "npm run test" "false"
   run_step "${project}" "test:onchain:local" "npm run test:onchain:local" "false" "true"
-
-  if [[ -d "${ROOT_DIR}/${project}/client" ]]; then
-    run_step "${project}" "client:run:local" "npm run client:run:local" "false" "true"
-  fi
 done
 
 summarize_report

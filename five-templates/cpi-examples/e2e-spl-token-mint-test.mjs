@@ -307,6 +307,7 @@ async function main() {
                 authority: payer.publicKey,
                 token_program: TOKEN_PROGRAM_ID
             })
+            .payer(payer.publicKey)
             .instruction();
 
         success('Instruction built');

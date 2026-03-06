@@ -3,7 +3,7 @@
 #   node scripts/generate-vm-constants.mjs --cluster <localnet|devnet|mainnet>
 
 [clusters.localnet]
-program_id = "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb"
+program_id = "8h8gqgMhfq5qmPbs9nNHkXNoy2jb1JywxaRC6W68wGVm"
 fee_vault_shard_count = 2
 
 [clusters.devnet]

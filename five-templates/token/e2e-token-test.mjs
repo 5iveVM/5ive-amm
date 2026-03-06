@@ -502,6 +502,23 @@ const TOKEN_ABI = {
     ]
 };
 
+function loadTokenAbi() {
+    const artifactPath = path.join(__dirname, 'build', 'five-token-template.five');
+    try {
+        const artifactText = fs.readFileSync(artifactPath, 'utf-8');
+        const parsed = JSON.parse(artifactText);
+        if (parsed?.abi?.functions && Array.isArray(parsed.abi.functions)) {
+            return parsed.abi;
+        }
+    } catch (_) {
+        // Fall back to embedded ABI when artifact is unavailable or non-JSON.
+    }
+    return TOKEN_ABI;
+}
+
+const EFFECTIVE_TOKEN_ABI = loadTokenAbi();
+const DISABLE_MINT_INDEX = EFFECTIVE_TOKEN_ABI.functions?.find((f) => f.name === 'disable_mint')?.index;
+
 // ============================================================================ 
 // MAIN
 // ============================================================================ 
@@ -519,13 +536,16 @@ async function main() {
     await assertDeploymentOwnership(connection);
 
     // 2. Setup FiveProgram
-    const program = FiveProgram.fromABI(TOKEN_SCRIPT_ACCOUNT.toBase58(), TOKEN_ABI, {
+    const program = FiveProgram.fromABI(TOKEN_SCRIPT_ACCOUNT.toBase58(), EFFECTIVE_TOKEN_ABI, {
         fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
         vmStateAccount: VM_STATE_PDA.toBase58(),
         feeReceiverAccount: payer.publicKey.toBase58(),
         debug: true
     });
     success('FiveProgram initialized');
+    if (typeof DISABLE_MINT_INDEX === 'number') {
+        info(`disable_mint ABI index: ${DISABLE_MINT_INDEX}`);
+    }
 
     // 3. Create Users
     const user1 = Keypair.generate(); // Authority
@@ -572,6 +592,7 @@ async function main() {
             symbol: "TEST",
             uri: "https://example.com/token"
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const initMintRes = await sendInstruction(connection, initMintIx, [payer, user1, mintAccount], 'init_mint');
@@ -598,6 +619,7 @@ async function main() {
             .args({
                 mint: mintAccount.publicKey
             })
+            .payer(payer.publicKey)
             .instruction();
 
         const res = await sendInstruction(connection, ix, [payer, acc.owner, acc.kp], `init_token_account_${acc.name}`);
@@ -626,6 +648,7 @@ async function main() {
             .args({
                 amount: op.amount
             })
+            .payer(payer.publicKey)
             .instruction();
 
         const res = await sendInstruction(connection, ix, [payer, user1], `mint_to_${op.name}`);
@@ -648,6 +671,7 @@ async function main() {
         .args({
             amount: 100
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const transferRes = await sendInstruction(connection, transferIx, [payer, user2], 'transfer');
@@ -669,6 +693,7 @@ async function main() {
             delegate: user2.publicKey,
             amount: 150
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const approveRes = await sendInstruction(connection, approveIx, [payer, user3], 'approve');
@@ -685,6 +710,7 @@ async function main() {
         .args({
             amount: 50
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const transferFromRes = await sendInstruction(connection, transferFromIx, [payer, user2], 'transfer_from');
@@ -701,6 +727,7 @@ async function main() {
             source_account: user3TokenAccount.publicKey,
             owner: user3.publicKey
         })
+        .payer(payer.publicKey)
         .instruction(); // No args for revoke
 
     const revokeRes = await sendInstruction(connection, revokeIx, [payer, user3], 'revoke');
@@ -721,6 +748,7 @@ async function main() {
         .args({
             amount: 100
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const burnRes = await sendInstruction(connection, burnIx, [payer, user1], 'burn');
@@ -738,6 +766,7 @@ async function main() {
             account_to_freeze: user2TokenAccount.publicKey,
             freeze_authority: user1.publicKey
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const freezeRes = await sendInstruction(connection, freezeIx, [payer, user1], 'freeze_account');
@@ -785,6 +814,7 @@ async function main() {
             account_to_thaw: user2TokenAccount.publicKey,
             freeze_authority: user1.publicKey
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const thawRes = await sendInstruction(connection, thawIx, [payer, user1], 'thaw_account');
@@ -801,6 +831,7 @@ async function main() {
             mint_state: mintAccount.publicKey,
             current_authority: user1.publicKey
         })
+        .payer(payer.publicKey)
         .instruction();
 
     const disableRes = await sendInstruction(connection, disableIx, [payer, user1], 'disable_mint');
