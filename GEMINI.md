@@ -19,7 +19,7 @@ Commands are managed via `package.json` scripts using the `5ive` CLI:
 - **Build:** `npm run build` (Compiles all `.v` files in `src/`)
 - **Build (Release):** `npm run build:release` (Optimized build)
 - **Build (Debug):** `npm run build:debug` (Build with debug symbols)
-- **Test:** `npm test` (Runs `5ive test` which discovers and executes `test_*` functions)
+- **Test:** `npm test` (Runs `node ../five-cli/dist/index.js test` which discovers and executes `test_*` functions)
 - **Watch:** `npm run watch` (Auto-compiles on changes)
 - **Deploy:** `npm run deploy` (Deploys to the network specified in `five.toml`)
 
@@ -35,7 +35,7 @@ Commands are managed via `package.json` scripts using the `5ive` CLI:
 
 ### Testing Practices
 - Test functions must be public and prefixed with `test_` (e.g., `pub test_add`).
-- Use `// @test-params <args> <expected>` comments above test functions to define test cases for the `5ive test` runner.
+- Use `// @test-params <args> <expected>` comments above test functions to define test cases for the `node ../five-cli/dist/index.js test` runner.
 
 ## Key Files
 - `five.toml`: Project configuration including optimization levels and deployment targets.
