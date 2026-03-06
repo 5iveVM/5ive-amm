@@ -14,8 +14,8 @@ mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
 BLOCKING_PROJECTS=(
   "5ive-amm"
   "5ive-cfd"
-  "5ive-esccrow"
-  "5ive-lending-2"
+  "5ive-escrow"
+  "5ive-lending"
   "5ive-token"
 )
 

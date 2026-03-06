@@ -25,7 +25,7 @@ const targets = [
   {
     key: 'lending',
     envName: 'FIVE_LENDING_SCRIPT_ACCOUNT',
-    projectDir: path.join(ROOT_DIR, '5ive-lending-2'),
+    projectDir: path.join(ROOT_DIR, '5ive-lending'),
   },
   {
     key: 'lendingOracle',

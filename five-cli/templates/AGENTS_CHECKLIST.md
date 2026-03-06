@@ -38,9 +38,9 @@ Use this checklist during execution. Do not skip gates.
 - no fake clock, fake rate, fake auth bypass
 6. Stdlib/module imports:
 - use `use <module path>;`
-- call methods as `module_alias::method(...)`
+- call imported interfaces as `module_alias::Interface::method(...)`
 - full path calls are allowed
-- use dot-call syntax only for interfaces declared in the same source file
+- prefer `Interface::method(...)` for locally declared interfaces (legacy dot-call may still compile)
 - mark interface authority slots with `@authority`
 - prefer caller-side `account @pda(seeds=[...])` metadata over explicit `invoke_signed(...)` seed arrays
 7. Crypto/auth-sensitive logic:
@@ -67,7 +67,7 @@ Use the installed `5ive` CLI / bundled SDK compiler as the public validation pat
 - immutable variable reassignment
 - wrong signer type (`pubkey @signer`)
 - stale key access (`account.key`) instead of `account.ctx.key`
-- `pubkey(0)` usage (replace with `0`)
+- inconsistent zero-pubkey sentinel usage (standardize on `0`)
 - CPI account type/mutability mismatch
 - unresolved module alias errors (add the missing `use <module>;` import)
 - wrong call form for imported vs local interfaces

@@ -35,8 +35,8 @@ try {
     true,
   );
   inspect(
-    '5ive-lending-2',
-    path.join(__dirname, '..', '5ive-lending-2', 'build', '5ive-lending-2.five'),
+    '5ive-lending',
+    path.join(__dirname, '..', '5ive-lending', 'build', '5ive-lending.five'),
     true,
   );
 } catch (error) {

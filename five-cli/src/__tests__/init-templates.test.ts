@@ -9,6 +9,8 @@ describe('init-generated templates', () => {
     );
 
     expect(agents).toContain('This file is the complete minimum contract for building and locally validating a 5IVE project.');
+    expect(agents).toContain('## 0) Policy Overrides (2026-03)');
+    expect(agents).toContain('Default account serializer is `raw`.');
     expect(agents).toContain('the installed `5ive` CLI, bundled SDK, and bundled compiler are the supported toolchain');
     expect(agents).toContain('Node.js `>=18`');
     expect(agents).toContain('docs/STDLIB.md');
@@ -26,6 +28,10 @@ describe('init-generated templates', () => {
 
     expect(reference).toContain('the installed CLI/SDK behavior is authoritative');
     expect(reference).toContain('maintainer-only compiler workflows');
+    expect(reference).toContain('## Policy Overrides (2026-03)');
+    expect(reference).toContain('Default account serializer is `raw`.');
+    expect(reference).toContain('spl_token::SPLToken::transfer');
+    expect(reference).not.toContain('ExampleProgram.do_thing(...)');
   });
 
   it('keeps the AGENTS checklist anchored to the public CLI compiler path', async () => {
@@ -35,6 +41,8 @@ describe('init-generated templates', () => {
     );
 
     expect(checklist).toContain('the installed `5ive` CLI / bundled SDK compiler as the public validation path');
+    expect(checklist).toContain('module_alias::Interface::method(...)');
+    expect(checklist).toContain('standardize on `0`');
   });
 
   it('uses current account metadata syntax in the generated basic starter', async () => {

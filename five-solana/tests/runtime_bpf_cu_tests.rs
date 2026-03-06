@@ -351,7 +351,7 @@ async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
 #[test]
 fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
-    let source_path = repo_root.join("5ive-lending-2/src/main.v");
+    let source_path = repo_root.join("5ive-lending/src/main.v");
     let source = fs::read_to_string(&source_path)
         .unwrap_or_else(|e| panic!("failed reading {}: {}", source_path.display(), e));
     let bytecode = DslCompiler::compile_dsl(&source)
@@ -453,7 +453,7 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
     let program_id = harness::load_target_deploy_program_id_checked(&repo_root)
         .expect("target/deploy artifact parity preflight failed");
 
-    let lending_source_path = repo_root.join("5ive-lending-2/src/main.v");
+    let lending_source_path = repo_root.join("5ive-lending/src/main.v");
     let lending_source = fs::read_to_string(&lending_source_path)
         .unwrap_or_else(|e| panic!("failed reading {}: {}", lending_source_path.display(), e));
     let lending_bytecode = DslCompiler::compile_dsl(&lending_source)

@@ -127,7 +127,8 @@ export async function withRpcRetries(ctx, work) {
     } catch (error) {
       lastError = error;
       const message = error?.message || String(error);
-      if (ctx.network !== 'devnet' || !isRetryableRpcError(message) || attempt === backoff.length - 1) {
+      const retryableNetwork = ctx.network === 'devnet' || ctx.network === 'mainnet';
+      if (!retryableNetwork || !isRetryableRpcError(message) || attempt === backoff.length - 1) {
         throw error;
       }
     }

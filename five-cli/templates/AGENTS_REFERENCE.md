@@ -3,6 +3,15 @@
 This reference is for agents that do not have direct access to the 5IVE monorepo internals.
 Use with `./AGENTS.md` and `./AGENTS_CHECKLIST.md`.
 
+## Policy Overrides (2026-03)
+
+These rules are authoritative and override older examples:
+1. Typed account metadata access must use `acct.ctx.*` (for example `acct.ctx.key`), not `acct.key`.
+2. Account serializer keywords are `raw`, `borsh`, `bincode`.
+3. Default account serializer is `raw`.
+4. Serializer precedence is parameter override > account type default > interface/program default.
+5. `anchor` is not a serializer keyword.
+
 ## 1) Core Surfaces
 
 1. Source language: `.v`
@@ -33,17 +42,18 @@ pub run(
     destination: account @mut,
     authority: account @signer
 ) -> u64 {
-    spl_token::transfer(source, destination, authority, 1);
+    spl_token::SPLToken::transfer(source, destination, authority, 1);
     return builtins::now_seconds();
 }
 ```
 
 Import/call contract:
 1. `use <module path>;`
-2. call using module alias: `<last_segment>::<method>(...)`
+2. call using module alias and interface segment: `<last_segment>::<Interface>::<method>(...)`
 3. full path calls are also valid: `<full::module::path>::<method>(...)`
-4. locally declared interfaces use dot-call syntax: `ExampleProgram.do_thing(...)`
-5. prefer lowercase authored source types like `account`; some generated ABI/std surfaces may still display `Account`
+4. canonical interface calls include the interface symbol segment: `module_alias::Interface::method(...)`
+5. locally declared interfaces should use `Interface::method(...)`; legacy dot-call may still compile in some cases
+6. prefer lowercase authored source types like `account`; some generated ABI/std surfaces may still display `Account`
 
 ### Account declarations
 
@@ -140,9 +150,9 @@ Recommended unit standards:
 2. Anchor CPI: use `@anchor` and do not add manual discriminator.
 3. Non-anchor CPI: use single-byte `@discriminator(N)`.
 4. Interface account params should be account-like values, not raw pubkeys, when the callee expects account metas.
-5. Invoke interface methods with module qualification: `module_alias::method(...)`.
-6. Full-path form is valid: `std::interfaces::spl_token::transfer(...)`.
-7. Local interfaces declared in the same file use dot-call syntax: `ExampleProgram.do_thing(...)`.
+5. Invoke interface methods with module/interface qualification: `module_alias::Interface::method(...)`.
+6. Full-path form is valid: `std::interfaces::spl_token::SPLToken::transfer(...)`.
+7. Local interfaces declared in the same file should use `Interface::method(...)`.
 8. Pass account params directly in CPI calls, not `.ctx.key`.
 9. CPI-writable accounts must be `account @mut` in caller signature.
 10. Do not inject the callee program account into instruction metas unless the interface explicitly models it as a callee account; it still must be present in the CPI account-info slice.

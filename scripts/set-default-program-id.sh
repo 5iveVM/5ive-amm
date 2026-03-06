@@ -10,11 +10,11 @@
 #
 # Arguments:
 #   program-id    Solana public key (base58 encoded, 32-44 characters)
-#   --target      Optional target network (devnet, testnet, mainnet, local)
-#                 If not specified, applies to all targets
+#   --target      Optional target cluster (localnet, devnet, mainnet)
+#                 If not specified, updates all clusters in constants.vm.toml
 #
 # Examples:
-#   ./scripts/set-default-program-id.sh HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg
+#   ./scripts/set-default-program-id.sh 8h8gqgMhfq5qmPbs9nNHkXNoy2jb1JywxaRC6W68wGVm
 #   ./scripts/set-default-program-id.sh HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg --target devnet
 #
 # Error Codes:
@@ -39,7 +39,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Files to update
-SDK_RESOLVER_FILE="${PROJECT_ROOT}/five-sdk/src/config/ProgramIdResolver.ts"
+VM_CONSTANTS_FILE="${PROJECT_ROOT}/five-solana/constants.vm.toml"
 
 #
 # Print colored output
@@ -90,7 +90,7 @@ main() {
     echo ""
     echo "Arguments:"
     echo "  program-id    Solana public key (base58 encoded)"
-    echo "  --target      Optional network: devnet, testnet, mainnet, local"
+    echo "  --target      Optional network: devnet, mainnet, localnet"
     echo ""
     echo "Examples:"
     echo "  $0 HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg"
@@ -105,9 +105,9 @@ main() {
   if [[ $# -ge 3 ]] && [[ "$2" == "--target" ]]; then
     TARGET="$3"
     # Validate target
-    if [[ ! "$TARGET" =~ ^(devnet|testnet|mainnet|local|wasm)$ ]]; then
+    if [[ ! "$TARGET" =~ ^(devnet|mainnet|local|localnet)$ ]]; then
       print_error "Invalid target: '$TARGET'"
-      print_info "Valid targets: devnet, testnet, mainnet, local, wasm"
+      print_info "Valid targets: devnet, mainnet, localnet"
       return 1
     fi
   fi
@@ -117,54 +117,61 @@ main() {
     return 2
   fi
 
+  # Normalize legacy alias
+  if [[ "$TARGET" == "local" ]]; then
+    TARGET="localnet"
+  fi
+
   # Check that files exist
-  if [[ ! -f "$SDK_RESOLVER_FILE" ]]; then
-    print_error "File not found: $SDK_RESOLVER_FILE"
+  if [[ ! -f "$VM_CONSTANTS_FILE" ]]; then
+    print_error "File not found: $VM_CONSTANTS_FILE"
     return 3
   fi
 
   # Check write permissions
-  if [[ ! -w "$SDK_RESOLVER_FILE" ]]; then
-    print_error "Permission denied: cannot write to $SDK_RESOLVER_FILE"
+  if [[ ! -w "$VM_CONSTANTS_FILE" ]]; then
+    print_error "Permission denied: cannot write to $VM_CONSTANTS_FILE"
     return 4
   fi
 
-  print_info "Setting default program ID in Five SDK..."
+  print_info "Setting cluster program ID in five-solana/constants.vm.toml..."
   print_info "  Program ID: ${BLUE}${PROGRAM_ID}${NC}"
   if [[ -n "$TARGET" ]]; then
     print_info "  Target:    ${BLUE}${TARGET}${NC}"
   fi
 
-  # Update SDK resolver constant
-  # Match: export const FIVE_BAKED_PROGRAM_ID = '';
-  # Replace with: export const FIVE_BAKED_PROGRAM_ID = 'program-id';
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS requires -i ''
-    sed -i '' "s|export const FIVE_BAKED_PROGRAM_ID = '';|export const FIVE_BAKED_PROGRAM_ID = '${PROGRAM_ID}';|" "$SDK_RESOLVER_FILE"
+  update_cluster() {
+    local cluster="$1"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' -E "/^\\[clusters\\.${cluster}\\]$/,/^\\[/{s/^program_id = \".*\"$/program_id = \"${PROGRAM_ID}\"/;}" "$VM_CONSTANTS_FILE"
+    else
+      sed -i -E "/^\\[clusters\\.${cluster}\\]$/,/^\\[/{s/^program_id = \".*\"$/program_id = \"${PROGRAM_ID}\"/;}" "$VM_CONSTANTS_FILE"
+    fi
+    if ! awk -v cluster="$cluster" -v program="$PROGRAM_ID" '
+      $0 ~ "^\\[clusters\\." cluster "\\]$" { in_cluster=1; next }
+      /^\[/ && in_cluster { exit }
+      in_cluster && $0 == "program_id = \"" program "\"" { found=1; exit }
+      END { exit(found ? 0 : 1) }
+    ' "$VM_CONSTANTS_FILE"; then
+      print_error "Failed to set ${cluster} program_id in ${VM_CONSTANTS_FILE}"
+      return 1
+    fi
+    print_success "Updated ${BLUE}${cluster}${NC} program_id in ${BLUE}five-solana/constants.vm.toml${NC}"
+  }
+
+  if [[ -n "$TARGET" ]]; then
+    update_cluster "$TARGET" || return 4
   else
-    # Linux sed
-    sed -i "s|export const FIVE_BAKED_PROGRAM_ID = '';|export const FIVE_BAKED_PROGRAM_ID = '${PROGRAM_ID}';|" "$SDK_RESOLVER_FILE"
+    update_cluster "localnet" || return 4
+    update_cluster "devnet" || return 4
+    update_cluster "mainnet" || return 4
   fi
 
-  # Verify the change was made
-  if grep -q "export const FIVE_BAKED_PROGRAM_ID = '${PROGRAM_ID}';" "$SDK_RESOLVER_FILE"; then
-    print_success "Updated ${BLUE}five-sdk/src/config/ProgramIdResolver.ts${NC}"
-  else
-    print_error "Failed to update ProgramIdResolver.ts"
-    return 4
-  fi
-
-  print_success "Default program ID set successfully"
-  echo ""
-  print_info "Resolution precedence (in order):"
-  echo "  1. Explicit call parameter"
-  echo "  2. SDK default: ${BLUE}FiveSDK.setDefaultProgramId()${NC}"
-  echo "  3. Environment variable: ${BLUE}FIVE_PROGRAM_ID${NC}"
-  echo "  4. Baked default (just set): ${BLUE}${PROGRAM_ID}${NC}"
+  print_success "Cluster program ID update complete"
   echo ""
   print_info "Next steps:"
-  echo "  1. Rebuild SDK: cd five-sdk && npm run build"
-  echo "  2. Publish package: npm publish"
+  echo "  1. Regenerate constants: ./scripts/build-five-solana-cluster.sh --cluster <cluster>"
+  echo "  2. Rebuild SDK if needed: cd five-sdk && npm run build"
 
   return 0
 }

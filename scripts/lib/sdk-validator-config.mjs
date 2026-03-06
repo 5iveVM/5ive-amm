@@ -11,8 +11,8 @@ function fail(msg) {
 
 export function resolveNetwork(networkRaw = process.env.FIVE_NETWORK || 'localnet') {
   const network = String(networkRaw).trim();
-  if (!['localnet', 'devnet'].includes(network)) {
-    fail(`invalid network "${network}" (expected localnet|devnet)`);
+  if (!['localnet', 'devnet', 'mainnet'].includes(network)) {
+    fail(`invalid network "${network}" (expected localnet|devnet|mainnet)`);
   }
   return network;
 }
@@ -20,6 +20,7 @@ export function resolveNetwork(networkRaw = process.env.FIVE_NETWORK || 'localne
 export function defaultRpcUrlForNetwork(network) {
   if (network === 'localnet') return 'http://127.0.0.1:8899';
   if (network === 'devnet') return 'https://api.devnet.solana.com';
+  if (network === 'mainnet') return 'https://api.mainnet-beta.solana.com';
   fail(`no RPC default for network "${network}"`);
 }
 
@@ -57,4 +58,3 @@ export function loadSdkValidatorConfig(opts = {}) {
     scenarios,
   };
 }
-

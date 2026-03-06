@@ -3,7 +3,7 @@
 #   node scripts/generate-vm-constants.mjs --cluster <localnet|devnet|mainnet>
 
 [clusters.localnet]
-program_id = "8h8gqgMhfq5qmPbs9nNHkXNoy2jb1JywxaRC6W68wGVm"
+program_id = "B9CZRDqJZNpjYHvwWpHCX2RTArV786PV7MHHsspB89Qd"
 fee_vault_shard_count = 2
 
 [clusters.devnet]
@@ -12,5 +12,5 @@ fee_vault_shard_count = 2
 
 [clusters.mainnet]
 # Reserved production program ID for the current release train.
-program_id = "FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb"
+program_id = "B9CZRDqJZNpjYHvwWpHCX2RTArV786PV7MHHsspB89Qd"
 fee_vault_shard_count = 2
