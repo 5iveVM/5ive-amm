@@ -1322,6 +1322,43 @@ async function loadKeypair(keypairPath: string): Promise<Keypair> {
   }
 }
 
+const LARGE_PROGRAM_DEPLOY_THRESHOLD_BYTES = 1200;
+
+async function deployProgramForOnChainTests(
+  bytecode: Uint8Array,
+  connection: Connection,
+  signerKeypair: Keypair,
+  options: any,
+  config: any
+): Promise<any> {
+  const deployOptions = {
+    debug: options.verbose || options.debug || false,
+    network: config.target,
+    maxRetries: 3
+  };
+
+  const deployment: any =
+    bytecode.length > LARGE_PROGRAM_DEPLOY_THRESHOLD_BYTES
+      ? await FiveSDK.deployLargeProgramToSolana(bytecode, connection, signerKeypair, deployOptions)
+      : await FiveSDK.deployToSolana(bytecode, connection, signerKeypair, {
+          ...deployOptions,
+          computeBudget: 1_000_000
+        });
+
+  const normalizedProgramId = deployment.programId || deployment.scriptAccount;
+  const normalizedTxId =
+    deployment.transactionId ||
+    (Array.isArray(deployment.transactionIds)
+      ? deployment.transactionIds[deployment.transactionIds.length - 1]
+      : undefined);
+
+  return {
+    ...deployment,
+    programId: normalizedProgramId,
+    transactionId: normalizedTxId
+  };
+}
+
 /**
  * Run batch on-chain tests with deploy → execute → verify pipeline
  */
@@ -1360,16 +1397,12 @@ async function runBatchOnChainTests(
       }
 
       // Deploy script
-      const deployResult = await FiveSDK.deployToSolana(
+      const deployResult = await deployProgramForOnChainTests(
         bytecode,
         connection,
         signerKeypair,
-        {
-          debug: options.verbose || options.debug || false,
-          network: config.target,
-          computeBudget: 1000000,
-          maxRetries: 3
-        }
+        options,
+        config
       );
 
       if (!deployResult.success) {
@@ -1518,16 +1551,12 @@ async function runDiscoveredVOnChainTests(
 
     const fixture = await loadOnChainFixture(sourceFile);
 
-    const deploy = await FiveSDK.deployToSolana(
+    const deploy = await deployProgramForOnChainTests(
       compilation.bytecode,
       connection,
       signerKeypair,
-      {
-        debug: options.verbose || false,
-        network: config.target,
-        computeBudget: 1_000_000,
-        maxRetries: 3
-      }
+      options,
+      config
     );
     totalCost += deploy.deploymentCost || 0;
     if (!deploy.success || !deploy.programId) {
@@ -1697,16 +1726,12 @@ async function runOnChainFixtureSuites(
       continue;
     }
 
-    const deploy = await FiveSDK.deployToSolana(
+    const deploy = await deployProgramForOnChainTests(
       compilation.bytecode,
       connection,
       signerKeypair,
-      {
-        debug: options.verbose || false,
-        network: config.target,
-        computeBudget: 1_000_000,
-        maxRetries: 3
-      }
+      options,
+      config
     );
     totalCost += deploy.deploymentCost || 0;
     if (!deploy.success || !deploy.programId) {
@@ -2111,12 +2136,13 @@ function displayOnChainTestResults(
     const passedResults = summary.results.filter(r => r.passed);
     for (const result of passedResults) {
       const scriptName = basename(result.scriptFile, '.bin');
-      const deployTx = result.deployResult?.transactionId?.substring(0, 8) || 'N/A';
-      const executeTx = result.executeResult?.transactionId?.substring(0, 8) || 'N/A';
+      const deployTx = result.deployResult?.transactionId || 'N/A';
+      const executeTx = result.executeResult?.transactionId || 'N/A';
       const computeUnits = result.executeResult?.computeUnitsUsed || 0;
 
       console.log(`  OK ${scriptName}:`);
-      console.log(`     Deploy: ${deployTx}... | Execute: ${executeTx}...`);
+      console.log(`     Deploy: ${deployTx}`);
+      console.log(`     Execute: ${executeTx}`);
       console.log(`     Compute Units: ${computeUnits.toLocaleString()}`);
       console.log(`     Duration: ${result.totalDuration}ms | Cost: ${(result.totalCost / 1e9).toFixed(6)} SOL\n`);
     }
