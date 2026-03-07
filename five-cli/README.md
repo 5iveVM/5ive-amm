@@ -2,6 +2,12 @@
 
 CLI for building, testing, deploying, and executing 5ive DSL programs.
 
+## Mainnet Program ID
+
+**Program**: `5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst`
+
+The Five VM is deployed and running on Solana mainnet. Use this program ID for production applications.
+
 ## Install
 
 ```bash
@@ -46,7 +52,7 @@ The `.five` artifact contains bytecode and ABI and is the best default for deplo
 5ive config init
 5ive config set --target devnet
 5ive config set --keypair ~/.config/solana/id.json
-5ive config set --program-id <FIVE_VM_PROGRAM_ID> --target devnet
+5ive config set --program-id 5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst --target devnet
 ```
 
 ### 5) Deploy and execute on-chain
@@ -216,9 +222,9 @@ node ./dist/index.js init my-program
 ### `Program ID required` or `owner/program mismatch`
 
 ```bash
-5ive config set --program-id <FIVE_VM_PROGRAM_ID> --target devnet
+5ive config set --program-id 5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst --target devnet
 # or
-5ive deploy build/main.five --program-id <FIVE_VM_PROGRAM_ID> --target devnet
+5ive deploy build/main.five --program-id 5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst --target devnet
 ```
 
 ### `Keypair file not found`
