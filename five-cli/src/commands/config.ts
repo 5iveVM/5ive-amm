@@ -69,7 +69,7 @@ export const configCommand: CommandDefinition = {
       description: 'Set custom RPC URL for current target'
     },
     {
-      command: '5ive config set --program-id HJ5RXmE94poUCBoUSViKe1bmvs9pH7WBA9rRpCz3pKXg',
+      command: '5ive config set --program-id 5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
       description: 'Set 5IVE VM program ID for current target'
     },
     {
