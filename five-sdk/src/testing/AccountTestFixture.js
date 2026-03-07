@@ -218,7 +218,7 @@ export class AccountTestFixture {
                 else if (spec.type === 'state' || spec.type === 'mutable') {
                     // Create state/mutable account with initial data
                     const space = 1024; // Default space
-                    const owner = options.fiveVMProgramId || new PublicKey('4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d');
+                    const owner = options.fiveVMProgramId || new PublicKey('5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst');
                     // Serialize state data if provided
                     let initialData;
                     if (spec.state && spec.type === 'state') {
@@ -241,7 +241,7 @@ export class AccountTestFixture {
                 else if (spec.type === 'init') {
                     // Create init account (will be initialized by script)
                     const space = 1024;
-                    const owner = options.fiveVMProgramId || new PublicKey('4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d');
+                    const owner = options.fiveVMProgramId || new PublicKey('5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst');
                     publicKey = await manager.createAccount(space, owner);
                     if (options.debug) {
                         console.log(`  ${spec.name} (init): ${publicKey.toString()}`);
@@ -255,7 +255,7 @@ export class AccountTestFixture {
                 else {
                     // Create readonly account
                     const space = 0;
-                    const owner = options.fiveVMProgramId || new PublicKey('4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d');
+                    const owner = options.fiveVMProgramId || new PublicKey('5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst');
                     publicKey = await manager.createAccount(space, owner);
                     if (options.debug) {
                         console.log(`  ${spec.name} (readonly): ${publicKey.toString()}`);

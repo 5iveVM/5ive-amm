@@ -311,7 +311,7 @@ fn test_legacy_metadata_field_access_provides_ctx_hint() {
             assert_eq!(identifier.as_str(), "lamports");
             assert_eq!(
                 did_you_mean.as_ref().map(|s| s.as_str()),
-                Some("ctx.lamports")
+                Some("payer.ctx.lamports")
             );
         }
         other => panic!("expected UndefinedIdentifierWithContext, got {:?}", other),

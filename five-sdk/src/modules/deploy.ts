@@ -36,6 +36,7 @@ const DEFAULT_FEE_VAULT_SHARD_COUNT = (() => {
     return 2;
   }
 })();
+const MAX_FEE_VAULT_SHARD_COUNT = 8;
 const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
   0xff, 0x66, 0x69, 0x76, 0x65, 0x5f, 0x76, 0x6d, 0x5f, 0x66, 0x65, 0x65,
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
@@ -43,7 +44,7 @@ const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
 
 function clampShardCount(rawCount: number): number {
   const normalized = rawCount > 0 ? rawCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
-  return Math.max(1, Math.min(DEFAULT_FEE_VAULT_SHARD_COUNT, normalized));
+  return Math.max(1, Math.min(MAX_FEE_VAULT_SHARD_COUNT, normalized));
 }
 
 function normalizeRpcEndpoint(connection: any): string {

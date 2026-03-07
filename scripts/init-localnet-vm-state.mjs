@@ -18,6 +18,8 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
 const INIT_INSTRUCTION = 0; // Initialize
+// VM state account is currently a fixed 56-byte layout.
+const VM_STATE_SPACE = 56;
 
 function parseArgs(argv) {
   const args = { network: 'localnet' };
@@ -26,6 +28,7 @@ function parseArgs(argv) {
     if (a === '--network' && argv[i + 1]) args.network = argv[++i];
     else if (a === '--rpc-url' && argv[i + 1]) args.rpcUrl = argv[++i];
     else if (a === '--program-id' && argv[i + 1]) args.programId = argv[++i];
+    else if (a === '--keypair' && argv[i + 1]) args.keypairPath = argv[++i];
     else if (a === '--strict') args.strict = true;
   }
   return args;
@@ -53,7 +56,10 @@ async function main() {
   const connection = new Connection(rpcUrl, 'confirmed');
 
   // Load payer keypair
-  const keypairPath = path.join(os.homedir(), '.config/solana/id.json');
+  const keypairPath =
+    args.keypairPath ||
+    process.env.FIVE_KEYPAIR_PATH ||
+    path.join(os.homedir(), '.config/solana/id.json');
   if (!fs.existsSync(keypairPath)) {
     throw new Error(`Keypair not found at ${keypairPath}`);
   }
@@ -98,10 +104,6 @@ async function main() {
   const balance = await connection.getBalance(payer.publicKey);
   console.log(`✓ Payer balance: ${balance / 1e9} SOL\n`);
 
-  if (balance < 0.5e9) {
-    throw new Error('Insufficient SOL balance. Need at least 0.5 SOL.');
-  }
-
   // Create initialize instruction with 4 accounts
   const data = Buffer.from([INIT_INSTRUCTION, vmStateBump]);
 
@@ -122,6 +124,24 @@ async function main() {
   tx.recentBlockhash = blockhash;
   tx.feePayer = payer.publicKey;
   tx.partialSign(payer);
+
+  // Estimate minimum required SOL for this single initialization:
+  // rent-exempt VM state account + one tx fee + small safety margin.
+  const vmStateRent = await connection.getMinimumBalanceForRentExemption(VM_STATE_SPACE);
+  const txFee = Number((await connection.getFeeForMessage(tx.compileMessage(), 'confirmed')).value || 0);
+  const safety = 10_000; // 0.00001 SOL
+  const requiredLamports = vmStateRent + txFee + safety;
+  console.log(
+    `✓ Estimated required: ${(requiredLamports / 1e9).toFixed(9)} SOL ` +
+    `(rent ${(vmStateRent / 1e9).toFixed(9)} + fee ${(txFee / 1e9).toFixed(9)} + safety ${(safety / 1e9).toFixed(9)})`
+  );
+  if (balance < requiredLamports) {
+    const shortfall = requiredLamports - balance;
+    throw new Error(
+      `Insufficient SOL balance. Need ${(requiredLamports / 1e9).toFixed(9)} SOL ` +
+      `(short by ${(shortfall / 1e9).toFixed(9)} SOL).`
+    );
+  }
 
   try {
     console.log(`⏳ Sending VM state initialization...`);

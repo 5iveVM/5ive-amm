@@ -5,6 +5,7 @@
 
 import { validator } from '../validation/index.js';
 import { VmClusterConfigResolver } from './VmClusterConfigResolver.js';
+import { FIVE_VM_PROGRAM_ID } from '../types.js';
 
 /**
  * Centralized resolver for program IDs across all SDK operations.
@@ -54,18 +55,20 @@ export class ProgramIdResolver {
     explicit?: string,
     options?: { allowUndefined?: boolean }
   ): string {
-    // Precedence: explicit → default → cluster-config
+    // Precedence: explicit → default → env → cluster-config → baked
     let resolved: string | undefined;
 
     if (explicit) {
       resolved = explicit;
     } else if (this.defaultProgramId) {
       resolved = this.defaultProgramId;
+    } else if (process.env.FIVE_PROGRAM_ID) {
+      resolved = process.env.FIVE_PROGRAM_ID;
     } else {
       try {
         resolved = VmClusterConfigResolver.loadClusterConfig().programId;
       } catch {
-        resolved = undefined;
+        resolved = FIVE_VM_PROGRAM_ID;
       }
     }
 

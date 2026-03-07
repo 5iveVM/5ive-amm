@@ -70,7 +70,7 @@ export class PDAUtils {
     /**
      * Derive metadata account PDA for script
      */
-    static async deriveMetadataAccount(scriptAccount, programId = '11111111111111111111111111111112' // System Program (valid default)
+    static async deriveMetadataAccount(scriptAccount, programId = '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst'
     ) {
         try {
             const scriptAccountBytes = Base58Utils.decode(scriptAccount);
@@ -84,7 +84,7 @@ export class PDAUtils {
     /**
      * Derive user state account PDA
      */
-    static async deriveUserStateAccount(userPublicKey, scriptAccount, programId = '11111111111111111111111111111112' // System Program (valid default)
+    static async deriveUserStateAccount(userPublicKey, scriptAccount, programId = '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst'
     ) {
         try {
             const userBytes = Base58Utils.decode(userPublicKey);
@@ -104,7 +104,7 @@ export class PDAUtils {
      * Derive VM state PDA - temporarily use known correct address
      * TODO: Fix PDA derivation algorithm to match Solana exactly
      */
-    static async deriveVMStatePDA(programId = '2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN' // Default to current localnet program id
+    static async deriveVMStatePDA(programId = '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst'
     ) {
         try {
             // Use algorithmic derivation; no hardcoded PDA

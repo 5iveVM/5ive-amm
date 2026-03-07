@@ -284,18 +284,19 @@ pub fn handle_syscall_keccak256(ctx: &mut ExecutionManager) -> CompactResult<()>
 pub fn handle_syscall_blake3(ctx: &mut ExecutionManager) -> CompactResult<()> {
     debug_log!("MitoVM: SYSCALL_BLAKE3");
 
-    let result_ref = ctx.pop()?;
-    let data_ref = ctx.pop()?;
-    let result_ptr = resolve_hash_result_ptr(ctx, result_ref)?;
-
     #[cfg(target_os = "solana")]
-    unsafe {
-        let (vals_ptr, val_len) = parse_data_array(ctx, data_ref)?;
-        syscalls::sol_blake3(vals_ptr, val_len, result_ptr);
+    {
+        // Mainnet runtime does not expose sol_blake3. Keep opcode defined but fail gracefully.
+        let _ = ctx.pop()?;
+        let _ = ctx.pop()?;
+        return Err(VMErrorCode::InvalidOperation);
     }
 
     #[cfg(not(target_os = "solana"))]
     {
+        let result_ref = ctx.pop()?;
+        let data_ref = ctx.pop()?;
+        let result_ptr = resolve_hash_result_ptr(ctx, result_ref)?;
         let mut data_buf = [0u8; 1024];
         let data_len = copy_hash_input_bytes(ctx, &data_ref, &mut data_buf)?;
         let out = blake3::hash(&data_buf[..data_len]);

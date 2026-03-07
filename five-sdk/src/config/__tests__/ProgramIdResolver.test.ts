@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { ProgramIdResolver } from '../ProgramIdResolver';
 import { VmClusterConfigResolver } from '../VmClusterConfigResolver';
+import { FIVE_VM_PROGRAM_ID } from '../../types';
 
 describe('ProgramIdResolver', () => {
   const originalCluster = process.env.FIVE_VM_CLUSTER;
@@ -54,7 +55,7 @@ describe('ProgramIdResolver', () => {
     it('error message contains setup guidance when cluster config is invalid', () => {
       ProgramIdResolver.clearDefault();
       process.env.FIVE_VM_CLUSTER = 'invalid-cluster';
-      expect(() => ProgramIdResolver.resolve()).toThrow(/No program ID resolved for Five VM/);
+      expect(ProgramIdResolver.resolve()).toBe(FIVE_VM_PROGRAM_ID);
     });
   });
 

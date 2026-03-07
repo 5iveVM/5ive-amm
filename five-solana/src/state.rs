@@ -23,7 +23,7 @@ pub struct FIVEVMState {
 
 impl FIVEVMState {
     pub const VERSION: u8 = 1;
-    pub const DEFAULT_FEE_VAULT_SHARD_COUNT: u8 = 2;
+    pub const DEFAULT_FEE_VAULT_SHARD_COUNT: u8 = 4;
     pub const LEN: usize = 32 + 8 + 4 + 4 + 1 + 1 + 1 + 1 + 4; // 56 bytes
 
     pub fn new() -> Self {

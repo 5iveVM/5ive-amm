@@ -126,7 +126,7 @@ jest.mock('@5ive-tech/sdk', () => ({
     create: jest.fn(() => ({ run: jest.fn() }))
   },
   ProgramIdResolver: {
-    resolve: jest.fn((programId?: string) => programId ?? 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb')
+    resolve: jest.fn((programId?: string) => programId ?? '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst')
   },
   FiveTestRunner: class {
     constructor() {}
@@ -275,7 +275,7 @@ describe('project-aware commands', () => {
         project: root,
         format: 'json',
         dryRun: true,
-        programId: 'FmzLpEQryX1UDtNjDBPx9GDsXiThFtzjsZXtTLNLU7Vb',
+        programId: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
       },
       ctx as any,
     );

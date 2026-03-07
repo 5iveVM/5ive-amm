@@ -165,7 +165,7 @@ export const executeCommand: CommandDefinition = {
       description: 'Execute deployed script by account ID on-chain'
     },
     {
-      command: '5ive execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0 --program-id 4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d',
+      command: '5ive execute --script-account 459SanqV8nQDDYW3gWq5JZZAPCMYs78Z5ZnrtH4eFffw -f 0 --program-id 5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
       description: 'Execute with custom 5IVE VM program ID (for custom deployments)'
     }
   ],

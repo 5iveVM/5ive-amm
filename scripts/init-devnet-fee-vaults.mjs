@@ -24,6 +24,7 @@ function parseArgs(argv) {
     else if (a === '--rpc-url' && argv[i + 1]) args.rpcUrl = argv[++i];
     else if (a === '--program-id' && argv[i + 1]) args.programId = argv[++i];
     else if (a === '--vm-state' && argv[i + 1]) args.vmState = argv[++i];
+    else if (a === '--keypair' && argv[i + 1]) args.keypairPath = argv[++i];
     else if (a === '--shards' && argv[i + 1]) args.shards = Number(argv[++i]);
     else if (a === '--strict') args.strict = true;
   }
@@ -44,7 +45,6 @@ const FEE_VAULT_SEED = Buffer.from([
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
 ]);
 
-const DEFAULT_FEE_VAULT_SHARD_COUNT = 2;
 const INIT_FEE_VAULT_INSTRUCTION = 11;
 
 async function deriveFeeVault(programId, shardIndex) {
@@ -60,17 +60,22 @@ async function main() {
   const cluster = args.network === 'localnet' ? 'localnet' : (args.network === 'mainnet' || args.network === 'mainnet-beta' ? 'mainnet' : 'devnet');
   const defaults = defaultsForNetwork(args.network);
   const rpcUrl = args.rpcUrl || process.env.FIVE_RPC_URL || defaults.rpcUrl;
-  const configProgramId = loadClusterConfig({ cluster: process.env.FIVE_VM_CLUSTER || cluster || resolveClusterFromEnvOrDefault() }).programId;
+  const clusterConfig = loadClusterConfig({ cluster: process.env.FIVE_VM_CLUSTER || cluster || resolveClusterFromEnvOrDefault() });
+  const configProgramId = clusterConfig.programId;
+  const configShardCount = clusterConfig.feeVaultShardCount;
   const programIdRaw = args.programId || process.env.FIVE_PROGRAM_ID || configProgramId;
   const programId = new PublicKey(programIdRaw);
   const shardCount = Number.isFinite(args.shards) && args.shards > 0
     ? args.shards
-    : DEFAULT_FEE_VAULT_SHARD_COUNT;
+    : configShardCount;
 
   const connection = new Connection(rpcUrl, 'confirmed');
 
   // Load payer keypair
-  const keypairPath = path.join(os.homedir(), '.config/solana/id.json');
+  const keypairPath =
+    args.keypairPath ||
+    process.env.FIVE_KEYPAIR_PATH ||
+    path.join(os.homedir(), '.config/solana/id.json');
   if (!fs.existsSync(keypairPath)) {
     throw new Error(`Keypair not found at ${keypairPath}`);
   }
@@ -115,22 +120,70 @@ async function main() {
   // Get current balance
   const balance = await connection.getBalance(payer.publicKey);
   console.log(`✓ Payer balance: ${balance / 1e9} SOL\n`);
-
-  if (balance < 1e9) {
-    throw new Error('Insufficient SOL balance. Need at least 1 SOL for initialization.');
-  }
-
-  // Initialize fee vault shards
-  const txSignatures = [];
+  // Discover missing shards first so we can estimate exact minimum balance.
+  const missingShards = [];
   for (let shardIndex = 0; shardIndex < shardCount; shardIndex++) {
     const vault = await deriveFeeVault(programId, shardIndex);
-
-    // Check if vault already exists
-    const vaultInfo = await connection.getAccountInfo(new PublicKey(vault.address));
+    const vaultPubkey = new PublicKey(vault.address);
+    const vaultInfo = await connection.getAccountInfo(vaultPubkey);
     if (vaultInfo) {
       console.log(`✓ Shard ${shardIndex}: Already initialized (${vault.address})`);
-      continue;
+    } else {
+      missingShards.push({ shardIndex, vault, vaultPubkey });
     }
+  }
+
+  if (missingShards.length === 0) {
+    console.log('\n✅ Fee vault initialization complete!');
+    console.log('   Total shards initialized: 0');
+    console.log(`   Ready for script deployment on ${args.network}\n`);
+    console.log('Fee Vault Shard Addresses:');
+    for (let i = 0; i < shardCount; i++) {
+      const vault = await deriveFeeVault(programId, i);
+      console.log(`   Shard ${i}: ${vault.address}`);
+    }
+    return;
+  }
+
+  // Estimate required lamports:
+  // each missing shard needs rent exemption for 0-byte system account + one tx fee.
+  const rentPerVault = await connection.getMinimumBalanceForRentExemption(0);
+  const dummyInstruction = new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: vmState, isSigner: false, isWritable: false },
+      { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+      { pubkey: missingShards[0].vaultPubkey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.from([
+      INIT_FEE_VAULT_INSTRUCTION,
+      missingShards[0].shardIndex & 0xff,
+      missingShards[0].vault.bump & 0xff,
+    ]),
+  });
+  const dummyTx = new Transaction().add(dummyInstruction);
+  const { blockhash: feeBlockhash } = await connection.getLatestBlockhash('confirmed');
+  dummyTx.recentBlockhash = feeBlockhash;
+  dummyTx.feePayer = payer.publicKey;
+  const feePerTx = Number((await connection.getFeeForMessage(dummyTx.compileMessage(), 'confirmed')).value || 0);
+  const safetyPerTx = 10_000; // 0.00001 SOL
+  const requiredLamports = missingShards.length * (rentPerVault + feePerTx + safetyPerTx);
+  console.log(
+    `✓ Estimated required: ${(requiredLamports / 1e9).toFixed(9)} SOL for ${missingShards.length} shard(s) ` +
+    `(each rent ${(rentPerVault / 1e9).toFixed(9)} + fee ${(feePerTx / 1e9).toFixed(9)} + safety ${(safetyPerTx / 1e9).toFixed(9)})\n`
+  );
+  if (balance < requiredLamports) {
+    const shortfall = requiredLamports - balance;
+    throw new Error(
+      `Insufficient SOL balance. Need ${(requiredLamports / 1e9).toFixed(9)} SOL ` +
+      `(short by ${(shortfall / 1e9).toFixed(9)} SOL).`
+    );
+  }
+
+  // Initialize only missing fee vault shards.
+  const txSignatures = [];
+  for (const { shardIndex, vault, vaultPubkey } of missingShards) {
 
     // Create init fee vault instruction
     const data = Buffer.from([INIT_FEE_VAULT_INSTRUCTION, shardIndex & 0xff, vault.bump & 0xff]);
@@ -140,7 +193,7 @@ async function main() {
       keys: [
         { pubkey: vmState, isSigner: false, isWritable: false },
         { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-        { pubkey: new PublicKey(vault.address), isSigner: false, isWritable: true },
+        { pubkey: vaultPubkey, isSigner: false, isWritable: true },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data,

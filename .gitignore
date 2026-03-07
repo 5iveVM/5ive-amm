@@ -56,3 +56,4 @@ test-ledger*/
 /.localnet-escrow-2026-ledger-probe
 /.localnet-escrow-2026-ledger
 /.localnet-validator-ledger
+/.localnet-mainnetid-ledger

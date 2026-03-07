@@ -50,7 +50,9 @@ export const DEFAULT_CONFIG: FiveConfig = {
   networks: DEFAULT_NETWORKS,
   showConfig: false,
   programIds: {
-    devnet: '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d',
+    local: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
+    devnet: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
+    mainnet: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
   },
   wasm: {
     loader: 'auto',

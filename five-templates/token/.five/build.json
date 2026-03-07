@@ -5,8 +5,8 @@
     "/Users/ivmidable/Development/five-mono/five-templates/token/contract/token.v"
   ],
   "target": "vm",
-  "timestamp": "2026-03-06T16:00:29.424Z",
-  "hash": "cd5b387201fd2d12483d12d0b6e57b38168fd7d80977dd0b9055c2eaaf2a4dbe",
+  "timestamp": "2026-03-07T04:56:51.409Z",
+  "hash": "8ca7f0dcbd35f51473e51e66c1766c434b2d91cba0444a897b423761bd009b5e",
   "format": "five",
   "entry_point": "contract/token.v",
   "source_dir": "contract"

@@ -1,8 +1,10 @@
 use five_dsl_compiler::bytecode_generator::disassembler::disasm::disassemble;
+use five_dsl_compiler::compiler::{CompilationConfig, CompilationMode};
 use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn count_require_dispatch_points(bytecode: &[u8]) -> usize {
     let (header, start_offset, code_end) = match five_protocol::parse_code_bounds(bytecode) {
@@ -423,8 +425,21 @@ fn stdlib_stake_authorize_checked_variable_emits_cast_opcode() {
         }
     "#;
 
-    let bytecode = DslCompiler::compile_dsl(source)
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock should be monotonic")
+        .as_nanos();
+    let temp_root =
+        std::env::temp_dir().join(format!("five-stdlib-stake-cpi-{}-{}", std::process::id(), stamp));
+    fs::create_dir_all(&temp_root).expect("create temp compile directory");
+    let entry_path = temp_root.join("main.v");
+    fs::write(&entry_path, source).expect("write temp entry source");
+
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&entry_path, &config)
         .expect("stdlib stake authorize_checked variable source should compile");
+    let _ = fs::remove_dir_all(&temp_root);
+
     assert!(
         bytecode.iter().any(|op| *op == opcodes::CAST),
         "stdlib stake authorize_checked variable should emit CAST before serialization"

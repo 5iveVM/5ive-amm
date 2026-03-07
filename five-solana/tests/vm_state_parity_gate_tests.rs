@@ -4,7 +4,7 @@ use five::state::FIVEVMState;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
-const DEFAULT_PROGRAM_ID: &str = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d";
+const DEFAULT_PROGRAM_ID: &str = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst";
 const DEFAULT_VM_STATE: &str = "8ip3qGGETf8774jo6kXbsTTrMm5V9bLuGC4znmyZjT3z";
 const DEFAULT_RPC_URL: &str = "http://127.0.0.1:8899";
 const DEFAULT_DEPLOY_FEE_LAMPORTS: u32 = 10_000;

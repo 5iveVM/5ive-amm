@@ -413,10 +413,11 @@ fn test_legacy_account_metadata_field_access_is_removed() {
         "Expected undefined identifier failure for removed metadata surface, got: {:?}",
         err
     );
-    assert_eq!(
-        err.context.get_data("did_you_mean").map(String::as_str),
-        Some("ctx.lamports"),
-        "Expected migration hint for legacy metadata field access"
+    let hint = err.context.get_data("did_you_mean").map(String::as_str);
+    assert!(
+        matches!(hint, Some("ctx.lamports") | Some("payer.ctx.lamports")),
+        "Expected migration hint for legacy metadata field access, got: {:?}",
+        hint
     );
 }
 

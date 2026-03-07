@@ -22,6 +22,7 @@ mod generated_constants;
 pub use error::FIVEError;
 pub mod instructions;
 pub mod state;
+#[cfg(feature = "upgrade-api")]
 pub mod upgrade;
 
 #[cfg(all(feature = "production", feature = "cu-bypass-fees"))]
@@ -163,6 +164,10 @@ fn process_administrative_instruction(
                 shard_index,
                 lamports,
             )
+        }
+        FIVEInstruction::SetAuthority { new_authority } => {
+            debug_log!("Processing SetAuthority instruction");
+            instructions::set_authority(program_id, accounts, Pubkey::from(new_authority))
         }
         FIVEInstruction::Deploy {
             bytecode,

@@ -3,9 +3,9 @@ version = 1
 [[packages]]
 name = "five-lending-oracle-helper"
 version = "0.0.0"
-address = "8uTZT2LurZ2EFTkpAhbZqXBJUnThzZttGFwn8xPFhqMg"
-bytecode_hash = "4889646d2dad035558b190fc0569bafda4aa8a02acc13550eec0ebe2ebfc9934"
-deployed_at = "2026-03-05T00:13:07.341Z"
+address = "2XSGXjmBwmgPDU24N2zvT3sD4FtTWjXgqNBFu46apSGi"
+bytecode_hash = "e4d7cbfa4a40e8f917eb931de2420659618ffd041b640d2b18eb0d2e9e9b7e73"
+deployed_at = "2026-03-07T04:50:49.700Z"
 
   [packages.exports]
   methods = [ "init_oracle", "set_oracle" ]

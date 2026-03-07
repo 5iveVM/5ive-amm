@@ -112,7 +112,7 @@ fn test_execution_context_temp_buffer_methods() {
 
     // Test temp buffer access
     let temp_buffer = ctx.temp_buffer_fixed_mut().expect("Should get temp buffer");
-    assert_eq!(temp_buffer.len(), 512);
+    assert_eq!(temp_buffer.len(), five_vm_mito::TEMP_BUFFER_SIZE);
 
     // Test we can write to it
     temp_buffer[slot1 as usize] = 0x42;

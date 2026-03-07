@@ -210,7 +210,7 @@ mod tests {
         ]);
 
         println!("\n=== HARDCODED FEE VAULT ADDRESSES ===");
-        for shard in 0..2 {
+        for shard in 0..crate::state::FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT {
             match derive_fee_vault_pda(&program_id, shard) {
                 Ok((pda, bump)) => {
                     let bytes = pda.as_ref();
@@ -518,15 +518,15 @@ pub fn verify_canonical_vm_state_account(
     Ok(())
 }
 
-/// Get hardcoded fee vault address by shard index (0-1)
-/// Returns None if index is out of range (2+)
+/// Get hardcoded fee vault address by shard index.
+/// Returns None if index is out of configured hardcoded range.
 #[inline(always)]
 pub fn get_hardcoded_fee_vault(shard_index: u8) -> Option<Pubkey> {
     crate::generated_constants::get_hardcoded_fee_vault(shard_index)
 }
 
-/// Get hardcoded fee vault bump by shard index (0-1)
-/// Returns None if index is out of range (2+)
+/// Get hardcoded fee vault bump by shard index.
+/// Returns None if index is out of configured hardcoded range.
 #[inline(always)]
 pub fn get_hardcoded_fee_vault_bump(shard_index: u8) -> Option<u8> {
     crate::generated_constants::get_hardcoded_fee_vault_bump(shard_index)

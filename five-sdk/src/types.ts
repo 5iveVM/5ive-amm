@@ -272,7 +272,7 @@ export interface CLIError extends Error {
 // ==================== Legacy SDK Types (for compatibility) ====================
 
 /** @deprecated Use ProgramIdResolver with explicit config or cluster config instead. */
-export const FIVE_VM_PROGRAM_ID = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d";
+export const FIVE_VM_PROGRAM_ID = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst";
 
 export interface FiveSDKConfig {
   network?: string;

@@ -9,7 +9,7 @@ pub use deploy::{
     initialize,
 };
 pub use execute::execute;
-pub use fees::{init_fee_vault, set_fees, withdraw_script_fees};
+pub use fees::{init_fee_vault, set_authority, set_fees, withdraw_script_fees};
 pub use verify::verify_bytecode_content;
 
 use pinocchio::{
@@ -94,6 +94,9 @@ pub enum FIVEInstruction<'a> {
         script: [u8; 32],
         shard_index: u8,
         lamports: u64,
+    },
+    SetAuthority {
+        new_authority: [u8; 32],
     },
     Deploy {
         bytecode: &'a [u8],
@@ -195,6 +198,14 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                     shard_index,
                     lamports,
                 })
+            }
+            14 => {
+                if data.len() < 33 {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                let mut new_authority = [0u8; 32];
+                new_authority.copy_from_slice(&data[1..33]);
+                Ok(FIVEInstruction::SetAuthority { new_authority })
             }
             DEPLOY_INSTRUCTION => {
                 if data.len() < crate::instructions::deploy::MIN_DEPLOY_LEN {

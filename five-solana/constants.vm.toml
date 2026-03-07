@@ -3,14 +3,14 @@
 #   node scripts/generate-vm-constants.mjs --cluster <localnet|devnet|mainnet>
 
 [clusters.localnet]
-program_id = "B9CZRDqJZNpjYHvwWpHCX2RTArV786PV7MHHsspB89Qd"
-fee_vault_shard_count = 2
+program_id = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst"
+fee_vault_shard_count = 4
 
 [clusters.devnet]
-program_id = "4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d"
-fee_vault_shard_count = 2
+program_id = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst"
+fee_vault_shard_count = 4
 
 [clusters.mainnet]
 # Reserved production program ID for the current release train.
-program_id = "B9CZRDqJZNpjYHvwWpHCX2RTArV786PV7MHHsspB89Qd"
-fee_vault_shard_count = 2
+program_id = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst"
+fee_vault_shard_count = 4
