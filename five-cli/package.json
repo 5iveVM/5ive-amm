@@ -74,7 +74,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@5ive-tech/sdk": "^1.1.14",
+    "@5ive-tech/sdk": "^1.1.15",
     "@iarna/toml": "^2.2.5",
     "@solana/web3.js": "^1.90.0",
     "bs58": "^5.0.0",

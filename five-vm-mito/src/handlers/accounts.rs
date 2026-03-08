@@ -217,44 +217,58 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             if !from.is_writable() || !to.is_writable() {
                 return Err(VMErrorCode::AccountNotWritable);
             }
-            if opcode == TRANSFER && !from.is_signer() {
+            if opcode == TRANSFER && !from.is_signer() && *from.owner() != ctx.program_id {
                 return Err(VMErrorCode::ConstraintViolation);
             }
 
             #[cfg(target_os = "solana")]
             {
-                let system_program_id = Pubkey::from([0u8; 32]);
-                let system_program = ctx
-                    .accounts()
-                    .iter()
-                    .find(|a| a.key() == &system_program_id)
-                    .ok_or(VMErrorCode::AccountNotFound)?;
+                if *from.owner() == ctx.program_id {
+                    if from.lamports() < amount {
+                        return Err(VMErrorCode::ConstraintViolation);
+                    }
+                    let to_next = to
+                        .lamports()
+                        .checked_add(amount)
+                        .ok_or(VMErrorCode::ArithmeticOverflow)?;
+                    unsafe {
+                        *from.borrow_mut_lamports_unchecked() -= amount;
+                        *to.borrow_mut_lamports_unchecked() = to_next;
+                    }
+                } else {
+                    let system_program_id = Pubkey::from([0u8; 32]);
+                    let system_program = ctx
+                        .accounts()
+                        .iter()
+                        .find(|a| a.key() == &system_program_id)
+                        .ok_or(VMErrorCode::AccountNotFound)?;
 
-                let mut transfer_data = [0u8; 12];
-                transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
-                transfer_data[4..12].copy_from_slice(&amount.to_le_bytes());
+                    let mut transfer_data = [0u8; 12];
+                    transfer_data[0..4].copy_from_slice(&2u32.to_le_bytes());
+                    transfer_data[4..12].copy_from_slice(&amount.to_le_bytes());
 
-                let transfer_metas = [
-                    AccountMeta {
-                        pubkey: from.key(),
-                        is_signer: true,
-                        is_writable: true,
-                    },
-                    AccountMeta {
-                        pubkey: to.key(),
-                        is_signer: false,
-                        is_writable: true,
-                    },
-                ];
+                    let transfer_metas = [
+                        AccountMeta {
+                            pubkey: from.key(),
+                            is_signer: true,
+                            is_writable: true,
+                        },
+                        AccountMeta {
+                            pubkey: to.key(),
+                            is_signer: false,
+                            is_writable: true,
+                        },
+                    ];
 
-                let ix = Instruction {
-                    program_id: system_program.key(),
-                    accounts: &transfer_metas,
-                    data: &transfer_data,
-                };
+                    let ix = Instruction {
+                        program_id: system_program.key(),
+                        accounts: &transfer_metas,
+                        data: &transfer_data,
+                    };
 
-                invoke_signed::<3>(&ix, &[from, to, system_program], &[])
-                    .map_err(|_| VMErrorCode::InvokeError)?;
+                    invoke_signed::<3>(&ix, &[from, to, system_program], &[])
+                        .map_err(|_| VMErrorCode::InvokeError)?;
+                }
             }
 
             #[cfg(not(target_os = "solana"))]

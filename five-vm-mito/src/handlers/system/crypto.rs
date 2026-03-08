@@ -7,6 +7,8 @@ use crate::{
 };
 use five_protocol::ValueRef;
 use pinocchio::sysvars::instructions::Instructions as InstructionSysvar;
+#[cfg(target_os = "solana")]
+use pinocchio::log::sol_log_64;
 
 #[cfg(target_os = "solana")]
 use pinocchio::syscalls;
@@ -555,6 +557,23 @@ fn read_u16_le(data: &[u8], offset: usize) -> CompactResult<u16> {
 }
 
 #[inline(always)]
+fn read_u64_le_or_zero(data: &[u8], offset: usize) -> u64 {
+    if offset + 8 > data.len() {
+        return 0;
+    }
+    u64::from_le_bytes([
+        data[offset],
+        data[offset + 1],
+        data[offset + 2],
+        data[offset + 3],
+        data[offset + 4],
+        data[offset + 5],
+        data[offset + 6],
+        data[offset + 7],
+    ])
+}
+
+#[inline(always)]
 fn copy_bytes_for_verify(
     ctx: &mut ExecutionManager,
     value_ref: &ValueRef,
@@ -673,7 +692,7 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
         }
     };
 
-    if signature_len != 64 {
+    if signature_len != 64 && signature_len != 0 {
         ctx.push(ValueRef::Bool(false))?;
         return Ok(());
     }
@@ -683,6 +702,17 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
     let instructions = unsafe { InstructionSysvar::new_unchecked(instruction_sysvar_data) };
 
     let instruction_count = instructions.num_instructions() as usize;
+    #[cfg(target_os = "solana")]
+    unsafe {
+        // tag=0xE191: verifier entry diagnostics
+        sol_log_64(
+            0xE191,
+            instruction_sysvar_idx as u64,
+            instruction_count as u64,
+            message_len as u64,
+            signature_len as u64,
+        );
+    }
     if instruction_count == 0 {
         ctx.push(ValueRef::Bool(false))?;
         return Ok(());
@@ -697,12 +727,6 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
 
         // Only inspect ed25519 precompile instructions.
         if ix.get_program_id() != &ED25519_PROGRAM_ID_BYTES {
-            continue;
-        }
-
-        // For Ed25519 native verify instruction, no account metas are expected.
-        let account_count = unsafe { u16::from_le_bytes(*(ix.raw as *const [u8; 2])) } as usize;
-        if account_count != 0 {
             continue;
         }
 
@@ -766,10 +790,58 @@ pub fn handle_syscall_verify_ed25519_instruction(ctx: &mut ExecutionManager) -> 
         let signed_signature = &ix_data[signature_offset..signature_offset + 64];
         let signed_message = &ix_data[message_offset..message_offset + message_size];
 
-        valid = signed_pubkey == expected_pubkey.as_slice()
-            && signed_signature == &signature_buf[..64]
-            && message_size == message_len
-            && signed_message == &message_buf[..message_len];
+        let pubkey_match = signed_pubkey == expected_pubkey.as_slice();
+        let signature_match = if signature_len == 0 {
+            true
+        } else {
+            signed_signature == &signature_buf[..64]
+        };
+        let message_len_match = message_size == message_len;
+        let message_match = signed_message == &message_buf[..message_len];
+        valid = pubkey_match && signature_match && message_len_match && message_match;
+        #[cfg(target_os = "solana")]
+        unsafe {
+            // tag=0xE192: per-ed25519 instruction comparison flags
+            sol_log_64(
+                0xE192,
+                ix_index as u64,
+                pubkey_match as u64,
+                signature_match as u64,
+                ((message_len_match as u64) << 1) | (message_match as u64),
+            );
+            // tag=0xE193: expected message words [0..3]
+            sol_log_64(
+                0xE193,
+                read_u64_le_or_zero(&message_buf[..message_len], 0),
+                read_u64_le_or_zero(&message_buf[..message_len], 8),
+                read_u64_le_or_zero(&message_buf[..message_len], 16),
+                read_u64_le_or_zero(&message_buf[..message_len], 24),
+            );
+            // tag=0xE194: expected message words [4..6]
+            sol_log_64(
+                0xE194,
+                read_u64_le_or_zero(&message_buf[..message_len], 32),
+                read_u64_le_or_zero(&message_buf[..message_len], 40),
+                read_u64_le_or_zero(&message_buf[..message_len], 48),
+                message_len as u64,
+            );
+            // tag=0xE195: signed message words [0..3]
+            sol_log_64(
+                0xE195,
+                read_u64_le_or_zero(signed_message, 0),
+                read_u64_le_or_zero(signed_message, 8),
+                read_u64_le_or_zero(signed_message, 16),
+                read_u64_le_or_zero(signed_message, 24),
+            );
+            // tag=0xE196: signed message words [4..6]
+            sol_log_64(
+                0xE196,
+                read_u64_le_or_zero(signed_message, 32),
+                read_u64_le_or_zero(signed_message, 40),
+                read_u64_le_or_zero(signed_message, 48),
+                message_size as u64,
+            );
+        }
 
         if valid {
             break;

@@ -1,6 +1,6 @@
 {
   "name": "@5ive-tech/sdk",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "description": "Client-agnostic TypeScript SDK for Five VM scripts on Solana",
   "type": "module",
   "main": "dist/index.js",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "five-gen-types": "./dist/bin/gen-types.js"
+    "five-gen-types": "dist/bin/gen-types.js"
   },
   "keywords": [
     "five",
