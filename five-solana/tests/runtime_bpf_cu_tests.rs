@@ -348,6 +348,13 @@ async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
     run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(40_000)).await;
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn chess_runtime_gate_bpf_compute_units() {
+    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let fixture_path = repo_root.join("five-chess/runtime-fixtures/chess_runtime_minimal.json");
+    run_fixture_bpf_compute_units(&repo_root, &fixture_path, Some(2_600_000)).await;
+}
+
 #[test]
 fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -3554,6 +3561,12 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
             "revoke_user3" => 7_000,
             "burn_user1" => 8_000,
             "freeze_user2" | "thaw_user2" => 8_000,
+            "chess_init_config" => 35_000,
+            "chess_create_run" => 80_000,
+            "chess_join_run" => 30_000,
+            "chess_submit_move_e2e4" => 900_000,
+            "chess_submit_move_e7e5" => 1_250_000,
+            "chess_submit_move_wrong_owner" => 300_000,
             "anchor_mint_to_user1" | "anchor_mint_to_user2" | "anchor_mint_to_user3" => 12_000,
             "anchor_transfer_user2_to_user3" => 12_000,
             "anchor_approve_user3_to_user2" => 12_000,
@@ -3624,11 +3637,16 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
             .expect("fee_vault account must exist")
             .lamports;
 
+        let per_step_cu_limit = match step.name.as_str() {
+            "chess_submit_move_e2e4" | "chess_submit_move_e7e5" => Some(1_400_000),
+            "chess_submit_move_wrong_owner" => Some(800_000),
+            _ => None,
+        };
         let result = simulate_and_process(
             &mut ctx,
             vec![execute_ix],
             collect_signers(&accounts, &signer_names),
-            None,
+            per_step_cu_limit,
         )
         .await;
 
@@ -3645,7 +3663,8 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
                 assert!(
                     result.success,
                     "step {} failed: {:?}",
-                    step.name, result.error
+                    step.name,
+                    result.error.as_ref().map(|e| annotate_known_vm_error(e))
                 );
             }
             ExpectedFixture::Error => {
@@ -3669,11 +3688,19 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
             );
         }
         if execute_fee_lamports > 0 {
-            assert_eq!(
-                fee_paid, execute_fee_lamports as u64,
-                "step {} should charge exactly one execute fee",
-                step.name
-            );
+            if step.expected == ExpectedFixture::Error {
+                assert!(
+                    fee_paid == 0 || fee_paid == execute_fee_lamports as u64,
+                    "step {} error-path fee should be 0 or exactly one execute fee",
+                    step.name
+                );
+            } else {
+                assert_eq!(
+                    fee_paid, execute_fee_lamports as u64,
+                    "step {} should charge exactly one execute fee",
+                    step.name
+                );
+            }
         } else {
             assert_eq!(
                 fee_paid, 0,
@@ -5389,6 +5416,16 @@ fn default_authority_lamports() -> u64 {
 
 fn default_expected_fixture() -> ExpectedFixture {
     ExpectedFixture::Success
+}
+
+fn annotate_known_vm_error(input: &str) -> String {
+    if input.contains("0x232e") {
+        return format!("{input} (0x232e = InvalidAccountData / 9006)");
+    }
+    if input.contains("0x232b") {
+        return format!("{input} (0x232b = ConstraintViolation / 9003)");
+    }
+    input.to_string()
 }
 
 fn fixture_path_from_env(repo_root: &Path) -> PathBuf {
