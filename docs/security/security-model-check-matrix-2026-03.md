@@ -29,7 +29,7 @@ Only on-chain runtime checks are a hard trust boundary. Compile/deploy/SDK check
 | Bytecode structural validation (header/opcodes/jump/call bounds) | Malformed/truncated/out-of-bounds bytecode | Compiler catches most source errors | **Yes (primary)** | No | No | `five-solana/src/instructions/verify.rs` |
 | Deployment account/authority checks (canonical vm_state, ownership, permissions/admin signer, no overwrite) | Unauthorized deploy/replace or invalid permissions | No | **Yes (primary)** | No | Optional preflight checks | `five-solana/src/instructions/deploy.rs`, `five-solana/src/common.rs` |
 | Distinct account identity (`script_account != vm_state_account`) | Canonical vm_state overwrite via deploy/upload aliasing | No | **Yes (required)** | No | Optional preflight checks | `five-solana/src/common.rs`, `five-solana/src/instructions/deploy.rs` |
-| Execution entry checks (script/vm_state ownership, canonical fee path accounts) | Executing against spoofed core accounts/fee sink | No | No | **Yes (entry gate)** | Optional instruction builder checks | `five-solana/src/instructions/execute.rs`, `five-solana/src/instructions/fees.rs` |
+| Execution entry checks (script/vm_state ownership, non-aliasing, canonical fee path accounts) | Executing against spoofed core accounts/fee sink or vm_state/script alias tricks | No | No | **Yes (entry gate)** | Optional instruction builder checks | `five-solana/src/instructions/execute.rs`, `five-solana/src/instructions/fees.rs` |
 | SDK PDA derivation for script accounts | Client deriving wrong authority PDA | No | No | Runtime still authoritative | **Yes (ergonomic mirror)** | `five-sdk/src/program/FiveProgram.ts`, `five-sdk/src/program/AccountResolver.ts`, `five-sdk/src/program/FunctionBuilder.ts` |
 
 ## Stage Placement Guidance (What Should Be One-Time vs Per-Invocation)
@@ -61,6 +61,9 @@ Only on-chain runtime checks are a hard trust boundary. Compile/deploy/SDK check
 - Added deploy-time hardening: reject `script_account` aliasing canonical `vm_state` key in deploy/upload validation.
   - Files: `five-solana/src/common.rs`, `five-solana/src/instructions/deploy.rs`
   - Tests: deploy and init-large-program alias regressions now fail with `InvalidArgument`.
+- Added execute-time hardening: reject `script_account == vm_state_account` aliasing in `execute`.
+  - File: `five-solana/src/instructions/execute.rs`
+  - Tests: `execute_rejects_script_account_aliasing_vm_state`.
 
 ## Open Hardening Opportunities
 
@@ -74,6 +77,9 @@ Only on-chain runtime checks are a hard trust boundary. Compile/deploy/SDK check
 
 3. Publish-time SDK consistency guard:
 - Keep `five-sdk` derivation tests in CI (already present for `FiveProgram.findAddress`) and ensure release pipeline blocks if those tests fail.
+
+4. PDA helper/constraint consistency:
+- `derive_pda`/`FIND_PDA`/`CHECK_PDA` semantics should stay aligned with runtime script-scoped signer/init domains to avoid false-positive constraint checks and unexpected bump/address drift.
 
 ## Current Assessment
 

@@ -180,6 +180,8 @@ impl ASTGenerator {
                 }
                 self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
                 emitter.emit_const_u8((pda_config.seeds.len() + 1) as u8)?;
+                // CHECK_PDA stack contract requires program_id before expected_pda.
+                emitter.emit_opcode(PUSH_0);
                 emitter.emit_opcode(GET_KEY);
                 emitter.emit_u8(account_index);
                 emitter.emit_opcode(CHECK_PDA);

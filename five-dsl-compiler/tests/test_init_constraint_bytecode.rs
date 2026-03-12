@@ -233,6 +233,10 @@ fn test_init_with_explicit_bump_is_honored() {
         !bytecode.windows(1).any(|w| w[0] == FIND_PDA),
         "Explicit bump path should not require FIND_PDA derivation"
     );
+    assert!(
+        bytecode.windows(1).any(|w| w[0] == CHECK_PDA),
+        "Explicit bump path must emit CHECK_PDA"
+    );
 }
 
 #[test]
