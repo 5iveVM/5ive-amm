@@ -291,6 +291,9 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
                 return Err(VMErrorCode::ConstraintViolation);
             }
 
+            // Enforce script-level ownership isolation before draining lamports.
+            ctx.check_bytecode_authorization(source_idx)?;
+
             let source = ctx.get_account(source_idx)?;
             let destination = ctx.get_account(destination_idx)?;
 
@@ -337,4 +340,77 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
         _ => return Err(VMErrorCode::InvalidInstruction.into()),
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::handle_accounts;
+    use crate::{context::ExecutionContext, error::VMErrorCode, stack::StackStorage};
+    use five_protocol::{opcodes::CLOSE_ACCOUNT, ValueRef};
+    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo {
+        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
+    }
+
+    #[test]
+    fn close_account_rejects_zero_data_source_with_active_script() {
+        let program_id = Pubkey::from([31u8; 32]);
+        let active_script = Pubkey::from([32u8; 32]);
+        let source_key = Pubkey::from([33u8; 32]);
+        let destination_key = Pubkey::from([34u8; 32]);
+        let mut source_lamports = 2_500;
+        let mut destination_lamports = 100;
+        let mut source_data = [0u8; 0];
+        let mut destination_data = [1u8; 8];
+
+        let source = create_account_info(
+            &source_key,
+            false,
+            true,
+            &mut source_lamports,
+            &mut source_data,
+            &program_id,
+        );
+        let destination = create_account_info(
+            &destination_key,
+            false,
+            true,
+            &mut destination_lamports,
+            &mut destination_data,
+            &program_id,
+        );
+        let accounts = [source, destination];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.set_active_script_key(Some(active_script));
+        ctx.push(ValueRef::U8(0)).expect("push source index");
+        ctx.push(ValueRef::U8(1)).expect("push destination index");
+
+        assert_eq!(
+            handle_accounts(CLOSE_ACCOUNT, &mut ctx),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
 }

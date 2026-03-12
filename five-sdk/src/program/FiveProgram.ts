@@ -288,8 +288,11 @@ export class FiveProgram {
 
   /**
    * Derive a Program Derived Address (PDA)
-   * 
-   * @param seeds - Array of seeds (strings, public keys in base58, or buffers)
+   *
+   * Runtime-compatible behavior: the script account is always prepended as the
+   * first seed so derived addresses match VM script-scoped PDA domains.
+   *
+   * @param seeds - User seeds (strings, public keys in base58, or buffers)
    * @param programId - Optional program ID (defaults to Five VM)
    * @returns [address, bump]
    */
@@ -318,9 +321,16 @@ export class FiveProgram {
     });
 
     const pid = new PublicKey(programId || this.getFiveVMProgramId());
+    const scriptPk: any = new PublicKey(this.scriptAccount);
+    const scriptSeed: Uint8Array =
+      typeof scriptPk.toBuffer === 'function'
+        ? scriptPk.toBuffer()
+        : typeof scriptPk.toBytes === 'function'
+          ? scriptPk.toBytes()
+          : (() => { throw new Error('PublicKey implementation missing toBuffer/toBytes'); })();
 
     // @ts-ignore - PublicKey.findProgramAddress return type mismatch in some versions
-    const [addr, bump] = PublicKey.findProgramAddressSync(bufferSeeds, pid);
+    const [addr, bump] = PublicKey.findProgramAddressSync([scriptSeed, ...bufferSeeds], pid);
 
     return [addr.toBase58(), bump];
   }

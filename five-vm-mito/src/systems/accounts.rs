@@ -128,6 +128,12 @@ impl<'a> AccountManager<'a> {
         }
 
         if account.data_len() == 0 {
+            // Zero-data program-owned accounts cannot carry StateAccountOwnerMeta.
+            // In script execution contexts, fail closed so scripts cannot mutate
+            // shared VM-owned lamport vaults or other metadata-less accounts.
+            if active_script_key.is_some() {
+                return Err(VMErrorCode::ScriptNotAuthorized);
+            }
             return Ok(());
         }
 
@@ -545,6 +551,42 @@ mod tests {
             &program_id,
         );
         let accounts = [vm_state, state_account];
+        let manager = AccountManager::new(&accounts, program_id);
+
+        assert_eq!(
+            manager.check_authorization(1, Some(&active_script)),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
+
+    #[test]
+    fn check_authorization_rejects_zero_data_program_owned_account_with_active_script() {
+        let program_id = Pubkey::from([21u8; 32]);
+        let vm_key = Pubkey::from([22u8; 32]);
+        let vault_key = Pubkey::from([23u8; 32]);
+        let active_script = Pubkey::from([24u8; 32]);
+        let mut vm_lamports = 1_000;
+        let mut vault_lamports = 1_000;
+        let mut vm_data = [0u8; 8];
+        let mut vault_data = [0u8; 0];
+
+        let vm_state = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let vault = create_account_info(
+            &vault_key,
+            false,
+            true,
+            &mut vault_lamports,
+            &mut vault_data,
+            &program_id,
+        );
+        let accounts = [vm_state, vault];
         let manager = AccountManager::new(&accounts, program_id);
 
         assert_eq!(
