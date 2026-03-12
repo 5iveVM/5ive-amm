@@ -86,7 +86,8 @@ impl ABIGenerator {
                 .filter(|param| param.is_account) // Extract account parameters
                 .map(|param| SimpleABIAccount {
                     name: param.name.clone(),
-                    writable: param.attributes.contains(&"mut".to_string()),
+                    writable: param.attributes.contains(&"mut".to_string())
+                        || param.attributes.contains(&"close".to_string()),
                     signer: param.attributes.contains(&"signer".to_string()),
                 })
                 .collect();
@@ -362,6 +363,20 @@ mod tests {
                         pda_config: None,
                     },
                     InstructionParameter {
+                        name: "vault".to_string(),
+                        param_type: TypeNode::Primitive("Account".to_string()),
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![crate::ast::Attribute {
+                            name: "close".to_string(),
+                            args: vec![],
+                        }],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
                         name: "amount".to_string(),
                         param_type: TypeNode::Primitive("u64".to_string()),
                         is_optional: false,
@@ -391,14 +406,17 @@ mod tests {
         let simple_abi = generator.generate_simple_abi(&ast).unwrap();
         let process_func = &simple_abi.functions["process"];
 
-        // Should have one account and one parameter
-        assert_eq!(process_func.accounts.len(), 1);
+        // Should have two accounts and one parameter
+        assert_eq!(process_func.accounts.len(), 2);
         assert_eq!(process_func.parameters.len(), 1);
 
-        // Account should be extracted correctly
+        // Accounts should be extracted correctly
         assert_eq!(process_func.accounts[0].name, "signer");
         assert!(process_func.accounts[0].signer);
         assert!(!process_func.accounts[0].writable);
+        assert_eq!(process_func.accounts[1].name, "vault");
+        assert!(!process_func.accounts[1].signer);
+        assert!(process_func.accounts[1].writable);
 
         // Parameter should be non-account
         assert_eq!(process_func.parameters[0].name, "amount");

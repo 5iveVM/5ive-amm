@@ -303,6 +303,42 @@ describe('execute wire format', () => {
     warnSpy.mockRestore();
   });
 
+  it('marks @close account writable when deriving metadata from ABI', async () => {
+    const scriptAccount = '11111111111111111111111111111111';
+    const vaultAccount = '11111111111111111111111111111117';
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await ExecuteModule.generateExecuteInstruction(
+      scriptAccount,
+      'close_vault',
+      [],
+      [vaultAccount],
+      undefined,
+      {
+        estimateFees: false,
+        abi: {
+          functions: [
+            {
+              name: 'close_vault',
+              index: 10,
+              parameters: [
+                { name: 'vault', type: 'account', is_account: true, attributes: ['close'] },
+              ],
+            },
+          ],
+        },
+        payerAccount: '11111111111111111111111111111116',
+      },
+    );
+
+    expect(result.instruction.accounts[2]).toMatchObject({
+      pubkey: vaultAccount,
+      isWritable: true,
+      isSigner: false,
+    });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('defaults unknown user accounts to readonly and warns with hint', async () => {
     const scriptAccount = '11111111111111111111111111111111';
     const unknownAccount = '11111111111111111111111111111115';
