@@ -8,6 +8,7 @@ mod support_accounts;
 
 use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, VMError, Value};
 const ROOT_SCRIPT_KEY: [u8; 32] = [0xCC; 32];
+const RUNTIME_STATE_OWNER_META_OVERHEAD: usize = 36;
 
 fn execute_test(
     bytecode: &[u8],
@@ -82,7 +83,7 @@ fn test_init_account_success() {
         Ok(_) => {
             assert_eq!(accounts[0].lamports(), 999_000_000);
             assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 128);
+            assert_eq!(accounts[1].data_len(), 128 + RUNTIME_STATE_OWNER_META_OVERHEAD);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_ACCOUNT success test passed");
         }
@@ -163,7 +164,7 @@ fn test_init_pda_account_success() {
         Ok(_) => {
             assert_eq!(accounts[0].lamports(), 999_000_000);
             assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 100);
+            assert_eq!(accounts[1].data_len(), 100 + RUNTIME_STATE_OWNER_META_OVERHEAD);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_PDA_ACCOUNT success test passed");
         }

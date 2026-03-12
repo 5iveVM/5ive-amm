@@ -184,10 +184,7 @@ fn write_seed_value_into_slice(
             if account_offset != 0 {
                 return Err(VMErrorCode::TypeMismatch);
             }
-            let account = ctx
-                .accounts()
-                .get(account_idx as usize)
-                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let account = ctx.get_account(account_idx)?;
             out[..32].copy_from_slice(account.key().as_ref());
             Ok(32)
         }
@@ -441,7 +438,9 @@ fn invoke_signed_grouped_from_array_ref(
 
     let mut account_indices = [0usize; MAX_CPI_ACCOUNTS];
     for i in 0..accounts_count as usize {
-        let account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)? as usize;
+        let raw_account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+        let account_idx =
+            ctx.resolve_bound_account_index_for_context(raw_account_idx)? as usize;
         if account_idx >= ctx.accounts().len() {
             return Err(VMErrorCode::InvalidAccountIndex);
         }
@@ -967,7 +966,8 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                         return Err(VMErrorCode::TypeMismatch);
                     }
                 };
-                account_indices[(accounts_count - 1 - i) as usize] = idx as usize;
+                account_indices[(accounts_count - 1 - i) as usize] =
+                    ctx.resolve_bound_account_index_for_context(idx)? as usize;
             }
 
             // Pop instruction data and program ID.
@@ -1184,7 +1184,9 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             // Collect account indices first to avoid borrowing conflicts
             let mut account_indices: [usize; MAX_CPI_ACCOUNTS] = [0; MAX_CPI_ACCOUNTS];
             for i in 0..accounts_count as usize {
-                let account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)? as usize;
+                let raw_account_idx = ctx.pop()?.as_u8().ok_or(VMErrorCode::TypeMismatch)?;
+                let account_idx =
+                    ctx.resolve_bound_account_index_for_context(raw_account_idx)? as usize;
                 if account_idx >= ctx.accounts().len() {
                     return Err(VMErrorCode::InvalidAccountIndex);
                 }

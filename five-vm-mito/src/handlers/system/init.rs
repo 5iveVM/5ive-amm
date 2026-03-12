@@ -18,7 +18,6 @@ use five_protocol::{opcodes::*, ValueRef};
 use heapless::Vec;
 #[cfg(target_os = "solana")]
 use pinocchio::pubkey::create_program_address;
-#[cfg(target_os = "solana")]
 use pinocchio::pubkey::Pubkey;
 
 const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
@@ -135,6 +134,11 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey from ValueRef
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
+    let owner_pubkey = Pubkey::from(owner);
+    let effective_space = ctx.effective_runtime_account_space(space, &owner_pubkey)?;
+    if effective_space > MAX_ACCOUNT_SIZE {
+        return Err(VMErrorCode::InvalidParameter);
+    }
 
     // Create the account in one CPI with the actual target size.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
@@ -175,10 +179,11 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
             0u8
         }
     );
-    if _account_after.data_len() != space as usize {
+    if _account_after.data_len() != effective_space as usize {
         debug_log!(
-            "INIT_ACCOUNT SIZE MISMATCH: requested={} actual={}",
+            "INIT_ACCOUNT SIZE MISMATCH: requested={} effective={} actual={}",
             space,
+            effective_space,
             _account_after.data_len() as u32
         );
         return Err(VMErrorCode::AccountDataEmpty);
@@ -279,6 +284,11 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
+    let owner_pubkey = Pubkey::from(owner);
+    let effective_space = ctx.effective_runtime_account_space(space, &owner_pubkey)?;
+    if effective_space > MAX_ACCOUNT_SIZE {
+        return Err(VMErrorCode::InvalidParameter);
+    }
 
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();

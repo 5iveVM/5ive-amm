@@ -66,10 +66,7 @@ pub fn process_seed_value(
             if account_offset != 0 {
                 return Err(VMErrorCode::TypeMismatch);
             }
-            let account = ctx
-                .accounts()
-                .get(account_idx as usize)
-                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let account = ctx.get_account(account_idx)?;
             seeds[seed_idx][..32].copy_from_slice(account.key().as_ref());
             Ok(32)
         }

@@ -652,7 +652,7 @@ fn build_external_account_remap(
             }
             // Always resolve against caller context so nested external calls map to
             // absolute transaction account indices.
-            let resolved_idx = ctx.resolve_account_index_for_context(*acc_idx);
+            let resolved_idx = ctx.resolve_bound_account_index_for_context(*acc_idx)?;
             if resolved_idx as usize >= ctx.accounts().len() {
                 return Err(VMErrorCode::InvalidAccountIndex);
             }
@@ -1504,11 +1504,11 @@ mod tests {
         handle_memory(opcode, &mut ctx).expect("external STORE_FIELD should succeed");
         ctx.set_active_script_key(Some(caller_script_key));
 
-        let account = ctx.get_account_for_read(2).expect("read mutated account");
+        let account = ctx.get_account_for_read(1).expect("read mutated account");
         let data = unsafe { account.borrow_data_unchecked() };
         assert_eq!(data[0], 9, "callee should mutate owned state");
 
-        let unauthorized = ctx.get_account_for_write(2);
+        let unauthorized = ctx.get_account_for_write(1);
         assert_eq!(unauthorized, Err(VMErrorCode::ScriptNotAuthorized));
     }
 
