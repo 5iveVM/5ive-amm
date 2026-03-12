@@ -943,6 +943,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
     ctx.current_context = resolved_account_index as u8;
+    // CALL_EXTERNAL switches script context so signed CPI/PDA domain prefixing follows callee script.
     ctx.set_active_script_key(Some(*ctx.accounts()[resolved_account_index].key()));
 
     debug_log!(

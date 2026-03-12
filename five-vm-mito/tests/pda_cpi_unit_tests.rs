@@ -15,7 +15,14 @@ fn execute_test(
     accounts: &[AccountInfo],
 ) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
-    MitoVM::execute_direct(bytecode, input, accounts, &FIVE_VM_PROGRAM_ID, &mut storage)
+    MitoVM::execute_direct_with_root_script(
+        bytecode,
+        input,
+        accounts,
+        &FIVE_VM_PROGRAM_ID,
+        [0xAB; 32],
+        &mut storage,
+    )
 }
 
 #[cfg(test)]

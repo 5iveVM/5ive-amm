@@ -377,7 +377,7 @@ impl<'a> AccountManager<'a> {
 
         #[cfg(target_os = "solana")]
         {
-            const MAX_SEEDS: usize = 8;
+            const MAX_SEEDS: usize = 16;
             let binding = [bump];
             let mut seed_vec: heapless::Vec<Seed, MAX_SEEDS> = heapless::Vec::new();
             for s in seeds.iter() {

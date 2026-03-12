@@ -25,6 +25,8 @@ const MAX_CPI_DATA_LEN: usize = 255;
 const MAX_CPI_ACCOUNTS: usize = 16;
 const MAX_SIGNER_GROUPS: usize = 4;
 const MAX_SIGNER_SEEDS: usize = 8;
+const SIGNER_PREFIX_SEEDS: usize = 1;
+const MAX_EFFECTIVE_SIGNER_SEEDS: usize = MAX_SIGNER_SEEDS + SIGNER_PREFIX_SEEDS;
 const MAX_SIGNER_SEED_LEN: usize = 32;
 const MAX_CPI_SERIALIZE_DEPTH: u8 = 8;
 const ACCOUNT_REF_ERR: u8 = 254;
@@ -133,6 +135,12 @@ fn derive_pda_from_seed_slices(
     }
 }
 
+#[inline(always)]
+fn require_active_script_key(ctx: &ExecutionManager) -> CompactResult<Pubkey> {
+    ctx.active_script_key()
+        .ok_or(VMErrorCode::ScriptNotAuthorized)
+}
+
 fn write_seed_value_into_slice(
     ctx: &ExecutionManager,
     seed_value: ValueRef,
@@ -224,6 +232,7 @@ fn derive_and_mark_workspace_group_signer(
     workspace_base: u32,
     group_offset: u16,
     caller_program_id: &Pubkey,
+    active_script_key: &Pubkey,
     account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
     invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
     accounts_count: usize,
@@ -247,7 +256,16 @@ fn derive_and_mark_workspace_group_signer(
         seed_slices[seed_idx] = &seed_storage[seed_idx][..seed_lengths[seed_idx]];
     }
 
-    let signer_pubkey = derive_pda_from_seed_slices(&seed_slices[..seed_count], caller_program_id)?;
+    let mut prefixed_seed_slices: [&[u8]; MAX_EFFECTIVE_SIGNER_SEEDS] = [&[]; MAX_EFFECTIVE_SIGNER_SEEDS];
+    prefixed_seed_slices[0] = active_script_key.as_ref();
+    for seed_idx in 0..seed_count {
+        prefixed_seed_slices[seed_idx + 1] = seed_slices[seed_idx];
+    }
+
+    let signer_pubkey = derive_pda_from_seed_slices(
+        &prefixed_seed_slices[..seed_count + 1],
+        caller_program_id,
+    )?;
     if !mark_matching_signer_meta(
         account_metas,
         invoke_accounts,
@@ -312,6 +330,7 @@ fn mark_grouped_signer_metas(
     group_count: usize,
     group_offsets: &[u16; MAX_SIGNER_GROUPS],
     caller_program_id: &Pubkey,
+    active_script_key: &Pubkey,
     account_metas: &mut [AccountMeta; MAX_CPI_ACCOUNTS],
     invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
     accounts_count: usize,
@@ -322,6 +341,7 @@ fn mark_grouped_signer_metas(
             workspace_base,
             group_offsets[group_idx],
             caller_program_id,
+            active_script_key,
             account_metas,
             invoke_accounts,
             accounts_count,
@@ -336,6 +356,7 @@ fn invoke_signed_with_grouped_workspace(
     workspace_base: u32,
     group_count: usize,
     group_offsets: &[u16; MAX_SIGNER_GROUPS],
+    active_script_key: &Pubkey,
     program_id: &Pubkey,
     account_metas: &[AccountMeta; MAX_CPI_ACCOUNTS],
     accounts_count: usize,
@@ -343,27 +364,29 @@ fn invoke_signed_with_grouped_workspace(
     invoke_accounts: &[&AccountInfo; MAX_CPI_ACCOUNTS + 1],
     invoke_account_len: usize,
 ) -> CompactResult<()> {
-    let mut signer_seed_arrays: [[Seed; MAX_SIGNER_SEEDS]; MAX_SIGNER_GROUPS] =
+    let mut signer_seed_arrays: [[Seed; MAX_EFFECTIVE_SIGNER_SEEDS]; MAX_SIGNER_GROUPS] =
         core::array::from_fn(|_| core::array::from_fn(|_| Seed::from(&[0u8][..])));
     let mut signers: [Signer; MAX_SIGNER_GROUPS] = core::array::from_fn(|_| Signer::from(&[]));
+    let prefix_seed = Seed::from(active_script_key.as_ref());
 
     for group_idx in 0..group_count {
         let group_start = workspace_base + u32::from(group_offsets[group_idx]);
         let seed_count = ctx.get_heap_data(group_start, 1)?[0] as usize;
         let mut cursor = group_start + 1;
+        signer_seed_arrays[group_idx][0] = prefix_seed.clone();
 
         for seed_idx in 0..seed_count {
             let seed_len = ctx.get_heap_data(cursor, 1)?[0] as usize;
             cursor += 1;
             let seed_bytes = ctx.get_heap_data(cursor, seed_len as u32)?;
-            signer_seed_arrays[group_idx][seed_idx] = Seed::from(seed_bytes);
+            signer_seed_arrays[group_idx][seed_idx + 1] = Seed::from(seed_bytes);
             cursor += seed_len as u32;
         }
     }
     for group_idx in 0..group_count {
         let group_start = workspace_base + u32::from(group_offsets[group_idx]);
         let seed_count = ctx.get_heap_data(group_start, 1)?[0] as usize;
-        signers[group_idx] = Signer::from(&signer_seed_arrays[group_idx][..seed_count]);
+        signers[group_idx] = Signer::from(&signer_seed_arrays[group_idx][..seed_count + 1]);
     }
 
     let instruction = Instruction {
@@ -410,6 +433,7 @@ fn invoke_signed_grouped_from_array_ref(
 
     let program_id_bytes = ctx.extract_pubkey(&program_id_ref)?;
     let program_id = Pubkey::from(program_id_bytes);
+    let active_script_key = require_active_script_key(ctx)?;
 
     let mut instruction_data_buf = [0u8; MAX_CPI_DATA_LEN];
     let instruction_data_len =
@@ -465,6 +489,7 @@ fn invoke_signed_grouped_from_array_ref(
             group_count,
             &group_offsets,
             &ctx.program_id,
+            &active_script_key,
             &mut account_metas,
             &invoke_accounts,
             accounts_count as usize,
@@ -475,6 +500,7 @@ fn invoke_signed_grouped_from_array_ref(
             workspace_base,
             group_count,
             &group_offsets,
+            &active_script_key,
             &program_id,
             &account_metas,
             accounts_count as usize,
@@ -1072,6 +1098,8 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
         INVOKE_SIGNED => {
             const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
             debug_log!("MitoVM: INVOKE_SIGNED operation");
+            // Signed CPI is script-scoped: active_script_key is implicitly prepended to seed sets.
+            let active_script_key = require_active_script_key(ctx)?;
 
             let signer_payload = ctx.pop()?;
             if let ValueRef::ArrayRef(_) = signer_payload {
@@ -1199,23 +1227,27 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
             }
 
             // Create signer from seeds using stack arrays (no heap!)
-            let mut seeds_refs: [Seed; MAX_SEEDS] =
+            let mut seeds_refs: [Seed; MAX_EFFECTIVE_SIGNER_SEEDS] =
                 core::array::from_fn(|_| Seed::from(&[0u8][..])); // Default empty seed
+            let prefix_seed = Seed::from(active_script_key.as_ref());
+            seeds_refs[0] = prefix_seed;
 
             for i in 0..seeds_count as usize {
                 let seed_slice = &seed_storage[i][..seed_lengths[i] as usize];
-                seeds_refs[i] = Seed::from(seed_slice);
+                seeds_refs[i + 1] = Seed::from(seed_slice);
             }
             let mut derived_seed_lengths = [0usize; MAX_SIGNER_SEEDS];
             for i in 0..seeds_count as usize {
                 derived_seed_lengths[i] = seed_lengths[i] as usize;
             }
-            let mut derived_seed_slices: [&[u8]; MAX_SIGNER_SEEDS] = [&[]; MAX_SIGNER_SEEDS];
+            let mut derived_seed_slices: [&[u8]; MAX_EFFECTIVE_SIGNER_SEEDS] =
+                [&[]; MAX_EFFECTIVE_SIGNER_SEEDS];
+            derived_seed_slices[0] = active_script_key.as_ref();
             for i in 0..seeds_count as usize {
-                derived_seed_slices[i] = &seed_storage[i][..derived_seed_lengths[i]];
+                derived_seed_slices[i + 1] = &seed_storage[i][..derived_seed_lengths[i]];
             }
             let signer_pubkey = derive_pda_from_seed_slices(
-                &derived_seed_slices[..seeds_count as usize],
+                &derived_seed_slices[..seeds_count as usize + 1],
                 &ctx.program_id,
             )?;
             if !mark_matching_signer_meta(
@@ -1231,7 +1263,7 @@ pub fn handle_invoke_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
                 accounts: &account_metas[..accounts_count as usize],
                 data: &instruction_data_buf[..instruction_data_len],
             };
-            let signer = Signer::from(&seeds_refs[..seeds_count as usize]);
+            let signer = Signer::from(&seeds_refs[..seeds_count as usize + 1]);
 
             // Execute the invoke_signed
             debug_log!("MitoVM: Executing invoke_signed");
@@ -1327,6 +1359,7 @@ mod tests {
             0,
             0,
         );
+        ctx.set_active_script_key(Some(Pubkey::from([195u8; 32])));
 
         // Stack push order is reverse of pops in INVOKE_SIGNED.
         ctx.push(ValueRef::TempRef(250, 10)).unwrap(); // seed_value_ref (out of bounds)
@@ -1376,6 +1409,7 @@ mod tests {
             0,
             0,
         );
+        ctx.set_active_script_key(Some(Pubkey::from([196u8; 32])));
         ctx.temp_buffer_mut()[0] = 7;
 
         // Valid seed, then invalid instruction_data_ref range.
@@ -1424,6 +1458,7 @@ mod tests {
             0,
             0,
         );
+        ctx.set_active_script_key(Some(Pubkey::from([197u8; 32])));
 
         let signer_groups_ref = store_array(&mut ctx, 0, &[ValueRef::Bool(true)]);
         ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref
@@ -1465,6 +1500,7 @@ mod tests {
             0,
             0,
         );
+        ctx.set_active_script_key(Some(Pubkey::from([198u8; 32])));
 
         let inner_group = store_array(&mut ctx, 0, &[ValueRef::AccountRef(0, 0)]);
         let signer_groups_ref = store_array(&mut ctx, 16, &[inner_group]);
@@ -1508,6 +1544,7 @@ mod tests {
             0,
             0,
         );
+        ctx.set_active_script_key(Some(Pubkey::from([199u8; 32])));
 
         let inner_group = store_array(&mut ctx, 0, &[ValueRef::AccountRef(0, 0)]);
         let signer_groups_ref = store_array(&mut ctx, 16, &[inner_group]);
@@ -1518,6 +1555,48 @@ mod tests {
 
         let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
         assert_eq!(result, Err(crate::error::VMErrorCode::ConstraintViolation));
+    }
+
+    #[test]
+    fn invoke_signed_requires_active_script_key() {
+        let program_id = Pubkey::from([100u8; 32]);
+        let mut lamports = 1;
+        let mut account_data = [];
+        let account = create_account_info(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut account_data,
+            &program_id,
+        );
+        let accounts = [account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        ctx.push(ValueRef::TempRef(0, 1)).unwrap(); // seed
+        ctx.push(ValueRef::U64(1)).unwrap(); // seed_len
+        ctx.push(ValueRef::U64(1)).unwrap(); // seeds_count
+        ctx.push(ValueRef::U64(0)).unwrap(); // program_id_ref
+        ctx.push(ValueRef::TempRef(0, 0)).unwrap(); // ix data
+        ctx.push(ValueRef::U64(0)).unwrap(); // accounts_count
+
+        let result = handle_invoke_ops(INVOKE_SIGNED, &mut ctx);
+        assert_eq!(result, Err(crate::error::VMErrorCode::ScriptNotAuthorized));
     }
 
     #[test]

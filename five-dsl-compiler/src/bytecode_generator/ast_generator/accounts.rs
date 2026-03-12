@@ -164,6 +164,8 @@ impl ASTGenerator {
         emitter: &mut T,
         parameters: &[InstructionParameter],
     ) -> Result<(), VMError> {
+        // NOTE: Runtime signer derivation for INIT_PDA_ACCOUNT / INVOKE_SIGNED prepends
+        // active_script_key implicitly. The user-authored seeds below remain the public DSL surface.
         for (index, param) in parameters.iter().enumerate() {
             let Some(pda_config) = &param.pda_config else {
                 continue;

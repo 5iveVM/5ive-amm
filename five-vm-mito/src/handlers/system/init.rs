@@ -213,6 +213,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 ///
 /// This creates a new Program Derived Address account using the provided seeds and bump.
 /// The PDA address is deterministically derived and the account is created with the specified parameters.
+/// Runtime applies script scoping by prepending active_script_key to user-provided seeds.
 fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
     // Pop basic parameters
@@ -254,6 +255,10 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     if ctx.size() < seeds_count as usize {
         return Err(VMErrorCode::StackError);
     }
+    let active_script_key = ctx
+        .active_script_key()
+        .ok_or(VMErrorCode::ScriptNotAuthorized)?;
+
     // Collect seeds and restore original order
     let mut seeds: Vec<Vec<u8, 32>, MAX_SEEDS> = Vec::new();
     for _ in 0..seeds_count {
@@ -288,7 +293,10 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Create PDA account via System Program CPI (runtime integration required)
     // Convert seeds to slice references without heap allocation
-    let mut seed_refs: Vec<&[u8], MAX_SEEDS> = Vec::new();
+    let mut seed_refs: Vec<&[u8], { MAX_SEEDS + 1 }> = Vec::new();
+    seed_refs
+        .push(active_script_key.as_ref())
+        .map_err(|_| VMErrorCode::TooManySeeds)?;
     for seed in seeds.iter() {
         seed_refs
             .push(seed.as_slice())
@@ -309,7 +317,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     {
         // Construct full seeds list including bump for validation
         let binding = [bump];
-        let mut validation_seeds: Vec<&[u8], { MAX_SEEDS + 1 }> = Vec::new();
+        let mut validation_seeds: Vec<&[u8], { MAX_SEEDS + 2 }> = Vec::new();
         for s in seed_refs.iter() {
             validation_seeds.push(*s).unwrap();
         }

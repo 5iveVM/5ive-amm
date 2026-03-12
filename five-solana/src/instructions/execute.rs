@@ -101,6 +101,7 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
         vm_params,
         vm_accounts,
         program_id,
+        // Root script key drives script-scoped authorization and implicit PDA signer domains.
         *script_account.key(),
         &mut *storage,
     ) {

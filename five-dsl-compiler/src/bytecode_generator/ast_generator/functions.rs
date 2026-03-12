@@ -146,6 +146,10 @@ impl ASTGenerator {
         emitter: &mut T,
         authority_param: &InstructionParameter,
     ) -> Result<(), VMError> {
+        eprintln!(
+            "warning: @pda authority '{}' uses script-scoped signer derivation; runtime prepends the active script key to user seeds",
+            authority_param.name
+        );
         let pda_config = authority_param
             .pda_config
             .as_ref()
