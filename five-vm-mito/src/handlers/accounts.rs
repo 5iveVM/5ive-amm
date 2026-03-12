@@ -48,6 +48,7 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
 
             match ctx.create_account(account_idx, space, lamports, &owner) {
                 Ok(_) => {
+                    ctx.initialize_state_owner_meta(account_idx)?;
                     ctx.push(ValueRef::Bool(true))?;
                 }
                 Err(_) => {

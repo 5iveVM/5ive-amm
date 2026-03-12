@@ -429,8 +429,11 @@ fn stdlib_stake_authorize_checked_variable_emits_cast_opcode() {
         .duration_since(UNIX_EPOCH)
         .expect("clock should be monotonic")
         .as_nanos();
-    let temp_root =
-        std::env::temp_dir().join(format!("five-stdlib-stake-cpi-{}-{}", std::process::id(), stamp));
+    let temp_root = std::env::temp_dir().join(format!(
+        "five-stdlib-stake-cpi-{}-{}",
+        std::process::id(),
+        stamp
+    ));
     fs::create_dir_all(&temp_root).expect("create temp compile directory");
     let entry_path = temp_root.join("main.v");
     fs::write(&entry_path, source).expect("write temp entry source");

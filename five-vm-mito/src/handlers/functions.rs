@@ -180,6 +180,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let script_ptr = ctx.script().as_ptr() as usize;
     let script_len = ctx.script().len() as u32;
     let current_context = ctx.current_context;
+    let active_script_key = ctx.active_script_key().unwrap_or([0u8; 32]);
     let remap = ctx.external_account_remap();
     prepare_callee_frame(
         ctx,
@@ -190,6 +191,7 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_temp_offset,
         current_ip,
         current_context,
+        active_script_key,
         remap,
         script_ptr,
         script_len,
@@ -910,6 +912,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let script_ptr = ctx.script().as_ptr() as usize;
     let script_len = ctx.script().len() as u32;
     let current_context = ctx.current_context;
+    let active_script_key = ctx.active_script_key().unwrap_or([0u8; 32]);
     let remap_for_callee = computed_remap;
     prepare_callee_frame(
         ctx,
@@ -920,6 +923,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         caller_temp_offset,
         return_address,
         current_context,
+        active_script_key,
         remap_for_callee,
         script_ptr,
         script_len,
@@ -939,6 +943,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
     ctx.current_context = resolved_account_index as u8;
+    ctx.set_active_script_key(Some(*ctx.accounts()[resolved_account_index].key()));
 
     debug_log!(
         "MitoVM: CALL_EXTERNAL after switch_to_external_bytecode - new IP: {}, script len: {}",
@@ -1005,6 +1010,7 @@ fn prepare_callee_frame(
     caller_temp_offset: u16,
     return_address: usize,
     context_id: u8,
+    active_script_key: [u8; 32],
     remap: [u8; MAX_PARAMETERS + 1],
     script_ptr: usize,
     script_len: u32,
@@ -1030,6 +1036,7 @@ fn prepare_callee_frame(
         caller_temp_offset,
         saved_parameters,
         context_id,
+        active_script_key,
         remap,
         script_ptr,
         script_len,
@@ -1171,6 +1178,7 @@ mod tests {
             system::sysvars::handle_sysvar_ops,
         },
         stack::StackStorage,
+        systems::accounts::StateAccountOwnerMeta,
         MitoVM, MAX_PARAMETERS,
     };
     use five_dsl_compiler::DslCompiler;
@@ -1381,7 +1389,7 @@ mod tests {
         let accounts = [caller_account, external_account];
 
         // CALL_EXTERNAL payload: account_index=1, selector=0, param_count=1.
-        let call_site = [1u8, 0u8, 0u8, 1u8];
+        let call_site = [1u8, 0u8, 0u8, 1u8, five_protocol::opcodes::HALT];
         let mut storage = StackStorage::new();
         let mut ctx = ExecutionContext::new(
             &call_site,
@@ -1407,6 +1415,100 @@ mod tests {
 
         // Regression: computed remap replaces stale remap for callee context.
         assert_eq!(ctx.external_account_remap()[1], 0);
+    }
+
+    #[test]
+    fn call_external_enforces_state_isolation_by_active_script_context() {
+        let program_id = Pubkey::from([81u8; 32]);
+        let caller_script_key = Pubkey::from([82u8; 32]);
+        let external_script_key = Pubkey::from([83u8; 32]);
+        let state_key = Pubkey::from([84u8; 32]);
+
+        let mut caller_lamports = 1;
+        let mut external_lamports = 1;
+        let mut state_lamports = 1;
+        let mut caller_data = [];
+        let mut state_data = [0u8; 64];
+        StateAccountOwnerMeta::write_to_account_data(&mut state_data, &external_script_key)
+            .expect("write state owner meta");
+
+        let mut external_code = Vec::new();
+        let features = five_protocol::FEATURE_PUBLIC_ENTRY_TABLE;
+        external_code.extend_from_slice(b"5IVE");
+        external_code.extend_from_slice(&features.to_le_bytes());
+        external_code.push(1); // public function count
+        external_code.push(1); // total function count
+        external_code.extend_from_slice(&(3u16).to_le_bytes()); // table section size
+        external_code.push(1); // entry count
+        external_code.extend_from_slice(&(0u16).to_le_bytes()); // function starts at code base
+        external_code.push(five_protocol::opcodes::PUSH_U8);
+        external_code.push(9);
+        external_code.push(five_protocol::opcodes::STORE_FIELD);
+        external_code.push(1);
+        external_code.extend_from_slice(&0u32.to_le_bytes());
+        external_code.push(five_protocol::opcodes::RETURN);
+        let mut external_data = wrap_script_account_data(&external_code);
+
+        let caller_account = create_account_info(
+            &caller_script_key,
+            false,
+            false,
+            &mut caller_lamports,
+            &mut caller_data,
+            &program_id,
+        );
+        let external_account = create_account_info(
+            &external_script_key,
+            false,
+            false,
+            &mut external_lamports,
+            external_data.as_mut_slice(),
+            &program_id,
+        );
+        let state_account = create_account_info(
+            &state_key,
+            false,
+            true,
+            &mut state_lamports,
+            &mut state_data,
+            &program_id,
+        );
+        let accounts = [caller_account, external_account, state_account];
+
+        let call_site = [1u8, 0u8, 0u8, 1u8];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &call_site,
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.set_active_script_key(Some(caller_script_key));
+        ctx.push(ValueRef::AccountRef(2, 0))
+            .expect("push state account arg");
+
+        handle_call_external(&mut ctx).expect("CALL_EXTERNAL should succeed");
+
+        let opcode = ctx.fetch_byte().expect("fetch PUSH_U8");
+        handle_stack_ops(opcode, &mut ctx).expect("PUSH_U8 in external should succeed");
+        let opcode = ctx.fetch_byte().expect("fetch STORE_FIELD");
+        handle_memory(opcode, &mut ctx).expect("external STORE_FIELD should succeed");
+        ctx.set_active_script_key(Some(caller_script_key));
+
+        let account = ctx.get_account_for_read(2).expect("read mutated account");
+        let data = unsafe { account.borrow_data_unchecked() };
+        assert_eq!(data[0], 9, "callee should mutate owned state");
+
+        let unauthorized = ctx.get_account_for_write(2);
+        assert_eq!(unauthorized, Err(VMErrorCode::ScriptNotAuthorized));
     }
 
     #[test]

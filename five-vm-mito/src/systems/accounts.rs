@@ -13,6 +13,47 @@ const SYSTEM_PROGRAM_ID: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StateAccountOwnerMeta {
+    pub owning_bytecode_account: Pubkey,
+}
+
+impl StateAccountOwnerMeta {
+    const MAGIC: [u8; 4] = *b"5SAO";
+    pub const LEN: usize = 4 + 32;
+
+    #[inline]
+    pub fn parse_from_account_data(data: &[u8]) -> Option<Self> {
+        if data.len() < Self::LEN {
+            return None;
+        }
+        let meta_start = data.len() - Self::LEN;
+        if data[meta_start..meta_start + 4] != Self::MAGIC {
+            return None;
+        }
+        let mut script_key = [0u8; 32];
+        script_key.copy_from_slice(&data[meta_start + 4..meta_start + Self::LEN]);
+        Some(Self {
+            owning_bytecode_account: Pubkey::from(script_key),
+        })
+    }
+
+    #[inline]
+    pub fn write_to_account_data(
+        data: &mut [u8],
+        owning_bytecode_account: &Pubkey,
+    ) -> CompactResult<()> {
+        if data.len() < Self::LEN {
+            return Err(VMErrorCode::ScriptNotAuthorized);
+        }
+        let meta_start = data.len() - Self::LEN;
+        data[meta_start..meta_start + 4].copy_from_slice(&Self::MAGIC);
+        data[meta_start + 4..meta_start + Self::LEN]
+            .copy_from_slice(owning_bytecode_account.as_ref());
+        Ok(())
+    }
+}
+
 pub struct AccountManager<'a> {
     pub accounts: &'a [AccountInfo],
     pub lazy_validator: LazyAccountValidator,
@@ -74,7 +115,11 @@ impl<'a> AccountManager<'a> {
     }
 
     #[inline]
-    pub fn check_authorization(&self, account_idx: u8) -> CompactResult<()> {
+    pub fn check_authorization(
+        &self,
+        account_idx: u8,
+        active_script_key: Option<&Pubkey>,
+    ) -> CompactResult<()> {
         let account = self.get(account_idx)?;
 
         // Protect VM state account (execution index 0) from script-level writes.
@@ -101,6 +146,27 @@ impl<'a> AccountManager<'a> {
             }
         }
 
+        self.check_state_owner_metadata(account, active_script_key)?;
+
+        Ok(())
+    }
+
+    #[inline]
+    pub fn check_state_owner_metadata(
+        &self,
+        account: &AccountInfo,
+        active_script_key: Option<&Pubkey>,
+    ) -> CompactResult<()> {
+        let Some(current_script_key) = active_script_key else {
+            return Ok(());
+        };
+        let data = unsafe { account.borrow_data_unchecked() };
+        let Some(meta) = StateAccountOwnerMeta::parse_from_account_data(data) else {
+            return Err(VMErrorCode::ScriptNotAuthorized);
+        };
+        if &meta.owning_bytecode_account != current_script_key {
+            return Err(VMErrorCode::ScriptNotAuthorized);
+        }
         Ok(())
     }
 
@@ -396,7 +462,7 @@ mod tests {
         let manager = AccountManager::new(&accounts, program_id);
 
         assert_eq!(
-            manager.check_authorization(0),
+            manager.check_authorization(0, None),
             Err(VMErrorCode::ScriptNotAuthorized)
         );
     }
@@ -432,7 +498,57 @@ mod tests {
         let manager = AccountManager::new(&accounts, program_id);
 
         assert_eq!(
-            manager.check_authorization(1),
+            manager.check_authorization(1, None),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
+
+    #[test]
+    fn state_owner_meta_roundtrip() {
+        let owner_script = Pubkey::from([44u8; 32]);
+        let mut data = [0u8; 64];
+        StateAccountOwnerMeta::write_to_account_data(&mut data, &owner_script)
+            .expect("write owner meta");
+        let parsed =
+            StateAccountOwnerMeta::parse_from_account_data(&data).expect("parse owner meta");
+        assert_eq!(parsed.owning_bytecode_account, owner_script);
+    }
+
+    #[test]
+    fn check_authorization_rejects_mismatched_state_owner_meta() {
+        let program_id = Pubkey::from([11u8; 32]);
+        let vm_key = Pubkey::from([12u8; 32]);
+        let state_key = Pubkey::from([13u8; 32]);
+        let active_script = Pubkey::from([14u8; 32]);
+        let owner_script = Pubkey::from([15u8; 32]);
+        let mut vm_lamports = 1_000;
+        let mut state_lamports = 1_000;
+        let mut vm_data = [0u8; 8];
+        let mut state_data = [0u8; 72];
+        StateAccountOwnerMeta::write_to_account_data(&mut state_data, &owner_script)
+            .expect("write owner meta");
+
+        let vm_state = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let state_account = create_account_info(
+            &state_key,
+            false,
+            true,
+            &mut state_lamports,
+            &mut state_data,
+            &program_id,
+        );
+        let accounts = [vm_state, state_account];
+        let manager = AccountManager::new(&accounts, program_id);
+
+        assert_eq!(
+            manager.check_authorization(1, Some(&active_script)),
             Err(VMErrorCode::ScriptNotAuthorized)
         );
     }

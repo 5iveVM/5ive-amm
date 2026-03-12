@@ -14,6 +14,7 @@ use five_protocol::{
     opcodes::{self, CALL_EXTERNAL, HALT},
     parser::parse_code_bounds,
 };
+use five_vm_mito::systems::accounts::StateAccountOwnerMeta;
 use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::compile::{load_or_compile_bytecode, maybe_write_generated_v};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
@@ -88,6 +89,12 @@ fn load_token_template_bytecode(repo_root: &Path) -> Vec<u8> {
             e
         )
     })
+}
+
+fn stamp_state_owner_meta(data: &mut [u8], owning_script: &Pubkey) {
+    let owner_bytes = owning_script.to_bytes();
+    StateAccountOwnerMeta::write_to_account_data(data, &owner_bytes)
+        .expect("state account must reserve footer space for owner metadata");
 }
 
 #[derive(Debug, Deserialize)]
@@ -1070,6 +1077,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     source_data[32..64].copy_from_slice(mint_pubkey.as_ref());
     source_data[64..72].copy_from_slice(&500u64.to_le_bytes());
     source_data[72] = 0;
+    stamp_state_owner_meta(&mut source_data, &token_script_pubkey);
     accounts.insert(
         "source_token".to_string(),
         RuntimeAccount {
@@ -1089,6 +1097,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     destination_data[32..64].copy_from_slice(mint_pubkey.as_ref());
     destination_data[64..72].copy_from_slice(&100u64.to_le_bytes());
     destination_data[72] = 0;
+    stamp_state_owner_meta(&mut destination_data, &token_script_pubkey);
     accounts.insert(
         "destination_token".to_string(),
         RuntimeAccount {

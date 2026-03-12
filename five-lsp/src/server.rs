@@ -492,8 +492,12 @@ impl LanguageServer for FiveLanguageServer {
         let mut all_symbols = Vec::new();
 
         for (uri, doc) in documents.iter() {
-            let symbols =
-                features::workspace_symbols::workspace_symbols(&mut bridge, &doc.content, &params.query, uri);
+            let symbols = features::workspace_symbols::workspace_symbols(
+                &mut bridge,
+                &doc.content,
+                &params.query,
+                uri,
+            );
             all_symbols.extend(symbols);
         }
 

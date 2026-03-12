@@ -29,11 +29,7 @@ mod tests {
 
             let lower = line.to_ascii_lowercase();
             if lower.starts_with("content-length:") {
-                let value = line
-                    .split(':')
-                    .nth(1)
-                    .expect("content-length value")
-                    .trim();
+                let value = line.split(':').nth(1).expect("content-length value").trim();
                 content_length = Some(value.parse::<usize>().expect("content-length number"));
             }
         }
@@ -49,7 +45,11 @@ mod tests {
         let bin = std::env::var("CARGO_BIN_EXE_five-lsp").unwrap_or_else(|_| {
             let mut candidate = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             candidate.push("../target/debug");
-            candidate.push(if cfg!(windows) { "five-lsp.exe" } else { "five-lsp" });
+            candidate.push(if cfg!(windows) {
+                "five-lsp.exe"
+            } else {
+                "five-lsp"
+            });
             candidate.to_string_lossy().to_string()
         });
         let mut child = Command::new(bin)

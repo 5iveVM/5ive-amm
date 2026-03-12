@@ -32,6 +32,7 @@ pub struct CallFrame {
     pub saved_temp_offset: u16, // Temp buffer cursor before entering callee
     pub saved_parameters: [ValueRef; MAX_PARAMETERS + 1], // Full caller parameter values
     pub bytecode_context: u8, // Context identifier: u8::MAX = Root, otherwise account index
+    pub active_script_key: [u8; 32], // Active script account pubkey for authorization restore
     pub account_remap: [u8; MAX_PARAMETERS + 1], // External-call account remap snapshot
     pub caller_script_ptr: usize, // Raw pointer to caller bytecode slice for fast restore on RETURN
     pub caller_script_len: u32, // Length of caller bytecode slice
@@ -137,6 +138,7 @@ impl CallFrame {
             saved_temp_offset: 0,
             saved_parameters: [ValueRef::Empty; MAX_PARAMETERS + 1],
             bytecode_context,
+            active_script_key: [0u8; 32],
             account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             caller_script_ptr: 0,
             caller_script_len: 0,
@@ -154,6 +156,7 @@ impl CallFrame {
         saved_temp_offset: u16,
         saved_parameters: [ValueRef; MAX_PARAMETERS + 1],
         bytecode_context: u8,
+        active_script_key: [u8; 32],
         account_remap: [u8; MAX_PARAMETERS + 1],
         caller_script_ptr: usize,
         caller_script_len: u32,
@@ -168,6 +171,7 @@ impl CallFrame {
             saved_temp_offset,
             saved_parameters,
             bytecode_context,
+            active_script_key,
             account_remap,
             caller_script_ptr,
             caller_script_len,

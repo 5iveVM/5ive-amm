@@ -21,8 +21,11 @@ use pinocchio::{
 };
 
 use crate::systems::{
-    accounts::AccountManager, frame::FrameManager, resource::HeapCheckpoint,
-    resource::ResourceManager, stack::StackManager,
+    accounts::{AccountManager, StateAccountOwnerMeta},
+    frame::FrameManager,
+    resource::HeapCheckpoint,
+    resource::ResourceManager,
+    stack::StackManager,
 };
 
 pub const EXTERNAL_CALL_CACHE_SIZE: usize = 32;
@@ -43,6 +46,7 @@ pub struct ExecutionContext<'a> {
     /// Original root bytecode for context restoration
     pub root_bytecode: &'a [u8],
     pub current_context: u8,
+    pub active_script_key: Option<Pubkey>,
     pub pc: u16,
     pub external_account_remap: [u8; MAX_PARAMETERS + 1],
 
@@ -140,6 +144,7 @@ impl<'a> ExecutionContext<'a> {
             bytecode,
             root_bytecode: bytecode,
             current_context: crate::types::ROOT_CONTEXT,
+            active_script_key: None,
             pc: start_pc,
             external_account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             stack: StackManager::new(stack),
@@ -498,16 +503,13 @@ impl<'a> ExecutionContext<'a> {
     /// Get account for write access, checking authorization and writability
     #[inline(always)]
     pub fn get_account_for_write(&self, index: u8) -> CompactResult<&'a AccountInfo> {
+        let resolved_index = self.resolve_account_index(index);
         // 1. Get account once
-        let account = self.accounts.get(self.resolve_account_index(index))?;
+        let account = self.accounts.get(resolved_index)?;
 
-        // 2. Check bytecode authorization inline (avoiding second get)
-        if account.data_len() > 0 {
-            if *account.owner() != self.program_id {
-                crate::debug_log!("Auth failed: owner mismatch");
-                return Err(VMErrorCode::ScriptNotAuthorized);
-            }
-        }
+        // 2. Reuse the canonical mutation authorization checks.
+        self.accounts
+            .check_authorization(resolved_index, self.active_script_key.as_ref())?;
 
         // 3. Check writable
         if !account.is_writable() {
@@ -874,7 +876,18 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline]
     pub fn check_bytecode_authorization(&self, account_idx: u8) -> CompactResult<()> {
-        self.accounts.check_authorization(account_idx)
+        self.accounts
+            .check_authorization(account_idx, self.active_script_key.as_ref())
+    }
+
+    #[inline(always)]
+    pub fn active_script_key(&self) -> Option<Pubkey> {
+        self.active_script_key
+    }
+
+    #[inline(always)]
+    pub fn set_active_script_key(&mut self, script_key: Option<Pubkey>) {
+        self.active_script_key = script_key;
     }
 
     #[inline]
@@ -949,6 +962,19 @@ impl<'a> ExecutionContext<'a> {
     ) -> CompactResult<()> {
         self.accounts
             .create_account_with_payer(account_idx, payer_idx, space, lamports, owner)
+    }
+
+    #[inline]
+    pub fn initialize_state_owner_meta(&self, account_idx: u8) -> CompactResult<()> {
+        let Some(active_script_key) = self.active_script_key.as_ref() else {
+            return Ok(());
+        };
+        let account = self.get_account_unchecked(account_idx)?;
+        if account.data_len() == 0 || *account.owner() != self.program_id {
+            return Ok(());
+        }
+        let data = unsafe { account.borrow_mut_data_unchecked() };
+        StateAccountOwnerMeta::write_to_account_data(data, active_script_key)
     }
 
     #[inline]

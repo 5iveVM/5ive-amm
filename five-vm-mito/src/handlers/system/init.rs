@@ -139,6 +139,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     // Create the account in one CPI with the actual target size.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
+            ctx.initialize_state_owner_meta(account_idx)?;
             debug_log!(
                 "INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes",
                 payer_idx,
@@ -302,6 +303,7 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         &owner,
         payer_idx,
     )?;
+    ctx.initialize_state_owner_meta(account_idx)?;
 
     // Validate that the created account address matches the derived PDA
     {

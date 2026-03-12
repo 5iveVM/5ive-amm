@@ -96,9 +96,14 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
     let mut storage = StackStorage::new_on_heap();
-    if let Err(vm_error) =
-        MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage)
-    {
+    if let Err(vm_error) = MitoVM::execute_direct_with_root_script(
+        bytecode,
+        vm_params,
+        vm_accounts,
+        program_id,
+        *script_account.key(),
+        &mut *storage,
+    ) {
         pinocchio::msg!("MitoVM MAIN execution failed");
         pinocchio::log::sol_log_64(VMErrorCode::from(vm_error.clone()) as u64, 0, 0, 0, 0);
         return Err(vm_error.to_program_error());
