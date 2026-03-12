@@ -691,10 +691,8 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         return Err(VMErrorCode::StackError);
     }
 
-    let resolved_account_index =
-        ctx.resolve_account_index_for_context(account_index as u8) as usize;
-    let resolved_account_index_u8 =
-        u8::try_from(resolved_account_index).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
+    let resolved_account_index_u8 = ctx.resolve_bound_account_index_for_context(account_index as u8)?;
+    let resolved_account_index = resolved_account_index_u8 as usize;
 
     // Validate account index
     if resolved_account_index >= ctx.accounts().len() {
@@ -942,7 +940,7 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     );
 
     ctx.switch_to_external_bytecode(external_bytecode, resolved_func_offset)?;
-    ctx.current_context = resolved_account_index as u8;
+    ctx.current_context = resolved_account_index_u8;
     // CALL_EXTERNAL switches script context so signed CPI/PDA domain prefixing follows callee script.
     ctx.set_active_script_key(Some(*ctx.accounts()[resolved_account_index].key()));
 
@@ -1416,6 +1414,57 @@ mod tests {
 
         // Regression: computed remap replaces stale remap for callee context.
         assert_eq!(ctx.external_account_remap()[1], 0);
+    }
+
+    #[test]
+    fn call_external_rejects_unbound_callee_account_in_external_context() {
+        let program_id = Pubkey::from([70u8; 32]);
+        let caller_key = Pubkey::from([71u8; 32]);
+        let external_key = Pubkey::from([72u8; 32]);
+
+        let mut caller_lamports = 1;
+        let mut external_lamports = 1;
+        let mut caller_data = [];
+        let mut external_data = wrap_script_account_data(&minimal_external_bytecode());
+
+        let caller_account = create_account_info(
+            &caller_key,
+            false,
+            false,
+            &mut caller_lamports,
+            &mut caller_data,
+            &program_id,
+        );
+        let external_account = create_account_info(
+            &external_key,
+            false,
+            false,
+            &mut external_lamports,
+            external_data.as_mut_slice(),
+            &program_id,
+        );
+        let accounts = [caller_account, external_account];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[1u8, 0u8, 0u8, 0u8],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.current_context = 1;
+        ctx.set_external_account_remap([u8::MAX; MAX_PARAMETERS + 1]);
+
+        let result = handle_call_external(&mut ctx);
+        assert_eq!(result, Err(VMErrorCode::InvalidAccountIndex));
     }
 
     #[test]

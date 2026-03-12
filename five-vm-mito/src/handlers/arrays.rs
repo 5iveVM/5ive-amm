@@ -183,10 +183,7 @@ fn append_raw_bytes_with_depth(
                 out[..8].copy_from_slice(&resolved.to_le_bytes());
                 return Ok(8);
             }
-            let account = ctx
-                .accounts()
-                .get(*account_idx as usize)
-                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let account = ctx.get_account(*account_idx)?;
             let bytes = account.key().as_ref();
             out[..bytes.len()].copy_from_slice(bytes);
             Ok(bytes.len())
@@ -1174,7 +1171,7 @@ fn handle_array_creation(opcode: u8, ctx: &mut ExecutionManager) -> CompactResul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{context::ExecutionContext, stack::StackStorage};
+    use crate::{context::ExecutionContext, stack::StackStorage, MAX_PARAMETERS};
     use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
 
     #[test]
@@ -1315,5 +1312,149 @@ mod tests {
         let len = append_raw_bytes_with_depth(&mut ctx, &ValueRef::I8(-1), &mut out, 0).unwrap();
         assert_eq!(len, 1);
         assert_eq!(out[0], 0xFF);
+    }
+
+    #[test]
+    fn append_raw_bytes_rejects_unbound_accountref_in_external_context() {
+        let program_id = Pubkey::from([31u8; 32]);
+        let vm_key = Pubkey::from([32u8; 32]);
+        let bound_key = Pubkey::from([33u8; 32]);
+        let unbound_key = Pubkey::from([34u8; 32]);
+        let mut vm_lamports = 1u64;
+        let mut bound_lamports = 1u64;
+        let mut unbound_lamports = 1u64;
+        let mut vm_data: [u8; 0] = [];
+        let mut bound_data: [u8; 0] = [];
+        let mut unbound_data: [u8; 0] = [];
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        let bound = AccountInfo::new(
+            &bound_key,
+            false,
+            true,
+            &mut bound_lamports,
+            &mut bound_data,
+            &program_id,
+            false,
+            0,
+        );
+        let unbound = AccountInfo::new(
+            &unbound_key,
+            false,
+            true,
+            &mut unbound_lamports,
+            &mut unbound_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, bound, unbound];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+        remap[1] = 1;
+        ctx.set_external_account_remap(remap);
+
+        let mut out = [0u8; 64];
+        let result =
+            append_raw_bytes_with_depth(&mut ctx, &ValueRef::AccountRef(2, 0), &mut out, 0);
+        assert_eq!(result, Err(VMErrorCode::InvalidAccountIndex));
+    }
+
+    #[test]
+    fn append_raw_bytes_uses_bound_accountref_mapping_in_external_context() {
+        let program_id = Pubkey::from([41u8; 32]);
+        let vm_key = Pubkey::from([42u8; 32]);
+        let filler_key = Pubkey::from([43u8; 32]);
+        let mapped_key = Pubkey::from([44u8; 32]);
+        let mut vm_lamports = 1u64;
+        let mut filler_lamports = 1u64;
+        let mut mapped_lamports = 1u64;
+        let mut vm_data: [u8; 0] = [];
+        let mut filler_data: [u8; 0] = [];
+        let mut mapped_data: [u8; 0] = [];
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        let filler = AccountInfo::new(
+            &filler_key,
+            false,
+            true,
+            &mut filler_lamports,
+            &mut filler_data,
+            &program_id,
+            false,
+            0,
+        );
+        let mapped = AccountInfo::new(
+            &mapped_key,
+            false,
+            true,
+            &mut mapped_lamports,
+            &mut mapped_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, filler, mapped];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+        remap[1] = 2;
+        ctx.set_external_account_remap(remap);
+
+        let mut out = [0u8; 64];
+        let len =
+            append_raw_bytes_with_depth(&mut ctx, &ValueRef::AccountRef(1, 0), &mut out, 0)
+                .expect("serialize mapped account ref");
+        assert_eq!(len, 32);
+        assert_eq!(&out[..32], mapped_key.as_ref());
     }
 }

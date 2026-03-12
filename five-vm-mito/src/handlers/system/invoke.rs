@@ -644,10 +644,7 @@ fn append_serialized_value_with_depth(
                 );
                 return Err(VMErrorCode::TypeMismatch);
             }
-            let account = ctx
-                .accounts()
-                .get(account_idx as usize)
-                .ok_or(VMErrorCode::InvalidAccountIndex)?;
+            let account = ctx.get_account(account_idx)?;
             let bytes = account.key().as_ref();
             if *write_offset + bytes.len() > out.len() {
                 return Err(VMErrorCode::InvalidOperation);
@@ -1704,5 +1701,122 @@ mod tests {
         expected.extend_from_slice(&(-3i32).to_le_bytes());
         expected.push((-1i8) as u8);
         assert_eq!(&instruction_data[..len], expected.as_slice());
+    }
+
+    #[test]
+    fn materialize_instruction_data_rejects_unbound_accountref_in_external_context() {
+        let program_id = Pubkey::from([101u8; 32]);
+        let key0 = Pubkey::from([1u8; 32]);
+        let key1 = Pubkey::from([2u8; 32]);
+        let mut lamports0 = 1u64;
+        let mut lamports1 = 1u64;
+        let mut data0 = [];
+        let mut data1 = [];
+        let account0 = create_account_info(
+            &key0,
+            false,
+            false,
+            &mut lamports0,
+            &mut data0,
+            &program_id,
+        );
+        let account1 = create_account_info(
+            &key1,
+            false,
+            false,
+            &mut lamports1,
+            &mut data1,
+            &program_id,
+        );
+        let accounts = [account0, account1];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.current_context = 1;
+        ctx.set_external_account_remap([u8::MAX; crate::MAX_PARAMETERS + 1]);
+
+        let data_ref = store_array(&mut ctx, 0, &[ValueRef::AccountRef(1, 0)]);
+        let mut instruction_data = [0u8; MAX_CPI_DATA_LEN];
+        let result = materialize_instruction_data(&ctx, data_ref, &mut instruction_data);
+        assert_eq!(result, Err(crate::error::VMErrorCode::InvalidAccountIndex));
+    }
+
+    #[test]
+    fn materialize_instruction_data_uses_bound_accountref_mapping_in_external_context() {
+        let program_id = Pubkey::from([102u8; 32]);
+        let key0 = Pubkey::from([3u8; 32]);
+        let key1 = Pubkey::from([4u8; 32]);
+        let key2 = Pubkey::from([5u8; 32]);
+        let mut lamports0 = 1u64;
+        let mut lamports1 = 1u64;
+        let mut lamports2 = 1u64;
+        let mut data0 = [];
+        let mut data1 = [];
+        let mut data2 = [];
+        let account0 = create_account_info(
+            &key0,
+            false,
+            false,
+            &mut lamports0,
+            &mut data0,
+            &program_id,
+        );
+        let account1 = create_account_info(
+            &key1,
+            false,
+            false,
+            &mut lamports1,
+            &mut data1,
+            &program_id,
+        );
+        let account2 = create_account_info(
+            &key2,
+            false,
+            false,
+            &mut lamports2,
+            &mut data2,
+            &program_id,
+        );
+        let accounts = [account0, account1, account2];
+
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; crate::MAX_PARAMETERS + 1];
+        remap[1] = 2;
+        ctx.set_external_account_remap(remap);
+
+        let data_ref = store_array(&mut ctx, 0, &[ValueRef::AccountRef(1, 0)]);
+        let mut instruction_data = [0u8; MAX_CPI_DATA_LEN];
+        let len = materialize_instruction_data(&ctx, data_ref, &mut instruction_data)
+            .expect("materialize instruction data");
+        assert_eq!(len, 32);
+        assert_eq!(&instruction_data[..32], key2.as_ref());
     }
 }

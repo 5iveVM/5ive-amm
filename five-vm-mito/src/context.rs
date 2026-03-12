@@ -564,6 +564,34 @@ impl<'a> ExecutionContext<'a> {
     }
 
     #[inline(always)]
+    fn select_create_account_payer_index(&self, new_account_idx: u8) -> CompactResult<u8> {
+        if self.current_context == crate::types::ROOT_CONTEXT {
+            for (idx, account) in self.accounts.accounts().iter().enumerate() {
+                let idx_u8 = u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
+                if idx_u8 == new_account_idx {
+                    continue;
+                }
+                if account.is_signer() && account.is_writable() {
+                    return Ok(idx_u8);
+                }
+            }
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+
+        for mapped in self.external_account_remap.iter().skip(1) {
+            if *mapped == u8::MAX || *mapped == new_account_idx {
+                continue;
+            }
+            let account = self.accounts.get_unchecked(*mapped)?;
+            if account.is_signer() && account.is_writable() {
+                return Ok(*mapped);
+            }
+        }
+
+        Err(VMErrorCode::ConstraintViolation)
+    }
+
+    #[inline(always)]
     pub fn set_external_account_remap(&mut self, remap: [u8; MAX_PARAMETERS + 1]) {
         self.external_account_remap = remap;
     }
@@ -1004,9 +1032,15 @@ impl<'a> ExecutionContext<'a> {
         owner: &Pubkey,
     ) -> CompactResult<()> {
         let account_idx = self.resolve_account_index_checked(account_idx)?;
+        let payer_idx = self.select_create_account_payer_index(account_idx)?;
         let effective_space = self.apply_state_owner_meta_space_overhead(space, owner)?;
-        self.accounts
-            .create_account(account_idx, effective_space, lamports, owner)
+        self.accounts.create_account_with_payer(
+            account_idx,
+            payer_idx,
+            effective_space,
+            lamports,
+            owner,
+        )
     }
 
     #[inline]
@@ -1943,6 +1977,81 @@ mod tests {
             ctx.effective_runtime_account_space(100, &other_program)
                 .expect("space for external-owned account"),
             100
+        );
+    }
+
+    #[test]
+    fn create_account_rejects_unbound_signer_payer_in_external_context() {
+        let program_id = Pubkey::from([42u8; 32]);
+        let active_script = Pubkey::from([43u8; 32]);
+        let vm_key = Pubkey::from([44u8; 32]);
+        let payer_key = Pubkey::from([45u8; 32]);
+        let new_key = Pubkey::from([46u8; 32]);
+
+        let mut vm_lamports = 10_000u64;
+        let mut payer_lamports = 10_000u64;
+        let mut new_lamports = 0u64;
+        let mut vm_data = [0u8; 8];
+        let mut payer_data = [0u8; 0];
+        let mut new_data = [0u8; 0];
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        // Unbound signer should not be auto-selected as payer inside external context.
+        let payer = AccountInfo::new(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &program_id,
+            false,
+            0,
+        );
+        let new_account = AccountInfo::new(
+            &new_key,
+            false,
+            true,
+            &mut new_lamports,
+            &mut new_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, payer, new_account];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        ctx.set_active_script_key(Some(active_script));
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+        remap[1] = 2; // only new_account is bound in this external frame.
+        ctx.set_external_account_remap(remap);
+
+        assert_eq!(
+            ctx.create_account(1, 32, 1_000, &program_id),
+            Err(VMErrorCode::ConstraintViolation)
         );
     }
 
