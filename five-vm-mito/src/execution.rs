@@ -265,7 +265,7 @@ impl MitoVM {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_opcode(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match opcode & 0xF0 {
             0x00 => handle_control_flow(opcode, ctx),
@@ -286,12 +286,12 @@ impl MitoVM {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_stack_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         handle_stack_ops(opcode, ctx)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_locals_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         handle_locals(opcode, ctx)
     }
@@ -316,7 +316,7 @@ impl MitoVM {
         handle_arrays(opcode, ctx)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_arrays_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_arrays(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => handle_constraints(opcode, ctx),
@@ -324,7 +324,7 @@ impl MitoVM {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_constraints_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match handle_constraints(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_system(opcode, ctx),
@@ -337,7 +337,7 @@ impl MitoVM {
         handle_system_ops(opcode, ctx)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_system_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_system(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_functions(opcode, ctx),
@@ -350,7 +350,7 @@ impl MitoVM {
         handle_functions(opcode, ctx)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_functions_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_functions(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_locals_sparse(opcode, ctx),
@@ -358,7 +358,7 @@ impl MitoVM {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn dispatch_fused(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         crate::handlers::fused_ops::handle_fused_ops(opcode, ctx)
     }

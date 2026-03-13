@@ -1,0 +1,283 @@
+{
+  "program_name": "Module",
+  "functions": [
+    {
+      "name": "init_manager",
+      "index": 0,
+      "parameters": [
+        {
+          "name": "cfg",
+          "param_type": "NamespaceConfig",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init"
+          ]
+        },
+        {
+          "name": "admin",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "treasury",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "set_symbol_price",
+      "index": 1,
+      "parameters": [
+        {
+          "name": "cfg",
+          "param_type": "NamespaceConfig",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "admin",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "signer"
+          ]
+        },
+        {
+          "name": "symbol",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "price_lamports",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "get_symbol_price",
+      "index": 2,
+      "parameters": [
+        {
+          "name": "cfg",
+          "param_type": "NamespaceConfig",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "symbol",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": "u64",
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "register_tld",
+      "index": 3,
+      "parameters": [
+        {
+          "name": "cfg",
+          "param_type": "NamespaceConfig",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "tld",
+          "param_type": "TldRecord",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "signer"
+          ]
+        },
+        {
+          "name": "treasury_account",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "symbol",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "domain",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "now",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "bind_subprogram",
+      "index": 4,
+      "parameters": [
+        {
+          "name": "tld",
+          "param_type": "TldRecord",
+          "is_account": true,
+          "attributes": []
+        },
+        {
+          "name": "binding",
+          "param_type": "SubprogramBinding",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "signer"
+          ]
+        },
+        {
+          "name": "symbol",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "domain",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "subprogram",
+          "param_type": "string",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "script_account",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "now",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "update_subprogram",
+      "index": 5,
+      "parameters": [
+        {
+          "name": "binding",
+          "param_type": "SubprogramBinding",
+          "is_account": true,
+          "attributes": [
+            "mut"
+          ]
+        },
+        {
+          "name": "history",
+          "param_type": "BindingHistory",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "init"
+          ]
+        },
+        {
+          "name": "owner",
+          "param_type": "Account",
+          "is_account": true,
+          "attributes": [
+            "mut",
+            "signer"
+          ]
+        },
+        {
+          "name": "next_script_account",
+          "param_type": "pubkey",
+          "is_account": false,
+          "attributes": []
+        },
+        {
+          "name": "now",
+          "param_type": "u64",
+          "is_account": false,
+          "attributes": []
+        }
+      ],
+      "return_type": null,
+      "is_public": true,
+      "bytecode_offset": 0
+    },
+    {
+      "name": "resolve",
+      "index": 6,
+      "parameters": [
+        {
+          "name": "binding",
+          "param_type": "SubprogramBinding",
+          "is_account": true,
+          "attributes": []
+        }
+      ],
+      "return_type": "pubkey",
+      "is_public": true,
+      "bytecode_offset": 0
+    }
+  ],
+  "fields": [],
+  "version": "1.0"
+}

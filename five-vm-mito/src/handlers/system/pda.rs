@@ -225,7 +225,7 @@ pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> Co
 }
 
 /// Execute a closure with parsed PDA seeds and program ID.
-#[inline(always)]
+#[inline(never)]
 pub fn with_pda_seeds<F>(ctx: &mut ExecutionManager, f: F) -> CompactResult<()>
 where
     F: FnOnce(&mut ExecutionManager, Pubkey, &[&[u8]]) -> CompactResult<()>,
@@ -315,7 +315,7 @@ fn push_pda_result(
 }
 
 /// Handle PDA operations for program derived addresses
-#[inline(always)]
+#[inline(never)]
 pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         DERIVE_PDA => {

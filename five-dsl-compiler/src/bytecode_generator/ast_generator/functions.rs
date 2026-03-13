@@ -704,7 +704,18 @@ impl ASTGenerator {
                 // Check for qualified function names like "math_lib::add"
                 // If the module is registered as external, emit CALL_EXTERNAL instead of CALL
                 if let Some((module_name, func_name)) = Self::parse_qualified_name(effective_name) {
-                    if let Some(ext_import) = self.external_imports.get(module_name) {
+                    // Support stdlib interface call forms like:
+                    //   spl_token::SPLToken::transfer(...)
+                    // where external imports are registered under `spl_token`.
+                    let mut ext_binding_name = module_name;
+                    let mut ext_import = self.external_imports.get(ext_binding_name);
+                    if ext_import.is_none() {
+                        if let Some((root_module, _)) = module_name.split_once("::") {
+                            ext_binding_name = root_module;
+                            ext_import = self.external_imports.get(ext_binding_name);
+                        }
+                    }
+                    if let Some(ext_import) = ext_import {
                         let selector = if let Some(sel) = ext_import.functions.get(func_name) {
                             *sel
                         } else if ext_import.allow_any_function {
@@ -714,7 +725,7 @@ impl ASTGenerator {
                         };
 
                         let account_index = self.resolve_external_account_index(
-                            module_name,
+                            ext_binding_name,
                             ext_import.account_index,
                         )?;
 

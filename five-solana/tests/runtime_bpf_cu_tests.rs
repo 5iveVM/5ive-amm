@@ -460,10 +460,13 @@ async fn lending_native_spl_deposit_reserve_liquidity_bpf_compute_units() {
         .expect("target/deploy artifact parity preflight failed");
 
     let lending_source_path = repo_root.join("5ive-lending/src/main.v");
-    let lending_source = fs::read_to_string(&lending_source_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", lending_source_path.display(), e));
-    let lending_bytecode = DslCompiler::compile_dsl(&lending_source)
-        .unwrap_or_else(|e| panic!("failed compiling {}: {}", lending_source_path.display(), e));
+    let compile_config =
+        five_dsl_compiler::CompilationConfig::new(five_dsl_compiler::CompilationMode::Testing);
+    let lending_bytecode =
+        DslCompiler::compile_with_auto_discovery(&lending_source_path, &compile_config)
+            .unwrap_or_else(|e| {
+                panic!("failed compiling {}: {}", lending_source_path.display(), e)
+            });
 
     let mut accounts = BTreeMap::<String, RuntimeAccount>::new();
     let owner_signer = Keypair::new();

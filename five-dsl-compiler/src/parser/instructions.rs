@@ -362,6 +362,10 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                             return Err(parser.parse_error("')' to close serializer arguments"));
                         }
                         parser.advance(); // consume ')'
+                        trailing_attributes.push(Attribute {
+                            name: "serializer".to_string(),
+                            args: vec![],
+                        });
                         continue;
                     }
                     let mut args = Vec::new();

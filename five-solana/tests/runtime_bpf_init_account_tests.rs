@@ -7,6 +7,7 @@ use five::state::{FIVEVMState, ScriptAccountHeader};
 use five_protocol::opcodes::{
     CHECK_UNINITIALIZED, HALT, INIT_ACCOUNT, INIT_PDA_ACCOUNT, PUSH_STRING, PUSH_U64, PUSH_U8,
 };
+use five_vm_mito::systems::accounts::StateAccountOwnerMeta;
 use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::script_with_header;
 use solana_program_test::{ProgramTest, ProgramTestContext};
@@ -113,9 +114,11 @@ async fn init_account_executes_via_bpf_create_account_cpi() {
         .expect("new account fetch should succeed")
         .expect("new account should exist after INIT_ACCOUNT");
 
+    let effective_space = account_space as usize + StateAccountOwnerMeta::LEN;
+    let effective_rent_lamports = Rent::default().minimum_balance(effective_space);
     assert_eq!(created.owner, program_id);
-    assert_eq!(created.data.len(), account_space as usize);
-    assert_eq!(created.lamports, rent_lamports);
+    assert_eq!(created.data.len(), effective_space);
+    assert_eq!(created.lamports, rent_lamports.max(effective_rent_lamports));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -125,7 +128,8 @@ async fn init_pda_account_executes_via_bpf_create_account_cpi() {
     let account_space = 64u64;
     let rent_lamports = Rent::default().minimum_balance(account_space as usize);
     let seed = b"vault";
-    let (pda_pubkey, bump) = Pubkey::find_program_address(&[seed], &program_id);
+    let script_pubkey = Pubkey::new_unique();
+    let (pda_pubkey, bump) = Pubkey::find_program_address(&[script_pubkey.as_ref(), seed], &program_id);
 
     let script_body = build_init_pda_account_script(1, 2, account_space, rent_lamports, seed, bump);
     let bytecode = script_with_header(1, 1, &script_body);
@@ -133,7 +137,7 @@ async fn init_pda_account_executes_via_bpf_create_account_cpi() {
     accounts.insert(
         "script".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: script_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + bytecode.len()),
@@ -193,9 +197,11 @@ async fn init_pda_account_executes_via_bpf_create_account_cpi() {
         .expect("pda account fetch should succeed")
         .expect("pda account should exist after INIT_PDA_ACCOUNT");
 
+    let effective_space = account_space as usize + StateAccountOwnerMeta::LEN;
+    let effective_rent_lamports = Rent::default().minimum_balance(effective_space);
     assert_eq!(created.owner, program_id);
-    assert_eq!(created.data.len(), account_space as usize);
-    assert_eq!(created.lamports, rent_lamports);
+    assert_eq!(created.data.len(), effective_space);
+    assert_eq!(created.lamports, rent_lamports.max(effective_rent_lamports));
 }
 
 fn build_init_account_script(account_idx: u8, payer_idx: u8, space: u64, lamports: u64) -> Vec<u8> {

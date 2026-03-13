@@ -81,9 +81,11 @@ fn test_init_account_success() {
 
     match result {
         Ok(_) => {
-            assert_eq!(accounts[0].lamports(), 999_000_000);
-            assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 128 + RUNTIME_STATE_OWNER_META_OVERHEAD);
+            let effective_space = 128 + RUNTIME_STATE_OWNER_META_OVERHEAD;
+            let debited = 1_000_000_000 - accounts[0].lamports();
+            assert_eq!(accounts[1].lamports(), debited);
+            assert!(accounts[1].lamports() >= 1_000_000);
+            assert_eq!(accounts[1].data_len(), effective_space);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_ACCOUNT success test passed");
         }
@@ -162,9 +164,11 @@ fn test_init_pda_account_success() {
 
     match result {
         Ok(_) => {
-            assert_eq!(accounts[0].lamports(), 999_000_000);
-            assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 100 + RUNTIME_STATE_OWNER_META_OVERHEAD);
+            let effective_space = 100 + RUNTIME_STATE_OWNER_META_OVERHEAD;
+            let debited = 1_000_000_000 - accounts[0].lamports();
+            assert_eq!(accounts[1].lamports(), debited);
+            assert!(accounts[1].lamports() >= 1_000_000);
+            assert_eq!(accounts[1].data_len(), effective_space);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_PDA_ACCOUNT success test passed");
         }

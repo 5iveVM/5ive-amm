@@ -117,12 +117,15 @@ pub fn resolve_u64(value: ValueRef, ctx: &crate::context::ExecutionManager) -> C
         ValueRef::AccountRef(account_idx, offset) => {
             let account = ctx.get_account(account_idx)?;
             let data = unsafe { account.borrow_data_unchecked() };
-            if (offset as usize + 8) > data.len() {
+            let start = offset as usize;
+            if start >= data.len() {
                 return Err(VMErrorCode::InvalidAccountData);
             }
-            let bytes: [u8; 8] = data[offset as usize..offset as usize + 8]
-                .try_into()
-                .map_err(|_| VMErrorCode::InvalidAccountData)?;
+            // AccountRef points at typed fields of varying widths (u8/u16/u32/u64).
+            // Decode little-endian using up to 8 available bytes and zero-extend.
+            let available = core::cmp::min(8, data.len() - start);
+            let mut bytes = [0u8; 8];
+            bytes[..available].copy_from_slice(&data[start..start + available]);
             Ok(u64::from_le_bytes(bytes))
         }
         ValueRef::U128(v) => u64::try_from(v).map_err(|_| VMErrorCode::NumericOverflow),

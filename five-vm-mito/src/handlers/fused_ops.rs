@@ -20,12 +20,12 @@ fn param_value(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<ValueRef>
 }
 
 #[inline(always)]
-fn param_u64(ctx: &ExecutionManager, param_idx: u8) -> CompactResult<u64> {
-    let value = ctx
+fn param_u64(ctx: &mut ExecutionManager, param_idx: u8) -> CompactResult<u64> {
+    let value = *ctx
         .parameters()
         .get(param_idx as usize)
         .ok_or(VMErrorCode::InvalidParameter)?;
-    value.as_u64().ok_or(VMErrorCode::TypeMismatch)
+    crate::utils::resolve_u64(value, ctx)
 }
 
 #[inline(always)]
@@ -208,7 +208,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         REQUIRE_LOCAL_GT_ZERO => {
             let local_idx = ctx.fetch_byte()?;
             let local_value = ctx.get_local(local_idx)?;
-            let local_u64 = local_value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+            let local_u64 = crate::utils::resolve_u64(local_value, ctx)?;
 
             if local_u64 == 0 {
                 debug_log!(
@@ -512,7 +512,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
                     REQUIRE_BATCH_LOCAL_GT_ZERO => {
                         let local_idx = ctx.fetch_byte()?;
                         let local_value = ctx.get_local(local_idx)?;
-                        let local_u64 = local_value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+                        let local_u64 = crate::utils::resolve_u64(local_value, ctx)?;
                         if local_u64 == 0 {
                             return Err(VMErrorCode::ConstraintViolation);
                         }
