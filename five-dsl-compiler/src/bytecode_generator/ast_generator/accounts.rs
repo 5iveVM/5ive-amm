@@ -16,7 +16,7 @@ impl ASTGenerator {
         name.rsplit("::").next().unwrap_or(name)
     }
 
-    fn resolve_registry_account_info<'a>(
+    pub(super) fn resolve_registry_account_info<'a>(
         registry: &'a AccountRegistry,
         account_type: &str,
     ) -> Option<&'a AccountTypeInfo> {

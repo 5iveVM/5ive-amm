@@ -515,7 +515,7 @@ impl ASTGenerator {
         {
             if method == "eq" && args.len() == 1 {
                 let (acc_idx, offset) = self.match_pubkey_field_access(object)?;
-                let param_idx = self.match_parameter(&args[0])?;
+                let param_idx = self.match_pubkey_parameter(&args[0])?;
                 return Some((acc_idx, offset, param_idx));
             }
         }
@@ -528,11 +528,11 @@ impl ASTGenerator {
         {
             if operator == "==" {
                 if let Some((acc_idx, offset)) = self.match_pubkey_field_access(left) {
-                    let param_idx = self.match_parameter(right)?;
+                    let param_idx = self.match_pubkey_parameter(right)?;
                     return Some((acc_idx, offset, param_idx));
                 }
                 if let Some((acc_idx, offset)) = self.match_pubkey_field_access(right) {
-                    let param_idx = self.match_parameter(left)?;
+                    let param_idx = self.match_pubkey_parameter(left)?;
                     return Some((acc_idx, offset, param_idx));
                 }
             }
@@ -1025,6 +1025,9 @@ impl ASTGenerator {
         if let AstNode::FieldAccess { object, field } = node {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
+                    if !self.account_field_is_pubkey(&field_info.field_type, field) {
+                        return None;
+                    }
                     let account_type = &field_info.field_type;
                     if let Ok(offset) =
                         self.calculate_account_field_offset(account_type, field, account_name)
@@ -1038,6 +1041,40 @@ impl ASTGenerator {
             }
         }
         None
+    }
+
+    /// Match a pubkey parameter identifier.
+    fn match_pubkey_parameter(&self, node: &AstNode) -> Option<u8> {
+        let AstNode::Identifier(name) = node else {
+            return None;
+        };
+        let field_info = self.local_symbol_table.get(name)?;
+        if !field_info.is_parameter {
+            return None;
+        }
+        if !Self::is_pubkey_type_name(&field_info.field_type) {
+            return None;
+        }
+        Some((field_info.offset + 1) as u8)
+    }
+
+    fn is_pubkey_type_name(field_type: &str) -> bool {
+        let normalized = field_type.trim().to_ascii_lowercase();
+        normalized == "pubkey" || normalized.ends_with("::pubkey")
+    }
+
+    fn account_field_is_pubkey(&self, account_type: &str, field_name: &str) -> bool {
+        let Some(account_system) = &self.account_system else {
+            return false;
+        };
+        let registry = account_system.get_account_registry();
+        let Some(account_info) = Self::resolve_registry_account_info(registry, account_type) else {
+            return false;
+        };
+        let Some(field_info) = account_info.fields.get(field_name) else {
+            return false;
+        };
+        Self::is_pubkey_type_name(&field_info.field_type)
     }
 
     /// Match account.key access pattern
