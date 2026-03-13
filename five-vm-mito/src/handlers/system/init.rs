@@ -12,6 +12,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    handlers::system::sysvars::get_rent_cached,
     utils::value_ref_to_seed_bytes,
 };
 use five_protocol::{opcodes::*, ValueRef};
@@ -139,6 +140,9 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     if effective_space > MAX_ACCOUNT_SIZE {
         return Err(VMErrorCode::InvalidParameter);
     }
+    let rent = get_rent_cached(ctx)?;
+    let required_lamports = rent.minimum_balance(effective_space as usize);
+    let lamports = lamports.max(required_lamports);
 
     // Create the account in one CPI with the actual target size.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
@@ -289,6 +293,9 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     if effective_space > MAX_ACCOUNT_SIZE {
         return Err(VMErrorCode::InvalidParameter);
     }
+    let rent = get_rent_cached(ctx)?;
+    let required_lamports = rent.minimum_balance(effective_space as usize);
+    let lamports = lamports.max(required_lamports);
 
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();

@@ -359,9 +359,8 @@ async fn spl_token_interface_transfer_with_state_account_bpf_compute_units() {
 fn lending_native_spl_deposit_reserve_liquidity_bytecode_shape() {
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let source_path = repo_root.join("5ive-lending/src/main.v");
-    let source = fs::read_to_string(&source_path)
-        .unwrap_or_else(|e| panic!("failed reading {}: {}", source_path.display(), e));
-    let bytecode = DslCompiler::compile_dsl(&source)
+    let config = five_dsl_compiler::CompilationConfig::new(five_dsl_compiler::CompilationMode::Testing);
+    let bytecode = DslCompiler::compile_with_auto_discovery(&source_path, &config)
         .unwrap_or_else(|e| panic!("failed compiling {}: {}", source_path.display(), e));
 
     let inspector = BytecodeInspector::new(&bytecode);
@@ -1077,6 +1076,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     source_data[32..64].copy_from_slice(mint_pubkey.as_ref());
     source_data[64..72].copy_from_slice(&500u64.to_le_bytes());
     source_data[72] = 0;
+    source_data[73] = 1;
     stamp_state_owner_meta(&mut source_data, &token_script_pubkey);
     accounts.insert(
         "source_token".to_string(),
@@ -1097,6 +1097,7 @@ async fn external_token_transfer_non_cpi_bpf_compute_units() {
     destination_data[32..64].copy_from_slice(mint_pubkey.as_ref());
     destination_data[64..72].copy_from_slice(&100u64.to_le_bytes());
     destination_data[72] = 0;
+    destination_data[73] = 1;
     stamp_state_owner_meta(&mut destination_data, &token_script_pubkey);
     accounts.insert(
         "destination_token".to_string(),
@@ -1603,14 +1604,25 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     const REGISTER_DOLLAR_DEFAULT_PRICE_LAMPORTS: u64 = 10_000_000_000;
     const REGISTER_DOLLAR_UPDATED_PRICE_LAMPORTS: u64 = 3_000_000_000;
 
-    let cfg_pda = Pubkey::find_program_address(&[b"5ns_config"], &program_id).0;
+    let namespace_script_pubkey = Pubkey::new_unique();
+    let cfg_pda = Pubkey::find_program_address(
+        &[namespace_script_pubkey.as_ref(), b"5ns_config"],
+        &program_id,
+    )
+    .0;
     let tld_pda = Pubkey::find_program_address(
-        &[b"5ns_tld", SYMBOL.as_bytes(), DOMAIN.as_bytes()],
+        &[
+            namespace_script_pubkey.as_ref(),
+            b"5ns_tld",
+            SYMBOL.as_bytes(),
+            DOMAIN.as_bytes(),
+        ],
         &program_id,
     )
     .0;
     let tld_dollar_default_pda = Pubkey::find_program_address(
         &[
+            namespace_script_pubkey.as_ref(),
             b"5ns_tld",
             DOLLAR_SYMBOL.as_bytes(),
             DOLLAR_DOMAIN_DEFAULT.as_bytes(),
@@ -1620,6 +1632,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     .0;
     let tld_dollar_updated_pda = Pubkey::find_program_address(
         &[
+            namespace_script_pubkey.as_ref(),
             b"5ns_tld",
             DOLLAR_SYMBOL.as_bytes(),
             DOLLAR_DOMAIN_UPDATED.as_bytes(),
@@ -1629,6 +1642,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     .0;
     let tld_invalid_symbol_pda = Pubkey::find_program_address(
         &[
+            namespace_script_pubkey.as_ref(),
             b"5ns_tld",
             INVALID_SYMBOL.as_bytes(),
             INVALID_DOMAIN.as_bytes(),
@@ -1638,6 +1652,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     .0;
     let binding_pda = Pubkey::find_program_address(
         &[
+            namespace_script_pubkey.as_ref(),
             b"5ns_binding",
             SYMBOL.as_bytes(),
             DOMAIN.as_bytes(),
@@ -1648,6 +1663,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     .0;
     let bad_binding_pda = Pubkey::find_program_address(
         &[
+            namespace_script_pubkey.as_ref(),
             b"5ns_binding",
             SYMBOL.as_bytes(),
             DOMAIN.as_bytes(),
@@ -1747,7 +1763,7 @@ async fn namespace_manager_register_bind_resolve_bpf_compute_units() {
     accounts.insert(
         "namespace_script".to_string(),
         RuntimeAccount {
-            pubkey: Pubkey::new_unique(),
+            pubkey: namespace_script_pubkey,
             signer: None,
             owner: program_id,
             lamports: Rent::default()
@@ -2573,6 +2589,8 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         src_data[32..64].copy_from_slice(mint_pubkey.as_ref());
         src_data[64..72].copy_from_slice(&1000u64.to_le_bytes());
         src_data[72] = 0;
+        src_data[73] = 1;
+        stamp_state_owner_meta(&mut src_data, &token_script_pubkey);
         accounts.insert(
             format!("source_token_{}", i),
             RuntimeAccount {
@@ -2593,6 +2611,8 @@ async fn run_external_token_transfer_burst_profile(repo_root: &Path) -> External
         // Increase balance to accommodate all transfers
         dst_data[64..72].copy_from_slice(&15000u64.to_le_bytes());
         dst_data[72] = 0;
+        dst_data[73] = 1;
+        stamp_state_owner_meta(&mut dst_data, &token_script_pubkey);
         accounts.insert(
             format!("dest_token_{}", i),
             RuntimeAccount {
@@ -2939,6 +2959,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         // Increase balance to support 20 transfers per pair: 10 * 20 * 11 pairs = ~2200, use 30000 to be safe
         src_data[64..72].copy_from_slice(&30000u64.to_le_bytes());
         src_data[72] = 0;
+        src_data[73] = 1;
         accounts.insert(
             format!("source_token_{}", i),
             RuntimeAccount {
@@ -2959,6 +2980,7 @@ async fn external_token_transfer_mass_non_cpi_bpf_compute_units() {
         // Increase balance to accommodate all transfers
         dst_data[64..72].copy_from_slice(&15000u64.to_le_bytes());
         dst_data[72] = 0;
+        dst_data[73] = 1;
         accounts.insert(
             format!("dest_token_{}", i),
             RuntimeAccount {
@@ -3576,7 +3598,7 @@ rebuild the SBF artifact with `--features cu-bypass-fees` (target/deploy/five.so
             "funding_rate_path" => 18_000,
             "collateral_health_loop" => 16_000,
             "anchor_increment" => 25_000,
-            _ => 12_000,
+            _ => 18_000,
         }
     };
     for step in &fixture.steps {
@@ -4017,10 +4039,10 @@ async fn minimal_execute_floor_bpf_compute_units() {
         "BPF_CU minimal_execute_floor={}",
         execute_result.units_consumed
     );
-    // Security hardening added additional ownership/writability checks in execute fee flow.
-    // Keep a tight but realistic budget for minimal execution.
+    // Runtime hardening (script-scoped auth + metadata checks) adds fixed overhead
+    // even for a minimal HALT-only script; keep the floor guard realistic.
     assert!(
-        execute_result.units_consumed <= 1_800,
+        execute_result.units_consumed <= 5_000,
         "minimal floor regressed to {}",
         execute_result.units_consumed
     );

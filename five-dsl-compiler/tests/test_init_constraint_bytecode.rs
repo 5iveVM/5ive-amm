@@ -465,3 +465,28 @@ fn test_account_ctx_space_available_for_init_account() {
         "state.ctx.space should resolve and include layout size literal (State = 8 bytes)"
     );
 }
+
+#[test]
+fn test_init_allows_imported_account_types_with_raw_serializer() {
+    let source = r#"
+        use std::interfaces::spl_token;
+
+        account Reserve {
+            mint: pubkey,
+            supply: pubkey
+        }
+
+        pub init_reserve(
+            reserve: Reserve @mut @init(payer=admin, space=128),
+            mint: spl_token::Mint @serializer("raw"),
+            supply: spl_token::TokenAccount @mut @serializer("raw"),
+            admin: account @signer
+        ) {
+            reserve.mint = mint.ctx.key;
+            reserve.supply = supply.ctx.key;
+        }
+    "#;
+
+    DslCompiler::compile_dsl(source)
+        .expect("imported namespaced account types should remain valid in @init instructions");
+}

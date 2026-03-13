@@ -36,6 +36,10 @@ pub struct CallFrame {
     pub account_remap: [u8; MAX_PARAMETERS + 1], // External-call account remap snapshot
     pub caller_script_ptr: usize, // Raw pointer to caller bytecode slice for fast restore on RETURN
     pub caller_script_len: u32, // Length of caller bytecode slice
+    pub caller_header_features: u32,
+    pub caller_pool_offset: u32,
+    pub caller_pool_slots: u16,
+    pub caller_string_blob_offset: u32,
 }
 
 /// Fixed-size entry for transaction-local CALL_EXTERNAL resolution cache.
@@ -142,6 +146,10 @@ impl CallFrame {
             account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             caller_script_ptr: 0,
             caller_script_len: 0,
+            caller_header_features: 0,
+            caller_pool_offset: 0,
+            caller_pool_slots: 0,
+            caller_string_blob_offset: 0,
         }
     }
 
@@ -160,6 +168,10 @@ impl CallFrame {
         account_remap: [u8; MAX_PARAMETERS + 1],
         caller_script_ptr: usize,
         caller_script_len: u32,
+        caller_header_features: u32,
+        caller_pool_offset: u32,
+        caller_pool_slots: u16,
+        caller_string_blob_offset: u32,
     ) -> Self {
         Self {
             return_address,
@@ -175,6 +187,10 @@ impl CallFrame {
             account_remap,
             caller_script_ptr,
             caller_script_len,
+            caller_header_features,
+            caller_pool_offset,
+            caller_pool_slots,
+            caller_string_blob_offset,
         }
     }
 }

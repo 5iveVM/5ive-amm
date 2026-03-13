@@ -129,6 +129,10 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
+                ctx.set_header_features(frame.caller_header_features);
+                ctx.pool_offset = frame.caller_pool_offset;
+                ctx.pool_slots = frame.caller_pool_slots;
+                ctx.string_blob_offset = frame.caller_string_blob_offset;
                 if frame.active_script_key == [0u8; 32] {
                     ctx.set_active_script_key(None);
                 } else {
@@ -211,6 +215,10 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
+                ctx.set_header_features(frame.caller_header_features);
+                ctx.pool_offset = frame.caller_pool_offset;
+                ctx.pool_slots = frame.caller_pool_slots;
+                ctx.string_blob_offset = frame.caller_string_blob_offset;
                 if frame.active_script_key == [0u8; 32] {
                     ctx.set_active_script_key(None);
                 } else {

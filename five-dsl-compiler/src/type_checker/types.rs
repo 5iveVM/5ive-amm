@@ -134,9 +134,41 @@ impl TypeCheckerContext {
     }
 
     pub(crate) fn is_named_account_type_name(&self, name: &str) -> bool {
-        name == "Account"
-            || name == "account"
-            || self.resolve_account_definition_fields(name).is_some()
+        if name == "Account" || name == "account" || self.resolve_account_definition_fields(name).is_some() {
+            return true;
+        }
+
+        if let (Some(scope), Some(current_module)) = (&self.module_scope, &self.current_module) {
+            if let Some(symbol) = scope.resolve_symbol(name, current_module) {
+                if matches!(symbol.type_info, TypeNode::Account) {
+                    return true;
+                }
+            }
+
+            if let Some((module_ref, symbol_name)) = name.rsplit_once("::") {
+                let canonical_module = self
+                    .imported_module_aliases
+                    .get(module_ref)
+                    .cloned()
+                    .unwrap_or_else(|| module_ref.to_string());
+                if let Some(symbol) = scope.resolve_symbol_in_module(&canonical_module, symbol_name)
+                {
+                    if matches!(symbol.type_info, TypeNode::Account) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if let Some((module_ref, _symbol_name)) = name.rsplit_once("::") {
+            if self.imported_module_aliases.contains_key(module_ref)
+                || self.imported_module_aliases.values().any(|module| module == module_ref)
+            {
+                return true;
+            }
+        }
+
+        false
     }
 
     fn builtin_named_type_definition(name: &str) -> Option<TypeNode> {

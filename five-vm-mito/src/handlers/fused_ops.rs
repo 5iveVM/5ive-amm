@@ -193,7 +193,6 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         // Saves 300 CU
         REQUIRE_PARAM_GT_ZERO => {
             let param_idx = ctx.fetch_byte()?;
-
             let param_value = param_u64(ctx, param_idx)?;
 
             if param_value == 0 {
@@ -407,7 +406,10 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
             let param_idx = ctx.fetch_byte()?;
 
             // 1. Load parameter
-            let param_value = param_u64(ctx, param_idx)?;
+            let param_value_ref = param_value(ctx, param_idx)?;
+            let Some(param_value) = param_value_ref.as_u64() else {
+                return Err(VMErrorCode::TypeMismatch);
+            };
 
             // 2. Process Account 1 (Subtract)
             {

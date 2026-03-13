@@ -1,4 +1,4 @@
-use five_dsl_compiler::DslCompiler;
+use five_dsl_compiler::{CompilationConfig, CompilationMode, DslCompiler};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -47,8 +47,8 @@ fn is_five_source(path: &Path) -> bool {
 }
 
 fn compile_v_source(path: &Path) -> io::Result<Vec<u8>> {
-    let source = fs::read_to_string(path)?;
-    DslCompiler::compile_dsl(&source)
+    let config = CompilationConfig::new(CompilationMode::Testing);
+    DslCompiler::compile_with_auto_discovery(path, &config)
         .map_err(|e| io::Error::other(format!("failed compiling {}: {}", path.display(), e)))
 }
 

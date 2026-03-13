@@ -146,7 +146,7 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let pubkey_ref_offset = PUBKEY_REF_KEY_TAG_BASE | account_idx as u16;
             ctx.push(ValueRef::PubkeyRef(pubkey_ref_offset))?;
             debug_log!(
-                "MitoVM: GET_KEY account {} pushed PubkeyRef(tagged=0x{:04X})",
+                "MitoVM: GET_KEY account {} pushed PubkeyRef(tagged={})",
                 account_idx,
                 pubkey_ref_offset
             );
@@ -176,7 +176,7 @@ pub fn handle_accounts(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<
             let pubkey_ref_offset = PUBKEY_REF_OWNER_TAG_BASE | account_idx as u16;
             ctx.push(ValueRef::PubkeyRef(pubkey_ref_offset))?;
             debug_log!(
-                "MitoVM: GET_OWNER account {} pushed PubkeyRef(tagged=0x{:04X})",
+                "MitoVM: GET_OWNER account {} pushed PubkeyRef(tagged={})",
                 account_idx,
                 pubkey_ref_offset
             );

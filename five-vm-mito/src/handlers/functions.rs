@@ -179,6 +179,10 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
     let current_ip = ctx.ip();
     let script_ptr = ctx.script().as_ptr() as usize;
     let script_len = ctx.script().len() as u32;
+    let caller_header_features = ctx.header_features();
+    let caller_pool_offset = ctx.pool_offset;
+    let caller_pool_slots = ctx.pool_slots;
+    let caller_string_blob_offset = ctx.string_blob_offset;
     let current_context = ctx.current_context;
     let active_script_key = ctx.active_script_key().unwrap_or([0u8; 32]);
     let remap = ctx.external_account_remap();
@@ -195,6 +199,10 @@ fn handle_call(ctx: &mut ExecutionManager) -> CompactResult<()> {
         remap,
         script_ptr,
         script_len,
+        caller_header_features,
+        caller_pool_offset,
+        caller_pool_slots,
+        caller_string_blob_offset,
     )?;
     ctx.set_ip(func_addr);
 
@@ -462,6 +470,71 @@ fn parse_external_layout(
 }
 
 #[inline]
+fn parse_external_runtime_metadata(
+    external_bytecode: &[u8],
+) -> CompactResult<(u32, u32, u16, u32)> {
+    if external_bytecode.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+    let features = u32::from_le_bytes([
+        external_bytecode[4],
+        external_bytecode[5],
+        external_bytecode[6],
+        external_bytecode[7],
+    ]);
+
+    let mut offset = five_protocol::FIVE_HEADER_OPTIMIZED_SIZE;
+    if (features & FEATURE_FUNCTION_NAMES) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        offset += 2;
+        if offset + section_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        offset += section_size;
+    }
+    if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+        if offset + 2 > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        let section_size =
+            u16::from_le_bytes([external_bytecode[offset], external_bytecode[offset + 1]]) as usize;
+        offset += 2;
+        if offset + section_size > external_bytecode.len() {
+            return Err(VMErrorCode::InvalidInstructionPointer);
+        }
+        offset += section_size;
+    }
+
+    if (features & five_protocol::FEATURE_CONSTANT_POOL) == 0 {
+        return Ok((features, 0, 0, 0));
+    }
+
+    let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+    if offset + desc_size > external_bytecode.len() {
+        return Err(VMErrorCode::InvalidInstructionPointer);
+    }
+    let pool_offset = u32::from_le_bytes([
+        external_bytecode[offset],
+        external_bytecode[offset + 1],
+        external_bytecode[offset + 2],
+        external_bytecode[offset + 3],
+    ]);
+    let string_blob_offset = u32::from_le_bytes([
+        external_bytecode[offset + 4],
+        external_bytecode[offset + 5],
+        external_bytecode[offset + 6],
+        external_bytecode[offset + 7],
+    ]);
+    let pool_slots = u16::from_le_bytes([external_bytecode[offset + 12], external_bytecode[offset + 13]]);
+
+    Ok((features, pool_offset, pool_slots, string_blob_offset))
+}
+
+#[inline]
 fn resolve_public_entry_offset(
     external_bytecode: &[u8],
     code_start: usize,
@@ -559,12 +632,20 @@ fn validate_external_function_constraints(
     remap: &[u8; MAX_PARAMETERS + 1],
     bound_account_count: u8,
 ) -> CompactResult<()> {
+    // External metadata account_count may include scalar parameters. Only constrained
+    // account slots require bound account arguments.
+    let constrained_slots = constraints
+        .iter()
+        .take(account_count as usize)
+        .filter(|mask| **mask != 0)
+        .count() as u8;
+
     // External constraints must be evaluated against the call's account arguments,
     // not positional transaction accounts.
-    if account_count > bound_account_count {
+    if constrained_slots > bound_account_count {
         debug_log!(
-            "MitoVM: CALL_EXTERNAL constraint violation - required accounts {} > bound account args {}",
-            account_count as u32,
+            "MitoVM: CALL_EXTERNAL constraint violation - required constrained slots {} > bound account args {}",
+            constrained_slots as u32,
             bound_account_count as u32
         );
         return Err(VMErrorCode::ConstraintViolation);
@@ -909,6 +990,10 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     let script_ptr = ctx.script().as_ptr() as usize;
     let script_len = ctx.script().len() as u32;
+    let caller_header_features = ctx.header_features();
+    let caller_pool_offset = ctx.pool_offset;
+    let caller_pool_slots = ctx.pool_slots;
+    let caller_string_blob_offset = ctx.string_blob_offset;
     let current_context = ctx.current_context;
     let active_script_key = ctx.active_script_key().unwrap_or([0u8; 32]);
     let remap_for_callee = computed_remap;
@@ -925,6 +1010,10 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
         remap_for_callee,
         script_ptr,
         script_len,
+        caller_header_features,
+        caller_pool_offset,
+        caller_pool_slots,
+        caller_string_blob_offset,
     )?;
     // External functions address account arguments by account index; parameter slots are used
     // for non-account values (e.g. scalar inputs used by fused ops).
@@ -932,6 +1021,12 @@ fn handle_call_external(ctx: &mut ExecutionManager) -> CompactResult<()> {
     write_scalar_params(ctx, &call_args, param_count);
 
     ctx.set_external_account_remap(remap_for_callee);
+    let (external_header_features, external_pool_offset, external_pool_slots, external_string_blob_offset) =
+        parse_external_runtime_metadata(external_bytecode)?;
+    ctx.set_header_features(external_header_features);
+    ctx.pool_offset = external_pool_offset;
+    ctx.pool_slots = external_pool_slots;
+    ctx.string_blob_offset = external_string_blob_offset;
 
     debug_log!(
         "MitoVM: CALL_EXTERNAL about to switch_to_external_bytecode - current IP: {}, new offset: {}",
@@ -1013,6 +1108,10 @@ fn prepare_callee_frame(
     remap: [u8; MAX_PARAMETERS + 1],
     script_ptr: usize,
     script_len: u32,
+    header_features: u32,
+    pool_offset: u32,
+    pool_slots: u16,
+    string_blob_offset: u32,
 ) -> CompactResult<()> {
     let current_local_count = ctx.local_count();
     let current_local_base = ctx.local_base();
@@ -1039,6 +1138,10 @@ fn prepare_callee_frame(
         remap,
         script_ptr,
         script_len,
+        header_features,
+        pool_offset,
+        pool_slots,
+        string_blob_offset,
     ))?;
 
     ctx.set_local_base(new_local_base);
