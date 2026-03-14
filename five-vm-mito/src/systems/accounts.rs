@@ -168,7 +168,22 @@ impl<'a> AccountManager<'a> {
         };
         let data = unsafe { account.borrow_data_unchecked() };
         let Some(meta) = StateAccountOwnerMeta::parse_from_account_data(data) else {
-            return Err(VMErrorCode::ScriptNotAuthorized);
+            // Strict guard with safe bootstrap:
+            // Allow metadata initialization only for fresh zeroed state accounts
+            // (typical pre-created storage pattern). Any non-zero account without
+            // metadata remains unauthorized.
+            if data.len() < StateAccountOwnerMeta::LEN {
+                return Err(VMErrorCode::ScriptNotAuthorized);
+            }
+            let is_fresh_zeroed = data.iter().all(|b| *b == 0);
+            if !is_fresh_zeroed {
+                return Err(VMErrorCode::ScriptNotAuthorized);
+            }
+            // Release immutable borrow before taking mutable borrow.
+            let _ = data;
+            let data_mut = unsafe { account.borrow_mut_data_unchecked() };
+            StateAccountOwnerMeta::write_to_account_data(data_mut, current_script_key)?;
+            return Ok(());
         };
         if &meta.owning_bytecode_account != current_script_key {
             return Err(VMErrorCode::ScriptNotAuthorized);
