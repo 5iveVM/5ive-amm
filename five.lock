@@ -3,13 +3,14 @@ version = 1
 [[packages]]
 name = "5ive-amm"
 version = "0.0.0"
-address = "CZwqnf9Yia8tNnNr6259uNGaUDAgKkbaZuSFeBeonNij"
-bytecode_hash = "a3a4e379ad45e76e3a104e0fee6ce41306724a6e998d76a438928287c791f82b"
-deployed_at = "2026-03-05T00:12:59.847Z"
+address = "EhgDs7VtUyZfGzwunBR2X2ycKmtUmga5PsQ198jbPsWb"
+bytecode_hash = "9422f83a1db4ddb792fb08c1ce316d76bac83ac81641e81a4b0b94b2af5c20e8"
+deployed_at = "2026-03-07T04:50:42.403Z"
 
   [packages.exports]
   methods = [
   "init_pool",
+  "bootstrap_liquidity",
   "add_liquidity",
   "swap",
   "remove_liquidity",
@@ -17,7 +18,6 @@ deployed_at = "2026-03-05T00:12:59.847Z"
   "update_fees",
   "set_authority",
   "set_paused",
-  "bootstrap_liquidity",
   "get_reserves",
   "get_reserve_b",
   "get_lp_supply",
