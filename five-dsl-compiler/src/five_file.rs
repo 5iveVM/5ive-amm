@@ -31,6 +31,7 @@ const MAX_FIELDS: usize = 64;
 const ATTR_SIGNER: u8 = 0x01;
 const ATTR_MUT: u8 = 0x02;
 const ATTR_INIT: u8 = 0x04;
+const ATTR_CLOSE: u8 = 0x08;
 
 /// A complete .five file containing ABI and bytecode.
 #[derive(Debug, Clone)]
@@ -186,6 +187,9 @@ impl FiveFile {
                 if param.attributes.contains(&"init".to_string()) {
                     attrs |= ATTR_INIT;
                 }
+                if param.attributes.contains(&"close".to_string()) {
+                    attrs |= ATTR_CLOSE;
+                }
                 data.push(attrs);
             }
         }
@@ -255,6 +259,9 @@ impl FiveFile {
                 }
                 if (attrs_byte & ATTR_INIT) != 0 {
                     attributes.push("init".to_string());
+                }
+                if (attrs_byte & ATTR_CLOSE) != 0 {
+                    attributes.push("close".to_string());
                 }
 
                 parameters.push(ABIParameter {
@@ -391,6 +398,11 @@ mod tests {
                     param_type: "u64".to_string(),
                     is_account: false,
                     attributes: vec![],
+                }, ABIParameter {
+                    name: "vault".to_string(),
+                    param_type: "Account".to_string(),
+                    is_account: true,
+                    attributes: vec!["mut".to_string(), "close".to_string()],
                 }],
                 return_type: Some("bool".to_string()),
                 is_public: true,
@@ -419,6 +431,11 @@ mod tests {
         assert_eq!(loaded_file.bytecode, bytecode);
         assert_eq!(loaded_file.abi.functions[0].bytecode_offset, 2);
         assert_eq!(loaded_file.abi.fields[0].memory_offset, 8);
+        assert!(
+            loaded_file.abi.functions[0].parameters[1]
+                .attributes
+                .contains(&"close".to_string())
+        );
     }
 
     #[test]

@@ -32,7 +32,7 @@ pub fn emit_constraint_checks<T: OpcodeEmitter>(
                 "signer" => {
                     has_signer = true;
                 }
-                "mut" | "writable" => {
+                "mut" | "writable" | "close" => {
                     has_writable = true;
                 }
                 "has" => {

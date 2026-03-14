@@ -107,6 +107,22 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
             }
         }
 
+        // String/byte-slice equality by content (not pointer identity).
+        // Without this, `symbol == "@"` style checks fail whenever refs differ.
+        (ValueRef::StringRef(_), ValueRef::StringRef(_))
+        | (ValueRef::StringRef(_), ValueRef::HeapString(_))
+        | (ValueRef::HeapString(_), ValueRef::StringRef(_))
+        | (ValueRef::HeapString(_), ValueRef::HeapString(_))
+        | (ValueRef::U64(0), ValueRef::StringRef(_))
+        | (ValueRef::StringRef(_), ValueRef::U64(0))
+        | (ValueRef::U64(0), ValueRef::HeapString(_))
+        | (ValueRef::HeapString(_), ValueRef::U64(0))
+        | (ValueRef::U64(0), ValueRef::U64(0)) => {
+            let (a_len, a_bytes) = ctx.extract_string_slice(&a)?;
+            let (b_len, b_bytes) = ctx.extract_string_slice(&b)?;
+            Ok(a_len == b_len && a_bytes == b_bytes)
+        }
+
         // Numeric fallback: compare coercible scalar values
         _ => {
             let a_num = crate::utils::ValueRefUtils::as_u64(a);

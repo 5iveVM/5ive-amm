@@ -8,15 +8,14 @@
 //! five-lsp  # Waits for LSP messages on stdin
 //! ```
 //!
-//! NOTE: Native stdio transport is intentionally deferred.
-//! The browser/WASM path is the supported integration, including workspace symbol
-//! aggregation via per-file queries in the frontend.
+//! NOTE: Native transport is available behind the `native` feature.
+//! The browser/WASM path remains supported for web integrations.
 
 #[cfg(feature = "native")]
 use five_lsp::FiveLanguageServer;
 
 #[cfg(feature = "native")]
-use tower_lsp::Server;
+use tower_lsp::{LspService, Server};
 
 #[cfg(feature = "native")]
 use tracing_subscriber::layer::SubscriberExt;
@@ -24,15 +23,13 @@ use tracing_subscriber::layer::SubscriberExt;
 #[cfg(feature = "native")]
 use tracing_subscriber::util::SubscriberInitExt;
 
+#[cfg(feature = "native")]
 fn main() {
-    // Native transport remains intentionally disabled in this pass.
-    eprintln!("Five LSP native binary is not yet enabled.");
-    eprintln!("Use the WASM/browser integration path for active language features.");
-    std::process::exit(1);
+    native_main();
 }
 
 #[cfg(feature = "native")]
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn native_main() {
     // Initialize logging (writes to stderr so LSP protocol on stdout isn't polluted)
     tracing_subscriber::registry()
@@ -46,7 +43,13 @@ async fn native_main() {
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
+    let (service, socket) = LspService::new(FiveLanguageServer::new);
 
-    // TODO: Implement proper tower-lsp stdio transport
-    // Current issue: tower-lsp 0.20 Server::new() requires understanding correct socket pattern
+    Server::new(stdin, stdout, socket).serve(service).await;
+}
+
+#[cfg(not(feature = "native"))]
+fn main() {
+    eprintln!("five-lsp native server is disabled. Rebuild with: --features native");
+    std::process::exit(1);
 }

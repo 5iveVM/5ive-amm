@@ -27,6 +27,14 @@ export class PublicKey {
     return this.value;
   }
 
+  toBytes(): Uint8Array {
+    return bs58.decode(this.value);
+  }
+
+  toBuffer(): Buffer {
+    return Buffer.from(this.toBytes());
+  }
+
   static findProgramAddressSync(
     seeds: Array<Buffer | Uint8Array>,
     programId: PublicKey,

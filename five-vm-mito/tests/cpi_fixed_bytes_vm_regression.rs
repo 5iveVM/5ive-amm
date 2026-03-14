@@ -196,8 +196,10 @@ fn cpi_fixed_bytes_auto_pda_vm_regression_matches_execute_account_layout() {
     let source = build_memo_auto_pda_cpi_source();
     let bytecode = DslCompiler::compile_dsl(&source).expect("compile cpi memo auto pda");
 
-    let (vm_state_key, _bump) = find_program_address_offchain(&[b"vm_state"], &FIVE_VM_PROGRAM_ID)
-        .expect("derive vm_state pda");
+    let root_script_key = Pubkey::from([9u8; 32]);
+    let (vm_state_key, _bump) =
+        find_program_address_offchain(&[root_script_key.as_ref(), b"vm_state"], &FIVE_VM_PROGRAM_ID)
+            .expect("derive vm_state pda");
     let vm_state = Box::leak(Box::new(vm_state_key));
     let memo_program = Box::leak(Box::new(Pubkey::from(MEMO_PROGRAM_ID)));
     let payer = Box::leak(Box::new(Pubkey::from([7u8; 32])));
@@ -216,11 +218,12 @@ fn cpi_fixed_bytes_auto_pda_vm_regression_matches_execute_account_layout() {
 
     let input = canonical_execute_payload(0);
     let mut storage = StackStorage::new();
-    let result = MitoVM::execute_direct(
+    let result = MitoVM::execute_direct_with_root_script(
         &bytecode,
         &input,
         &accounts,
         &FIVE_VM_PROGRAM_ID,
+        root_script_key,
         &mut storage,
     );
     assert_eq!(result, Ok(Some(five_vm_mito::Value::U64(1))));

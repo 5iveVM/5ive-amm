@@ -233,6 +233,10 @@ fn test_init_with_explicit_bump_is_honored() {
         !bytecode.windows(1).any(|w| w[0] == FIND_PDA),
         "Explicit bump path should not require FIND_PDA derivation"
     );
+    assert!(
+        bytecode.windows(1).any(|w| w[0] == CHECK_PDA),
+        "Explicit bump path must emit CHECK_PDA"
+    );
 }
 
 #[test]
@@ -460,4 +464,29 @@ fn test_account_ctx_space_available_for_init_account() {
         bytecode_contains_u64_literal(&bytecode, 8),
         "state.ctx.space should resolve and include layout size literal (State = 8 bytes)"
     );
+}
+
+#[test]
+fn test_init_allows_imported_account_types_with_raw_serializer() {
+    let source = r#"
+        use std::interfaces::spl_token;
+
+        account Reserve {
+            mint: pubkey,
+            supply: pubkey
+        }
+
+        pub init_reserve(
+            reserve: Reserve @mut @init(payer=admin, space=128),
+            mint: spl_token::Mint @serializer("raw"),
+            supply: spl_token::TokenAccount @mut @serializer("raw"),
+            admin: account @signer
+        ) {
+            reserve.mint = mint.ctx.key;
+            reserve.supply = supply.ctx.key;
+        }
+    "#;
+
+    DslCompiler::compile_dsl(source)
+        .expect("imported namespaced account types should remain valid in @init instructions");
 }

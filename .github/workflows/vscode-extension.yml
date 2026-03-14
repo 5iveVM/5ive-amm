@@ -1,0 +1,209 @@
+name: Package 5ive VS Code Extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_marketplace:
+        description: 'Publish to VS Code Marketplace'
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'five-vscode/**'
+      - 'five-lsp/**'
+      - 'five-dsl-compiler/**'
+      - '.github/workflows/vscode-extension.yml'
+  release:
+    types: [published]
+
+jobs:
+  build-binaries:
+    name: Build ${{ matrix.rust_target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust_target: aarch64-apple-darwin
+            vscode_target: darwin-arm64
+            runner: macos-14
+            binary_name: five-lsp
+          - rust_target: x86_64-apple-darwin
+            vscode_target: darwin-x64
+            runner: macos-13
+            binary_name: five-lsp
+          - rust_target: aarch64-unknown-linux-gnu
+            vscode_target: linux-arm64
+            runner: ubuntu-24.04-arm
+            binary_name: five-lsp
+          - rust_target: x86_64-unknown-linux-gnu
+            vscode_target: linux-x64
+            runner: ubuntu-latest
+            binary_name: five-lsp
+          - rust_target: aarch64-pc-windows-msvc
+            vscode_target: win32-arm64
+            runner: windows-11-arm
+            binary_name: five-lsp.exe
+          - rust_target: x86_64-pc-windows-msvc
+            vscode_target: win32-x64
+            runner: windows-latest
+            binary_name: five-lsp.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build binary
+        run: cargo build -p five-lsp --features native --release --target ${{ matrix.rust_target }}
+
+      - name: Save binary (unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.rust_target }}/release/${{ matrix.binary_name }} dist/
+
+      - name: Save binary (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item "target/${{ matrix.rust_target }}/release/${{ matrix.binary_name }}" "dist/${{ matrix.binary_name }}"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lsp-${{ matrix.rust_target }}-${{ github.sha }}
+          path: dist/${{ matrix.binary_name }}
+
+  package-vsix:
+    needs: build-binaries
+    name: Package ${{ matrix.vscode_target }} VSIX
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust_target: aarch64-apple-darwin
+            vscode_target: darwin-arm64
+            binary_name: five-lsp
+          - rust_target: x86_64-apple-darwin
+            vscode_target: darwin-x64
+            binary_name: five-lsp
+          - rust_target: aarch64-unknown-linux-gnu
+            vscode_target: linux-arm64
+            binary_name: five-lsp
+          - rust_target: x86_64-unknown-linux-gnu
+            vscode_target: linux-x64
+            binary_name: five-lsp
+          - rust_target: aarch64-pc-windows-msvc
+            vscode_target: win32-arm64
+            binary_name: five-lsp.exe
+          - rust_target: x86_64-pc-windows-msvc
+            vscode_target: win32-x64
+            binary_name: five-lsp.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lsp-${{ matrix.rust_target }}-${{ github.sha }}
+          path: five-vscode/.binary
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: five-vscode
+        run: npm install
+
+      - name: Lint and smoke checks
+        working-directory: five-vscode
+        run: |
+          npm run lint
+          npm run test:smoke
+
+      - name: Build and package VSIX
+        working-directory: five-vscode
+        run: |
+          node scripts/package-target.mjs \
+            --vscode-target ${{ matrix.vscode_target }} \
+            --rust-target ${{ matrix.rust_target }} \
+            --binary .binary/${{ matrix.binary_name }}
+
+      - name: Verify packaged VSIX contains target binary
+        working-directory: five-vscode
+        run: |
+          VSIX=$(ls -1 *.vsix | head -n 1)
+          unzip -l "$VSIX" | grep "extension/server/${{ matrix.rust_target }}/${{ matrix.binary_name }}"
+
+      - name: Emit VSIX checksums
+        working-directory: five-vscode
+        run: |
+          sha256sum *.vsix > VSIX-SHA256SUMS
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.vscode_target }}-${{ github.sha }}
+          path: |
+            five-vscode/*.vsix
+            five-vscode/*.vsix.sha256
+            five-vscode/VSIX-SHA256SUMS
+
+  release-assets:
+    if: github.event_name == 'release'
+    needs: package-vsix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.vsix
+            dist/**/*.sha256
+            dist/**/VSIX-SHA256SUMS
+
+  publish-marketplace:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_marketplace == true
+    needs: package-vsix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Publish VSIX artifacts
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "VSCE_PAT is not configured"
+            exit 1
+          fi
+          find dist -name '*.vsix' -print0 | while IFS= read -r -d '' file; do
+            vsce publish --packagePath "$file"
+          done

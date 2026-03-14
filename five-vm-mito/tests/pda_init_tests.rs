@@ -7,6 +7,8 @@
 mod support_accounts;
 
 use five_vm_mito::{stack::StackStorage, AccountInfo, MitoVM, VMError, Value};
+const ROOT_SCRIPT_KEY: [u8; 32] = [0xCC; 32];
+const RUNTIME_STATE_OWNER_META_OVERHEAD: usize = 36;
 
 fn execute_test(
     bytecode: &[u8],
@@ -15,7 +17,14 @@ fn execute_test(
     program_id: &pinocchio::pubkey::Pubkey,
 ) -> five_vm_mito::Result<Option<Value>> {
     let mut storage = StackStorage::new();
-    MitoVM::execute_direct(bytecode, input, accounts, program_id, &mut storage)
+    MitoVM::execute_direct_with_root_script(
+        bytecode,
+        input,
+        accounts,
+        program_id,
+        ROOT_SCRIPT_KEY,
+        &mut storage,
+    )
 }
 use pinocchio::pubkey::Pubkey;
 use support_accounts::{create_test_accounts, derive_pda_real};
@@ -72,9 +81,11 @@ fn test_init_account_success() {
 
     match result {
         Ok(_) => {
-            assert_eq!(accounts[0].lamports(), 999_000_000);
-            assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 128);
+            let effective_space = 128 + RUNTIME_STATE_OWNER_META_OVERHEAD;
+            let debited = 1_000_000_000 - accounts[0].lamports();
+            assert_eq!(accounts[1].lamports(), debited);
+            assert!(accounts[1].lamports() >= 1_000_000);
+            assert_eq!(accounts[1].data_len(), effective_space);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_ACCOUNT success test passed");
         }
@@ -88,7 +99,7 @@ fn test_init_account_success() {
 fn test_init_pda_account_success() {
     // 1. Setup: Define seeds and derive valid PDA
     let program_id = Pubkey::from([0xAA; 32]);
-    let seeds: &[&[u8]] = &[b"vault", &[1, 2, 3]];
+    let seeds: &[&[u8]] = &[&ROOT_SCRIPT_KEY, b"vault", &[1, 2, 3]];
 
     // Derive valid PDA address
     let (pda_address, bump) = derive_pda_real(seeds, &program_id);
@@ -153,9 +164,11 @@ fn test_init_pda_account_success() {
 
     match result {
         Ok(_) => {
-            assert_eq!(accounts[0].lamports(), 999_000_000);
-            assert_eq!(accounts[1].lamports(), 1_000_000);
-            assert_eq!(accounts[1].data_len(), 100);
+            let effective_space = 100 + RUNTIME_STATE_OWNER_META_OVERHEAD;
+            let debited = 1_000_000_000 - accounts[0].lamports();
+            assert_eq!(accounts[1].lamports(), debited);
+            assert!(accounts[1].lamports() >= 1_000_000);
+            assert_eq!(accounts[1].data_len(), effective_space);
             assert_eq!(accounts[1].owner(), &program_id);
             println!("✅ INIT_PDA_ACCOUNT success test passed");
         }
@@ -169,7 +182,7 @@ fn test_init_pda_account_success() {
 fn test_init_pda_account_failure_address_mismatch() {
     // 1. Setup: Define seeds and derive valid PDA
     let program_id = Pubkey::from([0xAA; 32]);
-    let seeds: &[&[u8]] = &[b"vault", &[1, 2, 3]];
+    let seeds: &[&[u8]] = &[&ROOT_SCRIPT_KEY, b"vault", &[1, 2, 3]];
     let (_real_pda_address, bump) = derive_pda_real(seeds, &program_id);
 
     // 2. Setup Accounts: Use a RANDOM/WRONG key for account #1
@@ -249,7 +262,7 @@ fn test_init_pda_account_failure_address_mismatch() {
 fn test_init_pda_account_failure_invalid_bump() {
     // 1. Setup
     let program_id = Pubkey::from([0xAA; 32]);
-    let seeds: &[&[u8]] = &[b"vault"];
+    let seeds: &[&[u8]] = &[&ROOT_SCRIPT_KEY, b"vault"];
     let (pda_address, valid_bump) = derive_pda_real(seeds, &program_id);
 
     // Setup account with CORRECT address
@@ -333,7 +346,7 @@ fn test_init_pda_account_failure_invalid_bump() {
 fn test_init_pda_account_failure_space_limit() {
     // 1. Setup
     let program_id = Pubkey::from([0xAA; 32]);
-    let seeds: &[&[u8]] = &[b"vault"];
+    let seeds: &[&[u8]] = &[&ROOT_SCRIPT_KEY, b"vault"];
     let (pda_address, bump) = derive_pda_real(seeds, &program_id);
 
     let mut lamports = 0u64;

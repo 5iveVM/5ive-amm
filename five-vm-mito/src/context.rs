@@ -21,8 +21,11 @@ use pinocchio::{
 };
 
 use crate::systems::{
-    accounts::AccountManager, frame::FrameManager, resource::HeapCheckpoint,
-    resource::ResourceManager, stack::StackManager,
+    accounts::{AccountManager, StateAccountOwnerMeta},
+    frame::FrameManager,
+    resource::HeapCheckpoint,
+    resource::ResourceManager,
+    stack::StackManager,
 };
 
 pub const EXTERNAL_CALL_CACHE_SIZE: usize = 32;
@@ -43,6 +46,7 @@ pub struct ExecutionContext<'a> {
     /// Original root bytecode for context restoration
     pub root_bytecode: &'a [u8],
     pub current_context: u8,
+    pub active_script_key: Option<Pubkey>,
     pub pc: u16,
     pub external_account_remap: [u8; MAX_PARAMETERS + 1],
 
@@ -140,6 +144,7 @@ impl<'a> ExecutionContext<'a> {
             bytecode,
             root_bytecode: bytecode,
             current_context: crate::types::ROOT_CONTEXT,
+            active_script_key: None,
             pc: start_pc,
             external_account_remap: [u8::MAX; MAX_PARAMETERS + 1],
             stack: StackManager::new(stack),
@@ -482,13 +487,13 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline(always)]
     pub fn get_account(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        self.accounts.get(self.resolve_account_index(index))
+        self.accounts.get(self.resolve_account_index_checked(index)?)
     }
 
     /// Get account for read access, ensuring pointer freshness
     #[inline(always)]
     pub fn get_account_for_read(&self, index: u8) -> CompactResult<&'a AccountInfo> {
-        let account = self.accounts.get(self.resolve_account_index(index))?;
+        let account = self.accounts.get(self.resolve_account_index_checked(index)?)?;
         // CRITICAL FIX: Force refresh of account pointers before data access
         // to handle stale pointers after CPI.
         account.refresh_after_cpi();
@@ -498,16 +503,13 @@ impl<'a> ExecutionContext<'a> {
     /// Get account for write access, checking authorization and writability
     #[inline(always)]
     pub fn get_account_for_write(&self, index: u8) -> CompactResult<&'a AccountInfo> {
+        let resolved_index = self.resolve_account_index_checked(index)?;
         // 1. Get account once
-        let account = self.accounts.get(self.resolve_account_index(index))?;
+        let account = self.accounts.get(resolved_index)?;
 
-        // 2. Check bytecode authorization inline (avoiding second get)
-        if account.data_len() > 0 {
-            if *account.owner() != self.program_id {
-                crate::debug_log!("Auth failed: owner mismatch");
-                return Err(VMErrorCode::ScriptNotAuthorized);
-            }
-        }
+        // 2. Reuse the canonical mutation authorization checks.
+        self.accounts
+            .check_authorization(resolved_index, self.active_script_key.as_ref())?;
 
         // 3. Check writable
         if !account.is_writable() {
@@ -524,7 +526,7 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn get_account_unchecked(&self, index: u8) -> CompactResult<&'a AccountInfo> {
         self.accounts
-            .get_unchecked(self.resolve_account_index(index))
+            .get_unchecked(self.resolve_account_index_checked(index)?)
     }
 
     #[inline(always)]
@@ -542,6 +544,54 @@ impl<'a> ExecutionContext<'a> {
     }
 
     #[inline(always)]
+    fn resolve_account_index_checked(&self, index: u8) -> CompactResult<u8> {
+        if self.current_context == crate::types::ROOT_CONTEXT {
+            return Ok(index);
+        }
+        if index == 0 {
+            // Slot 0 remains VM state in all contexts.
+            return Ok(0);
+        }
+        let idx = index as usize;
+        if idx >= self.external_account_remap.len() {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        let mapped = self.external_account_remap[idx];
+        if mapped == u8::MAX {
+            return Err(VMErrorCode::InvalidAccountIndex);
+        }
+        Ok(mapped)
+    }
+
+    #[inline(always)]
+    fn select_create_account_payer_index(&self, new_account_idx: u8) -> CompactResult<u8> {
+        if self.current_context == crate::types::ROOT_CONTEXT {
+            for (idx, account) in self.accounts.accounts().iter().enumerate() {
+                let idx_u8 = u8::try_from(idx).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
+                if idx_u8 == new_account_idx {
+                    continue;
+                }
+                if account.is_signer() && account.is_writable() {
+                    return Ok(idx_u8);
+                }
+            }
+            return Err(VMErrorCode::ConstraintViolation);
+        }
+
+        for mapped in self.external_account_remap.iter().skip(1) {
+            if *mapped == u8::MAX || *mapped == new_account_idx {
+                continue;
+            }
+            let account = self.accounts.get_unchecked(*mapped)?;
+            if account.is_signer() && account.is_writable() {
+                return Ok(*mapped);
+            }
+        }
+
+        Err(VMErrorCode::ConstraintViolation)
+    }
+
+    #[inline(always)]
     pub fn set_external_account_remap(&mut self, remap: [u8; MAX_PARAMETERS + 1]) {
         self.external_account_remap = remap;
     }
@@ -554,6 +604,11 @@ impl<'a> ExecutionContext<'a> {
     #[inline(always)]
     pub fn resolve_account_index_for_context(&self, index: u8) -> u8 {
         self.resolve_account_index(index)
+    }
+
+    #[inline(always)]
+    pub fn resolve_bound_account_index_for_context(&self, index: u8) -> CompactResult<u8> {
+        self.resolve_account_index_checked(index)
     }
 
     // --- Parameter operations (delegated to FrameManager) ---
@@ -804,7 +859,9 @@ impl<'a> ExecutionContext<'a> {
                     // Fallback to accounts check if not in instruction data
                     // Original code: if start < self.accounts.len() { Ok(*self.accounts[start].key()) }
                     if start < accounts_len {
-                        Ok(*self.accounts.accounts()[start].key())
+                        let account_idx =
+                            u8::try_from(start).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
+                        Ok(*self.get_account(account_idx)?.key())
                     } else {
                         Err(VMErrorCode::MemoryError)
                     }
@@ -828,7 +885,7 @@ impl<'a> ExecutionContext<'a> {
             }
             ValueRef::U64(0) => Ok(self.program_id),
             ValueRef::AccountRef(idx, offset) => {
-                let account = self.accounts.get(*idx)?;
+                let account = self.get_account(*idx)?;
                 let data = unsafe { account.borrow_data_unchecked() };
                 let start = *offset as usize;
                 let end = start + 32;
@@ -874,7 +931,47 @@ impl<'a> ExecutionContext<'a> {
 
     #[inline]
     pub fn check_bytecode_authorization(&self, account_idx: u8) -> CompactResult<()> {
-        self.accounts.check_authorization(account_idx)
+        let resolved_index = self.resolve_account_index_checked(account_idx)?;
+        self.accounts
+            .check_authorization(resolved_index, self.active_script_key.as_ref())
+    }
+
+    #[inline(always)]
+    fn should_embed_state_owner_meta(&self, owner: &Pubkey) -> bool {
+        self.active_script_key.is_some() && *owner == self.program_id
+    }
+
+    #[inline(always)]
+    fn apply_state_owner_meta_space_overhead(
+        &self,
+        requested_space: u64,
+        owner: &Pubkey,
+    ) -> CompactResult<u64> {
+        if !self.should_embed_state_owner_meta(owner) {
+            return Ok(requested_space);
+        }
+        requested_space
+            .checked_add(StateAccountOwnerMeta::LEN as u64)
+            .ok_or(VMErrorCode::InvalidParameter)
+    }
+
+    #[inline(always)]
+    pub fn effective_runtime_account_space(
+        &self,
+        requested_space: u64,
+        owner: &Pubkey,
+    ) -> CompactResult<u64> {
+        self.apply_state_owner_meta_space_overhead(requested_space, owner)
+    }
+
+    #[inline(always)]
+    pub fn active_script_key(&self) -> Option<Pubkey> {
+        self.active_script_key
+    }
+
+    #[inline(always)]
+    pub fn set_active_script_key(&mut self, script_key: Option<Pubkey>) {
+        self.active_script_key = script_key;
     }
 
     #[inline]
@@ -934,8 +1031,16 @@ impl<'a> ExecutionContext<'a> {
         lamports: u64,
         owner: &Pubkey,
     ) -> CompactResult<()> {
-        self.accounts
-            .create_account(account_idx, space, lamports, owner)
+        let account_idx = self.resolve_account_index_checked(account_idx)?;
+        let payer_idx = self.select_create_account_payer_index(account_idx)?;
+        let effective_space = self.apply_state_owner_meta_space_overhead(space, owner)?;
+        self.accounts.create_account_with_payer(
+            account_idx,
+            payer_idx,
+            effective_space,
+            lamports,
+            owner,
+        )
     }
 
     #[inline]
@@ -947,8 +1052,25 @@ impl<'a> ExecutionContext<'a> {
         lamports: u64,
         owner: &Pubkey,
     ) -> CompactResult<()> {
+        let account_idx = self.resolve_account_index_checked(account_idx)?;
+        let payer_idx = self.resolve_account_index_checked(payer_idx)?;
+        let effective_space = self.apply_state_owner_meta_space_overhead(space, owner)?;
         self.accounts
-            .create_account_with_payer(account_idx, payer_idx, space, lamports, owner)
+            .create_account_with_payer(account_idx, payer_idx, effective_space, lamports, owner)
+    }
+
+    #[inline]
+    pub fn initialize_state_owner_meta(&self, account_idx: u8) -> CompactResult<()> {
+        let Some(active_script_key) = self.active_script_key.as_ref() else {
+            return Ok(());
+        };
+        let account_idx = self.resolve_account_index_checked(account_idx)?;
+        let account = self.accounts.get_unchecked(account_idx)?;
+        if account.data_len() == 0 || *account.owner() != self.program_id {
+            return Ok(());
+        }
+        let data = unsafe { account.borrow_mut_data_unchecked() };
+        StateAccountOwnerMeta::write_to_account_data(data, active_script_key)
     }
 
     #[inline]
@@ -962,11 +1084,14 @@ impl<'a> ExecutionContext<'a> {
         owner: &Pubkey,
         payer_idx: u8,
     ) -> CompactResult<()> {
+        let account_idx = self.resolve_account_index_checked(account_idx)?;
+        let payer_idx = self.resolve_account_index_checked(payer_idx)?;
+        let effective_space = self.apply_state_owner_meta_space_overhead(space, owner)?;
         self.accounts.create_pda_account(
             account_idx,
             seeds,
             bump,
-            space,
+            effective_space,
             lamports,
             owner,
             payer_idx,
@@ -1643,6 +1768,291 @@ mod tests {
         let signer = Signer::from(&signer_seeds);
         let result = ctx.invoke_signed_instruction::<1>(&instruction, &[&accounts[0]], &[signer]);
         assert!(result.is_ok(), "Invoke signed should succeed in test env");
+    }
+
+    #[test]
+    fn check_bytecode_authorization_uses_resolved_external_account_index() {
+        let program_id = Pubkey::from([23u8; 32]);
+        let active_script = Pubkey::from([24u8; 32]);
+        let other_script = Pubkey::from([25u8; 32]);
+        let vm_key = Pubkey::from([26u8; 32]);
+        let probe_key = Pubkey::from([27u8; 32]);
+        let target_key = Pubkey::from([28u8; 32]);
+
+        let mut vm_lamports = 1_000u64;
+        let mut probe_lamports = 1_000u64;
+        let mut target_lamports = 1_000u64;
+        let mut vm_data = [0u8; 8];
+        let mut probe_data = [0u8; 72];
+        let mut target_data = [0u8; 72];
+
+        crate::systems::accounts::StateAccountOwnerMeta::write_to_account_data(
+            &mut probe_data,
+            &active_script,
+        )
+        .expect("write probe owner metadata");
+        crate::systems::accounts::StateAccountOwnerMeta::write_to_account_data(
+            &mut target_data,
+            &other_script,
+        )
+        .expect("write target owner metadata");
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        let probe = AccountInfo::new(
+            &probe_key,
+            false,
+            true,
+            &mut probe_lamports,
+            &mut probe_data,
+            &program_id,
+            false,
+            0,
+        );
+        let target = AccountInfo::new(
+            &target_key,
+            false,
+            true,
+            &mut target_lamports,
+            &mut target_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, probe, target];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        ctx.set_active_script_key(Some(active_script));
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+        remap[1] = 2; // external slot 1 resolves to account index 2
+        ctx.set_external_account_remap(remap);
+
+        assert_eq!(
+            ctx.check_bytecode_authorization(1),
+            Err(VMErrorCode::ScriptNotAuthorized)
+        );
+    }
+
+    #[test]
+    fn external_context_rejects_unbound_account_index_access() {
+        let program_id = Pubkey::from([35u8; 32]);
+        let active_script = Pubkey::from([36u8; 32]);
+        let vm_key = Pubkey::from([37u8; 32]);
+        let state_key = Pubkey::from([38u8; 32]);
+        let mut vm_lamports = 1_000u64;
+        let mut state_lamports = 1_000u64;
+        let mut vm_data = [0u8; 8];
+        let mut state_data = [0u8; 72];
+
+        crate::systems::accounts::StateAccountOwnerMeta::write_to_account_data(
+            &mut state_data,
+            &active_script,
+        )
+        .expect("write owner metadata");
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        let state_account = AccountInfo::new(
+            &state_key,
+            false,
+            true,
+            &mut state_lamports,
+            &mut state_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, state_account];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        ctx.set_active_script_key(Some(active_script));
+        ctx.current_context = 1;
+        // No remap entries are bound for this external frame.
+        ctx.set_external_account_remap([u8::MAX; MAX_PARAMETERS + 1]);
+
+        assert_eq!(ctx.get_account(1), Err(VMErrorCode::InvalidAccountIndex));
+        assert_eq!(
+            ctx.check_bytecode_authorization(1),
+            Err(VMErrorCode::InvalidAccountIndex)
+        );
+    }
+
+    #[test]
+    fn runtime_space_overhead_is_applied_only_for_active_script_owned_accounts() {
+        let program_id = Pubkey::from([39u8; 32]);
+        let other_program = Pubkey::from([40u8; 32]);
+        let active_script = Pubkey::from([41u8; 32]);
+        let mut lamports = 0u64;
+        let mut data_buf: [u8; 0] = [];
+        let account = AccountInfo::new(
+            &program_id,
+            false,
+            false,
+            &mut lamports,
+            &mut data_buf,
+            &program_id,
+            true,
+            0,
+        );
+        let accounts = [account];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        // No active script: no runtime trailer overhead.
+        assert_eq!(
+            ctx.effective_runtime_account_space(100, &program_id)
+                .expect("space without active script"),
+            100
+        );
+
+        ctx.set_active_script_key(Some(active_script));
+
+        // Active script + VM-owned account: add runtime trailer.
+        assert_eq!(
+            ctx.effective_runtime_account_space(100, &program_id)
+                .expect("space with runtime trailer"),
+            100 + crate::systems::accounts::StateAccountOwnerMeta::LEN as u64
+        );
+
+        // Active script + external-owned account: no trailer.
+        assert_eq!(
+            ctx.effective_runtime_account_space(100, &other_program)
+                .expect("space for external-owned account"),
+            100
+        );
+    }
+
+    #[test]
+    fn create_account_rejects_unbound_signer_payer_in_external_context() {
+        let program_id = Pubkey::from([42u8; 32]);
+        let active_script = Pubkey::from([43u8; 32]);
+        let vm_key = Pubkey::from([44u8; 32]);
+        let payer_key = Pubkey::from([45u8; 32]);
+        let new_key = Pubkey::from([46u8; 32]);
+
+        let mut vm_lamports = 10_000u64;
+        let mut payer_lamports = 10_000u64;
+        let mut new_lamports = 0u64;
+        let mut vm_data = [0u8; 8];
+        let mut payer_data = [0u8; 0];
+        let mut new_data = [0u8; 0];
+
+        let vm_state = AccountInfo::new(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+            false,
+            0,
+        );
+        // Unbound signer should not be auto-selected as payer inside external context.
+        let payer = AccountInfo::new(
+            &payer_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &program_id,
+            false,
+            0,
+        );
+        let new_account = AccountInfo::new(
+            &new_key,
+            false,
+            true,
+            &mut new_lamports,
+            &mut new_data,
+            &program_id,
+            false,
+            0,
+        );
+        let accounts = [vm_state, payer, new_account];
+        let mut storage = StackStorage::new();
+        let mut ctx = ExecutionContext::new(
+            &[],
+            &accounts,
+            program_id,
+            &[],
+            0,
+            &mut storage,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        );
+
+        ctx.set_active_script_key(Some(active_script));
+        ctx.current_context = 1;
+        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
+        remap[1] = 2; // only new_account is bound in this external frame.
+        ctx.set_external_account_remap(remap);
+
+        assert_eq!(
+            ctx.create_account(1, 32, 1_000, &program_id),
+            Err(VMErrorCode::ConstraintViolation)
+        );
     }
 
     #[test]

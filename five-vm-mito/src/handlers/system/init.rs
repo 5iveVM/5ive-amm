@@ -12,13 +12,13 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    handlers::system::sysvars::get_rent_cached,
     utils::value_ref_to_seed_bytes,
 };
 use five_protocol::{opcodes::*, ValueRef};
 use heapless::Vec;
 #[cfg(target_os = "solana")]
 use pinocchio::pubkey::create_program_address;
-#[cfg(target_os = "solana")]
 use pinocchio::pubkey::Pubkey;
 
 const MAX_ACCOUNT_SIZE: u64 = 10 * 1024 * 1024; // 10MB limit
@@ -135,10 +135,19 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey from ValueRef
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
+    let owner_pubkey = Pubkey::from(owner);
+    let effective_space = ctx.effective_runtime_account_space(space, &owner_pubkey)?;
+    if effective_space > MAX_ACCOUNT_SIZE {
+        return Err(VMErrorCode::InvalidParameter);
+    }
+    let rent = get_rent_cached(ctx)?;
+    let required_lamports = rent.minimum_balance(effective_space as usize);
+    let lamports = lamports.max(required_lamports);
 
     // Create the account in one CPI with the actual target size.
     match ctx.create_account_with_payer(account_idx, payer_idx, space, lamports, &owner) {
         Ok(()) => {
+            ctx.initialize_state_owner_meta(account_idx)?;
             debug_log!(
                 "INIT_ACCOUNT: SUCCESS with payer {} - created account {} with {} bytes",
                 payer_idx,
@@ -174,10 +183,11 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
             0u8
         }
     );
-    if _account_after.data_len() != space as usize {
+    if _account_after.data_len() != effective_space as usize {
         debug_log!(
-            "INIT_ACCOUNT SIZE MISMATCH: requested={} actual={}",
+            "INIT_ACCOUNT SIZE MISMATCH: requested={} effective={} actual={}",
             space,
+            effective_space,
             _account_after.data_len() as u32
         );
         return Err(VMErrorCode::AccountDataEmpty);
@@ -212,6 +222,7 @@ fn handle_init_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 ///
 /// This creates a new Program Derived Address account using the provided seeds and bump.
 /// The PDA address is deterministically derived and the account is created with the specified parameters.
+/// Runtime applies script scoping by prepending active_script_key to user-provided seeds.
 fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     const RESERVED_FEE_VAULT_NAMESPACE: &[u8] = b"\xFFfive_vm_fee_vault_v1";
     // Pop basic parameters
@@ -253,6 +264,10 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
     if ctx.size() < seeds_count as usize {
         return Err(VMErrorCode::StackError);
     }
+    let active_script_key = ctx
+        .active_script_key()
+        .ok_or(VMErrorCode::ScriptNotAuthorized)?;
+
     // Collect seeds and restore original order
     let mut seeds: Vec<Vec<u8, 32>, MAX_SEEDS> = Vec::new();
     for _ in 0..seeds_count {
@@ -273,6 +288,14 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Extract owner pubkey
     let owner = extract_owner_pubkey(owner_ref, ctx)?;
+    let owner_pubkey = Pubkey::from(owner);
+    let effective_space = ctx.effective_runtime_account_space(space, &owner_pubkey)?;
+    if effective_space > MAX_ACCOUNT_SIZE {
+        return Err(VMErrorCode::InvalidParameter);
+    }
+    let rent = get_rent_cached(ctx)?;
+    let required_lamports = rent.minimum_balance(effective_space as usize);
+    let lamports = lamports.max(required_lamports);
 
     // Log the owner for debugging
     let owner_bytes = owner.as_ref();
@@ -287,7 +310,10 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
 
     // Create PDA account via System Program CPI (runtime integration required)
     // Convert seeds to slice references without heap allocation
-    let mut seed_refs: Vec<&[u8], MAX_SEEDS> = Vec::new();
+    let mut seed_refs: Vec<&[u8], { MAX_SEEDS + 1 }> = Vec::new();
+    seed_refs
+        .push(active_script_key.as_ref())
+        .map_err(|_| VMErrorCode::TooManySeeds)?;
     for seed in seeds.iter() {
         seed_refs
             .push(seed.as_slice())
@@ -302,12 +328,13 @@ fn handle_init_pda_account(ctx: &mut ExecutionManager) -> CompactResult<()> {
         &owner,
         payer_idx,
     )?;
+    ctx.initialize_state_owner_meta(account_idx)?;
 
     // Validate that the created account address matches the derived PDA
     {
         // Construct full seeds list including bump for validation
         let binding = [bump];
-        let mut validation_seeds: Vec<&[u8], { MAX_SEEDS + 1 }> = Vec::new();
+        let mut validation_seeds: Vec<&[u8], { MAX_SEEDS + 2 }> = Vec::new();
         for s in seed_refs.iter() {
             validation_seeds.push(*s).unwrap();
         }

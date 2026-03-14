@@ -1,0 +1,120 @@
+name: Build five-lsp Native Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'five-lsp/**'
+      - 'five-dsl-compiler/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/lsp-native-binaries.yml'
+  release:
+    types: [published]
+
+jobs:
+  parity-gate:
+    name: LSP DSL Parity Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate feature matrix contracts
+        run: node scripts/validate-dsl-feature-matrix.mjs
+
+      - name: Run LSP matrix tests
+        run: cargo test -p five-lsp --features native --test dsl_feature_matrix --test native_stdio_handshake
+
+  build-binaries:
+    needs: parity-gate
+    name: Build ${{ matrix.rust_target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rust_target: aarch64-apple-darwin
+            runner: macos-14
+            binary_name: five-lsp
+          - rust_target: x86_64-apple-darwin
+            runner: macos-13
+            binary_name: five-lsp
+          - rust_target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            binary_name: five-lsp
+          - rust_target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            binary_name: five-lsp
+          - rust_target: aarch64-pc-windows-msvc
+            runner: windows-11-arm
+            binary_name: five-lsp.exe
+          - rust_target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            binary_name: five-lsp.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build binary
+        run: cargo build -p five-lsp --features native --release --target ${{ matrix.rust_target }}
+
+      - name: Package artifact (unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.rust_target }}/release/${{ matrix.binary_name }} artifacts/
+          shasum -a 256 artifacts/${{ matrix.binary_name }} > artifacts/${{ matrix.binary_name }}.sha256
+
+      - name: Package artifact (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force | Out-Null
+          Copy-Item "target/${{ matrix.rust_target }}/release/${{ matrix.binary_name }}" "artifacts/${{ matrix.binary_name }}"
+          $hash = Get-FileHash "artifacts/${{ matrix.binary_name }}" -Algorithm SHA256
+          "$($hash.Hash.ToLower())  ${{ matrix.binary_name }}" | Out-File "artifacts/${{ matrix.binary_name }}.sha256" -Encoding ascii
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: five-lsp-${{ matrix.rust_target }}-${{ github.sha }}
+          path: artifacts/*
+
+  release-assets:
+    if: github.event_name == 'release'
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Build release checksums index
+        run: |
+          find dist -name '*.sha256' -print0 | xargs -0 cat > dist/SHA256SUMS
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/five-lsp
+            dist/**/five-lsp.exe
+            dist/**/five-lsp.sha256
+            dist/**/five-lsp.exe.sha256
+            dist/SHA256SUMS

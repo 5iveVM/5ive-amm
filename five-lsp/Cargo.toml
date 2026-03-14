@@ -13,21 +13,20 @@ wasm-opt = false
 [package.metadata.wasm-pack.profile.dev]
 wasm-opt = false
 
-# [[bin]]
-# name = "five-lsp"
-# path = "src/main.rs"
-# required-features = ["native"]
-# TODO: Implement native binary transport (tower-lsp stdio pattern)
+[[bin]]
+name = "five-lsp"
+path = "src/main.rs"
+required-features = ["native"]
 
 [dependencies]
 lsp-types = "0.94"
 five-dsl-compiler = { path = "../five-dsl-compiler" }
-tokio = { version = "1.0", features = ["rt", "macros", "sync", "io-util"], optional = true }
+tokio = { version = "1.0", features = ["rt", "macros", "sync", "io-util", "io-std"], optional = true }
 tower-lsp = { version = "0.20", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter"], optional = true }
 thiserror = "1.0"
 futures = { version = "0.3", optional = true }
 

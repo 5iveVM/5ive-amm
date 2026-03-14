@@ -22,23 +22,41 @@ pub assert_spl_state(
     expected_close_authority_option: u32,
     expected_close_authority: pubkey
 ) {
-    require(mint.mint_authority_option == expected_mint_authority_option);
-    require(mint.mint_authority == expected_mint_authority);
-    require(mint.decimals == expected_decimals);
-    require(mint.is_initialized == expected_is_initialized);
-    require(mint.freeze_authority_option == expected_freeze_authority_option);
-    require(mint.freeze_authority == expected_freeze_authority);
+    let mut ok = mint.mint_authority_option == expected_mint_authority_option;
+    require(ok);
+    ok = mint.mint_authority == expected_mint_authority;
+    require(ok);
+    ok = mint.decimals == expected_decimals;
+    require(ok);
+    ok = mint.is_initialized == expected_is_initialized;
+    require(ok);
+    ok = mint.freeze_authority_option == expected_freeze_authority_option;
+    require(ok);
+    ok = mint.freeze_authority == expected_freeze_authority;
+    require(ok);
 
-    require(token.amount == expected_amount);
-    require(mint.supply == expected_supply);
-    require(token.mint == expected_token_mint);
-    require(token.owner == expected_token_owner);
-    require(token.delegate_option == expected_delegate_option);
-    require(token.delegate == expected_delegate);
-    require(token.state == expected_state);
-    require(token.is_native_option == expected_is_native_option);
-    require(token.is_native == expected_is_native);
-    require(token.delegated_amount == expected_delegated_amount);
-    require(token.close_authority_option == expected_close_authority_option);
-    require(token.close_authority == expected_close_authority);
+    ok = token.amount == expected_amount;
+    require(ok);
+    ok = mint.supply == expected_supply;
+    require(ok);
+    ok = token.mint == expected_token_mint;
+    require(ok);
+    ok = token.owner == expected_token_owner;
+    require(ok);
+    ok = token.delegate_option == expected_delegate_option;
+    require(ok);
+    ok = token.delegate == expected_delegate;
+    require(ok);
+    ok = token.state == expected_state;
+    require(ok);
+    ok = token.is_native_option == expected_is_native_option;
+    require(ok);
+    ok = token.is_native == expected_is_native;
+    require(ok);
+    ok = token.delegated_amount == expected_delegated_amount;
+    require(ok);
+    ok = token.close_authority_option == expected_close_authority_option;
+    require(ok);
+    ok = token.close_authority == expected_close_authority;
+    require(ok);
 }

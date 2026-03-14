@@ -523,6 +523,7 @@ export async function generateExecuteInstruction(
       const isWritable =
         attributes.includes("mut") ||
         attributes.includes("init") ||
+        attributes.includes("close") ||
         (hasInit && payerParamName === param.name);
 
       const existing = abiAccountMetadata.get(pubkey) || {

@@ -425,7 +425,9 @@ async function testSPLTokenBurnPDA(connection, payerKeypair) {
         const contractPath = path.join(__dirname, 'test-pda-burn.v');
         const source = fs.readFileSync(contractPath, 'utf-8');
         const compilation = await FiveSDK.compile(source);
-        const { bytecode } = compileWithRustFiveCompiler(contractPath);
+        // Temporarily disable REQUIRE_BATCH lowering for this state-read probe
+        // until the bundled compiler path picks up the pubkey-clause type guard fix.
+        const { bytecode } = compileWithRustFiveCompiler(contractPath, { disableRequireBatch: true });
         const runtimeAbi = buildRuntimeAbi(compilation?.abi, source);
         if (!bytecode) {
             throw new Error(`Compile failed: ${compilation?.error || 'missing bytecode'}`);
