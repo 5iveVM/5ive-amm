@@ -48,8 +48,22 @@ type CsvRow = {
   kAfter: bigint;
 };
 
-const RPC_URL = process.env.FIVE_RPC_URL || 'https://api.devnet.solana.com';
-const FIVE_VM_PROGRAM_ID = process.env.FIVE_VM_PROGRAM_ID || '4Qxf3pbCse2veUgZVMiAm3nWqJrYo2pT4suxHKMJdK1d';
+const NETWORK = process.env.FIVE_NETWORK || 'devnet';
+const RPC_BY_NETWORK: Record<string, string> = {
+  localnet: 'http://127.0.0.1:8899',
+  devnet: 'https://api.devnet.solana.com',
+  mainnet: 'https://api.mainnet-beta.solana.com',
+};
+const PROGRAM_BY_NETWORK: Record<string, string> = {
+  localnet: '8h8gqgMhfq5qmPbs9nNHkXNoy2jb1JywxaRC6W68wGVm',
+  devnet: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
+  mainnet: '5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst',
+};
+const RPC_URL = process.env.FIVE_RPC_URL || (RPC_BY_NETWORK[NETWORK] || RPC_BY_NETWORK.devnet);
+const FIVE_VM_PROGRAM_ID =
+  process.env.FIVE_VM_PROGRAM_ID ||
+  process.env.FIVE_PROGRAM_ID ||
+  (PROGRAM_BY_NETWORK[NETWORK] || PROGRAM_BY_NETWORK.devnet);
 const EXISTING_SCRIPT_ACCOUNT = process.env.FIVE_SCRIPT_ACCOUNT || '';
 const CONFIRM: ConfirmOptions = {
   commitment: 'confirmed',
