@@ -8,6 +8,8 @@ export interface NormalizedABIFunction {
     optional?: boolean;
     is_account?: boolean;
     isAccount?: boolean;
+    implicit?: boolean;
+    source?: 'authored' | 'compiler';
     attributes?: string[];
   }>;
   returnType?: string;
@@ -41,6 +43,8 @@ export function normalizeAbiFunctions(abiFunctions: unknown): NormalizedABIFunct
         optional: param.optional ?? false,
         is_account: param.is_account ?? param.isAccount ?? false,
         isAccount: param.isAccount ?? param.is_account ?? false,
+        implicit: param.implicit ?? false,
+        source: param.source ?? 'authored',
         attributes: Array.isArray(param.attributes) ? [...param.attributes] : [],
       }));
       const existingParameterNames = new Set(normalizedParameters.map((param) => param.name));
@@ -58,6 +62,8 @@ export function normalizeAbiFunctions(abiFunctions: unknown): NormalizedABIFunct
                 optional: false,
                 is_account: true,
                 isAccount: true,
+                implicit: false,
+                source: 'authored',
                 attributes,
               };
             })

@@ -181,3 +181,45 @@ script SessionPositional {
     assert!(matches!(&session_attr.args[0], AstNode::Identifier(name) if name == "delegate"));
     assert!(matches!(&session_attr.args[1], AstNode::Identifier(name) if name == "authority"));
 }
+
+#[test]
+fn session_attribute_parses_authority_attached_form() {
+    let source = r#"
+script SessionAuthorityAttached {
+    pub play(
+        player: account @mut,
+        authority: account @session(delegate=delegate, nonce_field=session_nonce, bind_account=player),
+        delegate: account @signer,
+        session_nonce: u64
+    ) { }
+}
+"#;
+
+    let ast = parse_program(source);
+    let instruction = first_instruction(&ast);
+
+    let AstNode::InstructionDefinition { parameters, .. } = instruction else {
+        panic!("expected instruction definition");
+    };
+
+    let authority_param = parameters
+        .iter()
+        .find(|p| p.name == "authority")
+        .expect("expected authority parameter");
+    let session_attr = authority_param
+        .attributes
+        .iter()
+        .find(|a| a.name == "session")
+        .expect("expected @session attribute on authority");
+
+    for expected_key in ["delegate", "nonce_field", "bind_account"] {
+        assert!(
+            session_attr.args.iter().any(|arg| matches!(
+                arg,
+                AstNode::Assignment { target, .. } if target == expected_key
+            )),
+            "missing keyed arg {}",
+            expected_key
+        );
+    }
+}

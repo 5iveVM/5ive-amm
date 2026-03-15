@@ -48,6 +48,10 @@ pub struct ABIParameter {
     pub param_type: String,
     pub is_account: bool,
     pub attributes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub implicit: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

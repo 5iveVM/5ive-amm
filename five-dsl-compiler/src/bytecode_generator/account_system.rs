@@ -23,6 +23,144 @@ pub struct AccountSystem {
 }
 
 impl AccountSystem {
+    fn register_builtin_session_type(registry: &mut AccountRegistry) {
+        if registry.account_types.contains_key("Session") {
+            return;
+        }
+
+        let mut fields = HashMap::new();
+        fields.insert(
+            "authority".to_string(),
+            FieldInfo {
+                offset: 0,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "delegate".to_string(),
+            FieldInfo {
+                offset: 32,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "target_program".to_string(),
+            FieldInfo {
+                offset: 64,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "expires_at_slot".to_string(),
+            FieldInfo {
+                offset: 96,
+                field_type: "u64".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "scope_hash".to_string(),
+            FieldInfo {
+                offset: 104,
+                field_type: "u64".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "nonce".to_string(),
+            FieldInfo {
+                offset: 112,
+                field_type: "u64".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "bind_account".to_string(),
+            FieldInfo {
+                offset: 120,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "manager_script_account".to_string(),
+            FieldInfo {
+                offset: 152,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "manager_code_hash".to_string(),
+            FieldInfo {
+                offset: 184,
+                field_type: "pubkey".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "manager_version".to_string(),
+            FieldInfo {
+                offset: 216,
+                field_type: "u8".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "status".to_string(),
+            FieldInfo {
+                offset: 217,
+                field_type: "u8".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+        fields.insert(
+            "version".to_string(),
+            FieldInfo {
+                offset: 218,
+                field_type: "u8".to_string(),
+                is_mutable: false,
+                is_optional: false,
+                is_parameter: false,
+            },
+        );
+
+        registry.account_types.insert(
+            "Session".to_string(),
+            AccountTypeInfo {
+                name: "Session".to_string(),
+                fields,
+                total_size: 219,
+                serializer: None,
+            },
+        );
+    }
+
     fn vec_capacity_from_args(&self, args: &[TypeNode]) -> Result<u32, VMError> {
         match args {
             [_elem] => Ok(DEFAULT_ACCOUNT_VEC_CAPACITY),
@@ -43,6 +181,9 @@ impl AccountSystem {
 
     /// Create a new account system with existing registry
     pub fn with_registry(registry: AccountRegistry) -> Self {
+        let mut registry = registry;
+        Self::register_builtin_session_type(&mut registry);
+
         let mut builtin_properties = HashMap::new();
         builtin_properties.insert("lamports".to_string(), FIELD_LAMPORTS);
         builtin_properties.insert("owner".to_string(), FIELD_OWNER);

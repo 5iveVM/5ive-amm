@@ -83,6 +83,19 @@ pub fn get_code_actions(
         }
     }
 
+    // Legacy session parameter migration hint
+    if message.contains("session") || message.contains("deprecated") {
+        if let Some(edit) = fix_legacy_session_parameter(source, line_num) {
+            actions.push(code_action_from_edit(
+                "Migrate to authority-attached @session",
+                edit,
+                uri.clone(),
+                diagnostic.clone(),
+                false,
+            ));
+        }
+    }
+
     // Missing semicolon errors
     if message.contains("semicolon") || message.contains("expected `;`") {
         if let Some(edit) =
@@ -284,6 +297,31 @@ pub fn fix_missing_account_constraint(
     }
 
     None
+}
+
+/// Quick fix for migrating deprecated `session: Session @session(...)` parameter syntax.
+pub fn fix_legacy_session_parameter(source: &str, line: usize) -> Option<TextEdit> {
+    let lines: Vec<&str> = source.lines().collect();
+    if line >= lines.len() {
+        return None;
+    }
+    let line_str = lines[line];
+    let needle = "session: Session @session(";
+    let start = line_str.find(needle)?;
+
+    Some(TextEdit {
+        range: Range {
+            start: Position {
+                line: line as u32,
+                character: start as u32,
+            },
+            end: Position {
+                line: line as u32,
+                character: (start + needle.len()) as u32,
+            },
+        },
+        new_text: "authority: account @session(".to_string(),
+    })
 }
 
 #[cfg(test)]

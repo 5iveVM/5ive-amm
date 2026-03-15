@@ -3,6 +3,7 @@
 use super::type_helpers::type_names;
 use super::types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer, TypeCheckerContext};
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
+use crate::session_support;
 use five_vm_mito::error::VMError;
 use sha2::Digest;
 use five_protocol::Value;
@@ -557,32 +558,92 @@ impl TypeCheckerContext {
                         if !is_account_param {
                             return Err(VMError::TypeMismatch);
                         }
-                        let delegate_name = match Self::session_attr_value(attr, "delegate", 0) {
-                            Some(AstNode::Identifier(name)) => name,
-                            _ => return Err(VMError::InvalidInstruction),
-                        };
-                        let authority_name =
-                            match Self::session_attr_value(attr, "authority", 1) {
-                                Some(AstNode::Identifier(name)) => name,
-                            _ => return Err(VMError::InvalidInstruction),
-                            };
+                        let has_keyed_args =
+                            attr.args
+                                .iter()
+                                .any(|arg| matches!(arg, AstNode::Assignment { .. }));
+                        if !has_keyed_args
+                            && !attr.args.is_empty()
+                            && session_support::session_deprecation_warnings_enabled()
+                        {
+                            eprintln!(
+                                "warning: positional @session(...) arguments are deprecated; use keyed arguments"
+                            );
+                        }
 
-                        let Some(delegate_param) =
-                            parameters.iter().find(|p| p.name == *delegate_name)
-                        else {
-                            return Err(VMError::InvalidScript);
+                        let is_legacy_session_param = session_support::is_session_type(param);
+                        if is_legacy_session_param
+                            && session_support::session_deprecation_warnings_enabled()
+                        {
+                            eprintln!(
+                                "warning: applying @session on a dedicated Session parameter is deprecated; attach @session to the authority/owner account parameter instead"
+                            );
+                        }
+
+                        let delegate_name = match Self::session_attr_value(attr, "delegate", 0) {
+                            Some(AstNode::Identifier(name)) => name.clone(),
+                            _ if !is_legacy_session_param => {
+                                session_support::IMPLICIT_DELEGATE_PARAM_NAME.to_string()
+                            }
+                            _ => return Err(VMError::InvalidInstruction),
                         };
-                        if !self.is_account_param_type(&delegate_param.param_type) {
-                            return Err(VMError::TypeMismatch);
+                        let authority_name = if is_legacy_session_param {
+                            match Self::session_attr_value(attr, "authority", 1) {
+                                Some(AstNode::Identifier(name)) => name.clone(),
+                                _ => return Err(VMError::InvalidInstruction),
+                            }
+                        } else if let Some(AstNode::Identifier(name)) =
+                            Self::session_attr_value(attr, "authority", 1)
+                        {
+                            name.clone()
+                        } else {
+                            param.name.clone()
+                        };
+
+                        if delegate_name != session_support::IMPLICIT_DELEGATE_PARAM_NAME {
+                            let Some(delegate_param) =
+                                parameters
+                                    .iter()
+                                    .find(|p| p.name == delegate_name.as_str())
+                            else {
+                                return Err(VMError::InvalidScript);
+                            };
+                            if !self.is_account_param_type(&delegate_param.param_type) {
+                                return Err(VMError::TypeMismatch);
+                            }
                         }
 
                         let Some(authority_param) =
-                            parameters.iter().find(|p| p.name == *authority_name)
+                            parameters
+                                .iter()
+                                .find(|p| p.name == authority_name.as_str())
                         else {
                             return Err(VMError::InvalidScript);
                         };
                         if !self.is_account_param_type(&authority_param.param_type) {
                             return Err(VMError::TypeMismatch);
+                        }
+
+                        if !is_legacy_session_param {
+                            if let Some(session_fields) =
+                                self.resolve_account_definition_fields("Session")
+                            {
+                                let names: std::collections::HashSet<&str> = session_fields
+                                    .iter()
+                                    .map(|field| field.name.as_str())
+                                    .collect();
+                                let canonical: std::collections::HashSet<&str> =
+                                    session_support::SESSION_V1_FIELDS.iter().copied().collect();
+                                if names != canonical {
+                                    eprintln!(
+                                        "Session account definition conflicts with std::session::Session v1 fields"
+                                    );
+                                    return Err(VMError::InvalidScript);
+                                }
+                            }
+
+                            // Bare @session on authority/owner is allowed; nonce and other
+                            // provenance keys are optional and can be inferred/injected later.
                         }
 
                         for (key, pos) in [

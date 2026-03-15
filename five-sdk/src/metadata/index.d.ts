@@ -82,6 +82,14 @@ export interface ParameterDefinition {
     name: string;
     /** Parameter type */
     type: string;
+    /** Whether this is an account parameter */
+    is_account?: boolean;
+    /** Compiler-injected parameter not authored in source */
+    implicit?: boolean;
+    /** Parameter origin */
+    source?: 'authored' | 'compiler';
+    /** Account attributes (e.g., "mut", "signer", "init") */
+    attributes?: string[];
     /** Whether parameter is optional */
     optional?: boolean;
     /** Parameter documentation */

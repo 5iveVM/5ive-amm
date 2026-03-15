@@ -160,6 +160,11 @@ fn get_constraint_suggestions(prefix: &str) -> Vec<CompletionItem> {
             "Creates and initializes a new account. Syntax: @init(payer=<account>, space=<bytes>)",
         ),
         (
+            "@session",
+            "Session-delegated authorization on authority/owner account params",
+            "Attach to authority/owner account params. Prefer keyed form: @session(delegate=..., nonce_field=..., bind_account=..., target_program=..., scope_hash=..., current_slot=...)",
+        ),
+        (
             "@writable",
             "Alias for @mut - marks account as writable",
             "Alternate syntax for @mut constraint",
@@ -435,6 +440,6 @@ mod tests {
         let suggestions = try_get_constraint_suggestions(source, 0, 54);
         assert!(suggestions.is_some());
         let items = suggestions.unwrap();
-        assert_eq!(items.len(), 4); // All 4 constraints should be suggested
+        assert_eq!(items.len(), 5); // All 5 constraints should be suggested
     }
 }

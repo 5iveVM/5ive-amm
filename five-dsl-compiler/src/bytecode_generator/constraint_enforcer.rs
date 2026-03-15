@@ -344,13 +344,18 @@ fn emit_session_check<T: OpcodeEmitter>(
         return Err(VMError::TypeMismatch);
     }
 
-    // Fast fail: delegate must be signer.
-    emitter.emit_opcode(CHECK_SIGNER);
-    emitter.emit_u8(resolve_account_param_index(
-        all_parameters,
-        delegate_idx,
-        account_registry,
-    )?);
+    // Optional direct-owner path:
+    // if __session account key == authority account key, skip session-sidecar checks.
+    let authority_account_idx =
+        resolve_account_param_index(all_parameters, authority_idx, account_registry)?;
+    emitter.emit_opcode(GET_KEY);
+    emitter.emit_u8(session_account_idx);
+    emitter.emit_opcode(GET_KEY);
+    emitter.emit_u8(authority_account_idx);
+    emitter.emit_opcode(EQ);
+    emitter.emit_opcode(JUMP_IF);
+    let bypass_patch_pos = emitter.get_position();
+    emitter.emit_u16(0);
 
     // Optional static "active" gate if field exists.
     if let Ok(status_offset) = session_field_offset(session_param, account_registry, "status") {
@@ -558,6 +563,8 @@ fn emit_session_check<T: OpcodeEmitter>(
         }
     }
 
+    let bypass_target = emitter.get_position();
+    emitter.patch_u16(bypass_patch_pos, bypass_target as u16);
     Ok(())
 }
 
@@ -657,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn session_constraint_emits_signer_and_owner_checks() {
+    fn session_constraint_emits_owner_checks_without_delegate_signer_requirement() {
         let mut registry = AccountRegistry::new();
         let mut fields = HashMap::new();
         fields.insert(
@@ -719,7 +726,8 @@ mod tests {
         let mut emitter = TestEmitter::default();
         emit_constraint_checks(&mut emitter, &params, &registry).unwrap();
 
-        assert!(emitter.bytes.contains(&CHECK_SIGNER));
+        assert!(emitter.bytes.contains(&JUMP_IF));
+        assert!(!emitter.bytes.contains(&CHECK_SIGNER));
         assert!(emitter.bytes.contains(&REQUIRE_OWNER));
         assert!(emitter.bytes.contains(&REQUIRE_BATCH));
     }
@@ -793,7 +801,7 @@ mod tests {
         let mut emitter = TestEmitter::default();
         emit_constraint_checks(&mut emitter, &params, &registry).unwrap();
 
-        assert!(emitter.bytes.contains(&CHECK_SIGNER));
+        assert!(!emitter.bytes.contains(&CHECK_SIGNER));
         assert!(emitter.bytes.contains(&REQUIRE_OWNER));
     }
 
@@ -862,13 +870,8 @@ mod tests {
         let mut emitter = TestEmitter::default();
         emit_constraint_checks(&mut emitter, &params, &registry).unwrap();
 
-        let check_pos = emitter
-            .bytes
-            .iter()
-            .position(|b| *b == CHECK_SIGNER)
-            .expect("CHECK_SIGNER should be emitted");
-        let signer_index = emitter.bytes[check_pos + 1];
-        assert_eq!(signer_index, account_index_from_param_index(2));
+        assert!(!emitter.bytes.contains(&CHECK_SIGNER));
+        assert!(emitter.bytes.contains(&REQUIRE_OWNER));
     }
 
     #[test]

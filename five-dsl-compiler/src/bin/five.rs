@@ -70,6 +70,10 @@ enum Commands {
         /// Enable debug bytecode diagnostics (capture disassembly on generation errors)
         #[arg(long)]
         debug_bytecode: bool,
+
+        /// Suppress deprecation warnings for legacy @session syntax.
+        #[arg(long)]
+        suppress_session_deprecation_warnings: bool,
     },
 
     /// Build a project from five.toml configuration
@@ -113,6 +117,10 @@ enum Commands {
         /// Enable debug bytecode diagnostics
         #[arg(long)]
         debug_bytecode: bool,
+
+        /// Suppress deprecation warnings for legacy @session syntax.
+        #[arg(long)]
+        suppress_session_deprecation_warnings: bool,
     },
 
     /// Compile multiple Five DSL modules into a single bytecode
@@ -160,6 +168,10 @@ enum Commands {
         /// Enable debug bytecode diagnostics
         #[arg(long)]
         debug_bytecode: bool,
+
+        /// Suppress deprecation warnings for legacy @session syntax.
+        #[arg(long)]
+        suppress_session_deprecation_warnings: bool,
     },
 
     /// Analyze source code and compilation metrics
@@ -377,6 +389,7 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
         } => handle_compile(
             source,
             output,
@@ -388,6 +401,7 @@ fn main() {
             metrics_format.into(),
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
             cli.verbose,
             cli.quiet,
         ),
@@ -403,6 +417,7 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
         } => handle_compile_multi(
             main,
             modules,
@@ -415,6 +430,7 @@ fn main() {
             metrics_format.into(),
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
             cli.verbose,
             cli.quiet,
         ),
@@ -429,6 +445,7 @@ fn main() {
             metrics_format,
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
         } => handle_build(
             path,
             output,
@@ -440,6 +457,7 @@ fn main() {
             metrics_format.into(),
             summary,
             debug_bytecode,
+            suppress_session_deprecation_warnings,
             cli.verbose,
             cli.quiet,
         ),
@@ -514,9 +532,13 @@ fn handle_compile(
     metrics_format: ExportFormat,
     summary: bool,
     debug_bytecode: bool,
+    suppress_session_deprecation_warnings: bool,
     verbose: bool,
     quiet: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if suppress_session_deprecation_warnings {
+        env::set_var("FIVE_SUPPRESS_SESSION_DEPRECATION_WARNINGS", "1");
+    }
     eprintln!("DEBUG_CLI: handle_compile started quiet={}", quiet);
     if verbose && !quiet {
         let mode_str = if v2_preview {
@@ -735,9 +757,13 @@ fn handle_compile_multi(
     _metrics_format: ExportFormat,
     summary: bool,
     _debug_bytecode: bool,
+    suppress_session_deprecation_warnings: bool,
     verbose: bool,
     quiet: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if suppress_session_deprecation_warnings {
+        env::set_var("FIVE_SUPPRESS_SESSION_DEPRECATION_WARNINGS", "1");
+    }
     if verbose && !quiet {
         println!("📦 Multi-file compilation mode");
         println!("   Main: {}", main.display());
@@ -812,9 +838,13 @@ fn handle_build(
     metrics_format: ExportFormat,
     summary: bool,
     debug_bytecode: bool,
+    suppress_session_deprecation_warnings: bool,
     verbose: bool,
     quiet: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if suppress_session_deprecation_warnings {
+        env::set_var("FIVE_SUPPRESS_SESSION_DEPRECATION_WARNINGS", "1");
+    }
     let config_path = path.join("five.toml");
     if !config_path.exists() {
         return Err(format!("five.toml not found in {}", path.display()).into());
@@ -879,6 +909,7 @@ fn handle_build(
         metrics_format,
         summary,
         debug_bytecode,
+        suppress_session_deprecation_warnings,
         verbose,
         quiet,
     )

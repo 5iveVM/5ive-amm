@@ -262,6 +262,8 @@ impl FiveFile {
                     param_type: Self::id_to_type(type_id)?,
                     is_account,
                     attributes,
+                    implicit: None,
+                    source: None,
                 });
             }
 
@@ -391,6 +393,8 @@ mod tests {
                     param_type: "u64".to_string(),
                     is_account: false,
                     attributes: vec![],
+                    implicit: None,
+                    source: None,
                 }],
                 return_type: Some("bool".to_string()),
                 is_public: true,
@@ -459,6 +463,8 @@ mod tests {
                     param_type: "mystery".to_string(),
                     is_account: false,
                     attributes: vec![],
+                    implicit: None,
+                    source: None,
                 }],
                 return_type: None,
                 is_public: true,

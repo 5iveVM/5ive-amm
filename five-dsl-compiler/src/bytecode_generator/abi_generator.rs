@@ -3,6 +3,7 @@
 use super::account_utils;
 use super::types::*;
 use crate::ast::AstNode;
+use crate::session_support;
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
 
@@ -217,21 +218,29 @@ impl ABIGenerator {
                 ..
             } => {
                 let mut abi_parameters = Vec::new();
+                let effective_parameters = session_support::inject_implicit_session_param(parameters);
 
                 // Process each parameter
-                for param in parameters {
+                for param in &effective_parameters {
                     let param_type_string = account_utils::type_node_to_string(&param.param_type);
                     let is_account = account_utils::is_account_parameter(
                         &param.param_type,
                         &param.attributes,
                         self.account_registry.as_ref(),
                     );
+                    let is_implicit = param.name == session_support::IMPLICIT_SESSION_PARAM_NAME;
 
                     abi_parameters.push(ABIParameter {
                         name: param.name.clone(),
                         param_type: param_type_string,
                         is_account,
                         attributes: param.attributes.iter().map(|a| a.name.clone()).collect(),
+                        implicit: if is_implicit { Some(true) } else { None },
+                        source: if is_implicit {
+                            Some("compiler".to_string())
+                        } else {
+                            None
+                        },
                     });
                 }
 
@@ -403,5 +412,100 @@ mod tests {
         // Parameter should be non-account
         assert_eq!(process_func.parameters[0].name, "amount");
         assert_eq!(process_func.parameters[0].param_type, "u64");
+    }
+
+    #[test]
+    fn test_session_constraint_injects_implicit_session_param_in_abi() {
+        let mut generator = ABIGenerator::new();
+
+        let ast = AstNode::Program {
+            program_name: "session_test".to_string(),
+            field_definitions: vec![],
+            instruction_definitions: vec![AstNode::InstructionDefinition {
+                name: "play".to_string(),
+                visibility: crate::Visibility::Public,
+                is_public: true,
+                parameters: vec![
+                    InstructionParameter {
+                        name: "owner".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![crate::ast::Attribute {
+                            name: "session".to_string(),
+                            args: vec![
+                                crate::ast::AstNode::Assignment {
+                                    target: "delegate".to_string(),
+                                    value: Box::new(crate::ast::AstNode::Identifier(
+                                        "delegate".to_string(),
+                                    )),
+                                },
+                                crate::ast::AstNode::Assignment {
+                                    target: "nonce_field".to_string(),
+                                    value: Box::new(crate::ast::AstNode::Identifier(
+                                        "nonce".to_string(),
+                                    )),
+                                },
+                            ],
+                        }],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "delegate".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![crate::ast::Attribute {
+                            name: "signer".to_string(),
+                            args: vec![],
+                        }],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "nonce".to_string(),
+                        param_type: TypeNode::Primitive("u64".to_string()),
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                ],
+                return_type: None,
+                body: Box::new(AstNode::Block {
+                    statements: vec![],
+                    kind: BlockKind::Regular,
+                }),
+            }],
+            init_block: None,
+            constraints_block: None,
+            event_definitions: vec![],
+            account_definitions: vec![],
+            type_definitions: vec![],
+            interface_definitions: vec![],
+            import_statements: vec![],
+        };
+
+        let full_abi = generator.generate_five_abi(&ast).unwrap();
+        let play = full_abi
+            .functions
+            .iter()
+            .find(|func| func.name == "play")
+            .expect("play function exists");
+        let implicit = play
+            .parameters
+            .iter()
+            .find(|param| param.name == "__session")
+            .expect("implicit session parameter present");
+        assert_eq!(implicit.implicit, Some(true));
+        assert_eq!(implicit.source.as_deref(), Some("compiler"));
     }
 }

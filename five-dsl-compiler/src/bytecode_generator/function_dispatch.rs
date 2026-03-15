@@ -8,6 +8,7 @@ use crate::ast::ImportItem;
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::bytecode_generator::types; // Import the module directly
 use crate::config::workspace::{ExportMetadata, LockFile};
+use crate::session_support;
 
 use five_vm_mito::error::VMError;
 use std::collections::HashMap;
@@ -348,17 +349,19 @@ impl FunctionDispatcher {
                     ..
                 } = public_function
                 {
+                    let effective_parameters =
+                        session_support::inject_implicit_session_param(parameters);
                     self.functions.push(FunctionInfo {
                         name: name.clone(),
                         offset: 0, // Will be patched later
-                        parameter_count: parameters.len() as u8,
+                        parameter_count: effective_parameters.len() as u8,
                         is_public: visibility.is_on_chain_callable(), // Capture visibility from AST
                         has_return_type: return_type.is_some(), // Check if function has return type
                     });
 
                     // Cache parameters for later use
                     self.parameter_cache
-                        .insert(name.clone(), parameters.clone());
+                        .insert(name.clone(), effective_parameters);
                 }
             }
 
@@ -381,17 +384,19 @@ impl FunctionDispatcher {
                     ..
                 } = private_function
                 {
+                    let effective_parameters =
+                        session_support::inject_implicit_session_param(parameters);
                     self.functions.push(FunctionInfo {
                         name: name.clone(),
                         offset: 0, // Will be patched later
-                        parameter_count: parameters.len() as u8,
+                        parameter_count: effective_parameters.len() as u8,
                         is_public: visibility.is_on_chain_callable(), // Capture visibility from AST
                         has_return_type: return_type.is_some(), // Check if function has return type
                     });
 
                     // Cache parameters for later use
                     self.parameter_cache
-                        .insert(name.clone(), parameters.clone());
+                        .insert(name.clone(), effective_parameters);
                 }
             }
 
@@ -1058,14 +1063,16 @@ impl FunctionDispatcher {
         ast_generator: &mut super::ASTGenerator,
         symbol_table: &HashMap<String, FieldInfo>,
     ) -> Result<(), VMError> {
+        let effective_parameters = session_support::inject_implicit_session_param(parameters);
+
         // Begin function scope analysis
         scope_analyzer.begin_function(function_name.to_string())?;
 
         // Set up account parameter tracking
-        self.setup_account_parameters(parameters, account_system)?;
+        self.setup_account_parameters(&effective_parameters, account_system)?;
 
         // Add parameters to scope analysis
-        for param in parameters {
+        for param in &effective_parameters {
             let param_type = self.type_node_to_string(&param.param_type);
             scope_analyzer.declare_variable(&param.name, &param_type, true)?;
         }
@@ -1075,13 +1082,13 @@ impl FunctionDispatcher {
 
         // Generate parameter loading code
         // ... (existing logging code omitted for brevity)
-        self.generate_parameter_loading(emitter, parameters)?;
+        self.generate_parameter_loading(emitter, &effective_parameters)?;
 
         // Enforce account constraints (@signer, @has_one, etc.)
         // This must run after parameters are loaded (though current implementation uses account indices directly)
         super::constraint_enforcer::emit_constraint_checks(
             emitter,
-            parameters,
+            &effective_parameters,
             account_system.get_account_registry(),
         )?;
 
@@ -1137,7 +1144,7 @@ impl FunctionDispatcher {
         ast_generator.set_function_context(Some(function_name.to_string()));
 
         // Set function parameters for payer resolution in @init constraints
-        ast_generator.current_function_parameters = Some(parameters.to_vec());
+        ast_generator.current_function_parameters = Some(effective_parameters.clone());
 
         // Add function parameters to the main AST generator's symbol table
         // CRITICAL FIX: Dual indexing strategy for VM's separate arrays:
@@ -1165,7 +1172,7 @@ impl FunctionDispatcher {
         let mut data_counter: u32 = 0;
 
         // Count data parameters to ensure field_counter starts after them
-        let total_data_params: u32 = parameters
+        let total_data_params: u32 = effective_parameters
             .iter()
             .filter(|p| {
                 !super::account_utils::is_account_parameter(
@@ -1176,7 +1183,7 @@ impl FunctionDispatcher {
             })
             .count() as u32;
 
-        for (_index, param) in parameters.iter().enumerate() {
+        for (_index, param) in effective_parameters.iter().enumerate() {
             let param_type = self.type_node_to_string(&param.param_type);
 
             let is_account = super::account_utils::is_account_parameter(
@@ -1221,14 +1228,14 @@ impl FunctionDispatcher {
 
         // Generate account initialization sequences AFTER adding all parameters to the symbol table.
         // This ensures that seeds for one account can reference other account parameters.
-        for (index, param) in parameters.iter().enumerate() {
+        for (index, param) in effective_parameters.iter().enumerate() {
             ast_generator.generate_init_account_sequence(emitter, param, index)?;
         }
 
-        ast_generator.emit_pda_param_setup(emitter, parameters)?;
+        ast_generator.emit_pda_param_setup(emitter, &effective_parameters)?;
 
         // Inject @requires(condition) checks
-        for param in parameters {
+        for param in &effective_parameters {
             for attr in &param.attributes {
                 if attr.name == "requires" {
                     if let Some(condition) = attr.args.first() {

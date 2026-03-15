@@ -3,6 +3,7 @@ use crate::ast::{
     TestAttribute,
 };
 use crate::parser::{types, DslParser};
+use crate::session_support;
 use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
 
@@ -822,10 +823,13 @@ pub(crate) fn parse_session_arguments(parser: &mut DslParser) -> Result<Vec<AstN
     parser.advance(); // consume '('
 
     let mut args: Vec<AstNode> = Vec::new();
+    let mut saw_keyed = false;
+    let mut saw_positional = false;
 
     while !matches!(parser.current_token, Token::RightParen | Token::Eof) {
         // key=value form
         if matches!(parser.current_token, Token::Identifier(_)) && parser.peek_kind(1) == TokenKind::Assign {
+            saw_keyed = true;
             let key = match &parser.current_token {
                 Token::Identifier(name) => name.clone(),
                 _ => return Err(parser.parse_error("session argument key")),
@@ -839,6 +843,7 @@ pub(crate) fn parse_session_arguments(parser: &mut DslParser) -> Result<Vec<AstN
             });
         } else {
             // positional form
+            saw_positional = true;
             args.push(parser.parse_expression()?);
         }
 
@@ -853,5 +858,14 @@ pub(crate) fn parse_session_arguments(parser: &mut DslParser) -> Result<Vec<AstN
         return Err(parser.parse_error("')' to close session arguments"));
     }
     parser.advance(); // consume ')'
+    if saw_positional && session_support::session_deprecation_warnings_enabled() {
+        if saw_keyed {
+            eprintln!(
+                "warning: mixed positional and keyed @session arguments are deprecated; use keyed arguments only"
+            );
+        } else {
+            eprintln!("warning: positional @session(...) arguments are deprecated; use keyed arguments");
+        }
+    }
     Ok(args)
 }

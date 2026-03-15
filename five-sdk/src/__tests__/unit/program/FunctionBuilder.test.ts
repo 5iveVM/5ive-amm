@@ -255,5 +255,83 @@ describe('FunctionBuilder', () => {
       expect(instruction.keys.some((k) => k.pubkey === TO_ACCOUNT)).toBe(true);
       expect(instruction.keys.some((k) => k.pubkey === FROM_ACCOUNT)).toBe(true);
     });
+
+    it('auto-wires compiler-injected implicit session account', async () => {
+      const sessionAbi: ScriptABI = {
+        name: 'BoardGames',
+        functions: [
+          {
+            name: 'play_ttt',
+            index: 1,
+            parameters: [
+              { name: 'match_state', type: 'Account', is_account: true, attributes: ['mut'] },
+              { name: 'authority', type: 'Account', is_account: true, attributes: [] },
+              { name: 'delegate', type: 'Account', is_account: true, attributes: ['signer'] },
+              { name: '__session', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: ['session'] },
+              { name: 'cell_index', type: 'u64', is_account: false, attributes: [] },
+            ],
+            return_type: null,
+            is_public: true,
+            bytecode_offset: 0,
+          },
+        ],
+      };
+
+      const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, sessionAbi).withSession({
+        manager: { defaultTtlSlots: 3000 } as any,
+        mode: 'auto',
+        sessionAccountByFunction: { play_ttt: TO_ACCOUNT },
+        delegateAccountByFunction: { play_ttt: FROM_ACCOUNT },
+      });
+
+      const instruction = await program
+        .function('play_ttt')
+        .accounts({
+          match_state: TO_ACCOUNT,
+          authority: FROM_ACCOUNT,
+        })
+        .payer(FROM_ACCOUNT)
+        .args({ cell_index: 4 })
+        .instruction();
+
+      expect(instruction.keys.some((k) => k.pubkey === TO_ACCOUNT)).toBe(true);
+      expect(instruction.keys.some((k) => k.pubkey === FROM_ACCOUNT)).toBe(true);
+    });
+
+    it('falls back to owner for implicit __session/__delegate in direct mode', async () => {
+      const sessionAbi: ScriptABI = {
+        name: 'BoardGames',
+        functions: [
+          {
+            name: 'play_ttt',
+            index: 1,
+            parameters: [
+              { name: 'match_state', type: 'Account', is_account: true, attributes: ['mut'] },
+              { name: 'owner', type: 'Account', is_account: true, attributes: [] },
+              { name: '__delegate', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: [] },
+              { name: '__session', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: ['session'] },
+              { name: 'cell_index', type: 'u64', is_account: false, attributes: [] },
+            ],
+            return_type: null,
+            is_public: true,
+            bytecode_offset: 0,
+          },
+        ],
+      };
+
+      const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, sessionAbi);
+      const instruction = await program
+        .function('play_ttt')
+        .accounts({
+          match_state: TO_ACCOUNT,
+          owner: FROM_ACCOUNT,
+        })
+        .payer(FROM_ACCOUNT)
+        .args({ cell_index: 4 })
+        .instruction();
+
+      const ownerKeyCount = instruction.keys.filter((k) => k.pubkey === FROM_ACCOUNT).length;
+      expect(ownerKeyCount).toBeGreaterThan(0);
+    });
   });
 });

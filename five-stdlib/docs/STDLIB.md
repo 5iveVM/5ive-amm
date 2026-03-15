@@ -17,6 +17,7 @@ std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "in
 3. `std::types`
 4. `std::interfaces::spl_token`
 5. `std::interfaces::system_program`
+6. `std::session` (canonical delegated session sidecar account type)
 
 ## Import style (explicit)
 

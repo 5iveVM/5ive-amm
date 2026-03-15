@@ -56,6 +56,7 @@ pub mod security_rules {
         Ok(())
     }
 }
+pub mod session_support;
 pub mod tokenizer;
 pub mod type_checker;
 
