@@ -35,11 +35,6 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
 
-    // Defense-in-depth: script payload account must never alias canonical VM state.
-    if script_account.key() == vm_state_account.key() {
-        return Err(ProgramError::Custom(7810));
-    }
-
     verify_program_owned(script_account, program_id).map_err(|_| ProgramError::Custom(7801))?;
     verify_hardcoded_vm_state_account(vm_state_account, program_id)
         .map_err(|_| ProgramError::Custom(7802))?;
@@ -101,15 +96,9 @@ pub fn execute(program_id: &Pubkey, accounts: &[AccountInfo], params: &[u8]) -> 
     // Initialize VM Storage using optimized heap allocation
     // Uses new_on_heap() which constructs directly in heap memory to avoid stack overflow
     let mut storage = StackStorage::new_on_heap();
-    if let Err(vm_error) = MitoVM::execute_direct_with_root_script(
-        bytecode,
-        vm_params,
-        vm_accounts,
-        program_id,
-        // Root script key drives script-scoped authorization and implicit PDA signer domains.
-        *script_account.key(),
-        &mut *storage,
-    ) {
+    if let Err(vm_error) =
+        MitoVM::execute_direct(bytecode, vm_params, vm_accounts, program_id, &mut *storage)
+    {
         pinocchio::msg!("MitoVM MAIN execution failed");
         pinocchio::log::sol_log_64(VMErrorCode::from(vm_error.clone()) as u64, 0, 0, 0, 0);
         return Err(vm_error.to_program_error());
@@ -213,78 +202,5 @@ mod tests {
         let accounts = [script, vm, readonly_signer, fee_vault, system_program];
         let result = execute(&program_id, &accounts, &[]);
         assert_eq!(result, Err(ProgramError::Custom(7807)));
-    }
-
-    #[test]
-    fn execute_rejects_script_account_aliasing_vm_state() {
-        let program_id = Pubkey::from([31u8; 32]);
-        let (vm_key, _vm_bump) = crate::common::derive_canonical_vm_state_pda(&program_id).unwrap();
-        let admin_key = Pubkey::from([32u8; 32]);
-        let payer_key = Pubkey::from([33u8; 32]);
-        let (fee_vault_key, _fee_vault_bump) =
-            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
-        let system_owner = Pubkey::default();
-
-        let mut script_lamports = 1_000_000;
-        let mut vm_lamports = 1_000_000;
-        let mut fee_vault_lamports = 1_000_000;
-        let mut payer_lamports = 1_000_000;
-        let mut system_lamports = 1;
-
-        let mut script_data = [0u8; FIVEVMState::LEN];
-        let mut vm_data = [0u8; FIVEVMState::LEN];
-        {
-            let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            state.initialize(admin_key, 0);
-            state.execute_fee_lamports = 1;
-        }
-        let mut fee_vault_data = [];
-        let mut payer_data = [];
-        let mut system_data = [];
-
-        let script_alias_vm = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut script_lamports,
-            &mut script_data,
-            &program_id,
-        );
-        let vm = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut vm_lamports,
-            &mut vm_data,
-            &program_id,
-        );
-        let payer = create_account_info(
-            &payer_key,
-            true,
-            true,
-            &mut payer_lamports,
-            &mut payer_data,
-            &system_owner,
-        );
-        let fee_vault = create_account_info(
-            &fee_vault_key,
-            false,
-            true,
-            &mut fee_vault_lamports,
-            &mut fee_vault_data,
-            &program_id,
-        );
-        let system_program = create_account_info(
-            &system_owner,
-            false,
-            false,
-            &mut system_lamports,
-            &mut system_data,
-            &system_owner,
-        );
-
-        let accounts = [script_alias_vm, vm, payer, fee_vault, system_program];
-        let result = execute(&program_id, &accounts, &[]);
-        assert_eq!(result, Err(ProgramError::Custom(7810)));
     }
 }

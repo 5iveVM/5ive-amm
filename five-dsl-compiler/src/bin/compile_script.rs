@@ -1,7 +1,6 @@
-use five_dsl_compiler::{CompilationConfig, CompilationMode, DslCompiler};
+use five_dsl_compiler::{CompilationMode, DslCompiler};
 use std::env;
 use std::fs;
-use std::path::Path;
 use std::process;
 
 fn main() {
@@ -19,16 +18,21 @@ fn main() {
     let file_path = &args[1];
     let enable_cache = args.contains(&"--enable-cache".to_string());
 
-    let path = Path::new(file_path);
-    if let Err(err) = fs::metadata(path) {
-        eprintln!("Error reading file '{}': {}", file_path, err);
-        process::exit(1);
-    }
+    // Read the source file
+    let source = match fs::read_to_string(file_path) {
+        Ok(content) => content,
+        Err(err) => {
+            eprintln!("Error reading file '{}': {}", file_path, err);
+            process::exit(1);
+        }
+    };
 
-    // File-based compilation should resolve imported modules and bundled stdlib assets.
-    let config =
-        CompilationConfig::new(CompilationMode::Deployment).with_constraint_cache(enable_cache);
-    match DslCompiler::compile_with_auto_discovery(path, &config) {
+    // Compile in deployment mode to avoid debug-only metadata in runtime artifacts.
+    match DslCompiler::compile_with_mode_and_features(
+        &source,
+        CompilationMode::Deployment,
+        enable_cache,
+    ) {
         Ok(bytecode) => {
             println!("Compilation successful!");
             println!("Bytecode length: {} bytes", bytecode.len());

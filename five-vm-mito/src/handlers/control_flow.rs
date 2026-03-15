@@ -129,17 +129,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
-                ctx.set_header_features(frame.caller_header_features);
-                ctx.pool_offset = frame.caller_pool_offset;
-                ctx.pool_slots = frame.caller_pool_slots;
-                ctx.string_blob_offset = frame.caller_string_blob_offset;
-                if frame.active_script_key == [0u8; 32] {
-                    ctx.set_active_script_key(None);
-                } else {
-                    ctx.set_active_script_key(Some(pinocchio::pubkey::Pubkey::from(
-                        frame.active_script_key,
-                    )));
-                }
                 ctx.set_temp_offset(frame.saved_temp_offset as usize);
 
                 // Verify IP against restored script
@@ -215,17 +204,6 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
                 ctx.current_context = frame.bytecode_context;
-                ctx.set_header_features(frame.caller_header_features);
-                ctx.pool_offset = frame.caller_pool_offset;
-                ctx.pool_slots = frame.caller_pool_slots;
-                ctx.string_blob_offset = frame.caller_string_blob_offset;
-                if frame.active_script_key == [0u8; 32] {
-                    ctx.set_active_script_key(None);
-                } else {
-                    ctx.set_active_script_key(Some(pinocchio::pubkey::Pubkey::from(
-                        frame.active_script_key,
-                    )));
-                }
                 ctx.set_temp_offset(frame.saved_temp_offset as usize);
 
                 // Verify IP against restored script

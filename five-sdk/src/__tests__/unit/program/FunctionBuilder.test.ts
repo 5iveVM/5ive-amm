@@ -200,51 +200,6 @@ describe('FunctionBuilder', () => {
       expect(toAcct?.isSigner).toBe(false);
       expect(toAcct?.isWritable).toBe(true);
     });
-
-    it('should treat @close account as writable metadata', async () => {
-      const closeAbi: ScriptABI = {
-        name: 'CloseProgram',
-        functions: [
-          {
-            name: 'close_vault',
-            index: 1,
-            parameters: [
-              {
-                name: 'vault',
-                type: 'Account',
-                is_account: true,
-                attributes: ['close'],
-              },
-              {
-                name: 'recipient',
-                type: 'Account',
-                is_account: true,
-                attributes: ['mut'],
-              },
-              {
-                name: 'payer',
-                type: 'Account',
-                is_account: true,
-                attributes: ['signer', 'mut'],
-              },
-            ],
-            return_type: null,
-            is_public: true,
-            bytecode_offset: 0,
-          },
-        ],
-      };
-
-      const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, closeAbi);
-      const builder = program
-        .function('close_vault')
-        .accounts({ vault: FROM_ACCOUNT, recipient: TO_ACCOUNT, payer: FROM_ACCOUNT });
-
-      const instruction = await builder.instruction();
-      const vaultAcct = instruction.keys.find((a) => a.pubkey === FROM_ACCOUNT);
-      expect(vaultAcct).toBeDefined();
-      expect(vaultAcct?.isWritable).toBe(true);
-    });
   });
 
   describe('getFunctionDef', () => {

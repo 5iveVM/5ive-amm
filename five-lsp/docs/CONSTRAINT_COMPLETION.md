@@ -40,17 +40,6 @@ pub create_account(
 }
 ```
 
-### `@close`
-**Description:** Closes a script-owned account and refunds rent to a target account
-**Usage:** Use for account cleanup on successful instruction completion
-**Syntax:** `@close(to=<recipient_account>)`
-**Example:**
-```v
-pub close_vault(vault: account @mut @close(to=recipient), recipient: account @mut) {
-    // vault lamports are transferred to recipient on success
-}
-```
-
 ### `@writable`
 **Description:** Alias for `@mut` - marks account as writable
 **Usage:** Alternate syntax for the `@mut` constraint
@@ -74,7 +63,7 @@ The LSP detects that you're in a constraint annotation context by:
 
 ### Filtering
 As you type after `@`, the suggestions are filtered to match your input:
-- Typing `@` shows all 5 constraints
+- Typing `@` shows all 4 constraints
 - Typing `@s` shows only `@signer`
 - Typing `@m` shows only `@mut`
 - Typing `@i` shows only `@init`
@@ -120,7 +109,7 @@ The Monaco integration:
 Five comprehensive tests validate the constraint completion:
 
 1. **`test_constraint_suggestions_after_at_symbol`**
-   - Verifies all 5 constraints are suggested after typing `@`
+   - Verifies all 4 constraints are suggested after typing `@`
 
 2. **`test_constraint_suggestions_partial_match`**
    - Verifies filtering works (e.g., `@si` matches only `@signer`)
@@ -148,14 +137,14 @@ A demonstration Five DSL file showing all constraint annotation patterns.
    ```v
    pub transfer(from: account @
    ```
-3. After typing `@`, the autocomplete menu appears with all 5 constraints
+3. After typing `@`, the autocomplete menu appears with all 4 constraints
 4. Select a constraint or continue typing to filter
 5. Press Enter to insert the selected constraint
 
 ## Performance
 
 - **Constraint detection:** O(n) where n = characters from cursor to `@` (typically < 20 chars)
-- **Filtering:** O(m) where m = number of constraints (fixed at 5)
+- **Filtering:** O(m) where m = number of constraints (fixed at 4)
 - **No AST parsing required** - uses lightweight text-based heuristic
 - **Instant response** - constraint suggestions appear immediately
 

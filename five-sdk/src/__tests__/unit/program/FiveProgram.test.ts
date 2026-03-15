@@ -191,37 +191,4 @@ describe('FiveProgram', () => {
       expect(program.getABI()).toBe(mockABI);
     });
   });
-
-  describe('findAddress', () => {
-    it('derives script-scoped PDA with implicit script seed prefix', async () => {
-      const { PublicKey } = await import('@solana/web3.js');
-      const program = FiveProgram.fromABI(SCRIPT_ACCOUNT, mockABI);
-      const vmProgramId = program.getFiveVMProgramId();
-
-      const [derived, bump] = await program.findAddress(['vault']);
-      const [expected, expectedBump] = PublicKey.findProgramAddressSync(
-        [new PublicKey(SCRIPT_ACCOUNT).toBuffer(), Buffer.from('vault')],
-        new PublicKey(vmProgramId)
-      );
-
-      expect(derived).toBe(expected.toBase58());
-      expect(bump).toBe(expectedBump);
-    });
-
-    it('changes PDA when script account changes even with same user seeds', async () => {
-      const programA = FiveProgram.fromABI(
-        '5w4epP8qZS4STiUDhj1jgJL4yqYPJnNvQTYYKVWfRQSZ',
-        mockABI
-      );
-      const programB = FiveProgram.fromABI(
-        '11111111111111111111111111111111',
-        mockABI
-      );
-
-      const [a] = await programA.findAddress(['vault']);
-      const [b] = await programB.findAddress(['vault']);
-
-      expect(a).not.toBe(b);
-    });
-  });
 });

@@ -311,9 +311,7 @@ mod pda_constraint_tests {
 
         bytecode.push(0x00); // HALT
 
-        // Execute under the VM program id so CHECK_PDA validates the explicit
-        // target `program_id` without requiring an active script key prefix.
-        let result = execute_test(&bytecode, &[], &accounts, &FIVE_VM_PROGRAM_ID);
+        let result = execute_test(&bytecode, &[], &accounts, &program_id);
         result.expect("CHECK_PDA should succeed for valid PDA");
     }
 }

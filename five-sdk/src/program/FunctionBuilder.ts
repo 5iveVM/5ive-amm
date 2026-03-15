@@ -367,7 +367,6 @@ export class FunctionBuilder {
         const isWritable =
           attributes.includes('mut') ||
           attributes.includes('init') ||
-          attributes.includes('close') ||
           // If this is the payer for @init, it must be writable
           (hasInit && pubkey === payerPubkey);
 

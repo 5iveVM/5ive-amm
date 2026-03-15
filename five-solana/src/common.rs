@@ -375,37 +375,6 @@ mod tests {
                 Err(ProgramError::IllegalOwner)
             );
         }
-
-        // Case 4: Script account key aliases canonical vm_state key.
-        {
-            let mut vm_data = vec![0u8; FIVEVMState::LEN];
-            {
-                let state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-                state.initialize(Pubkey::default(), canonical_bump);
-            }
-
-            let script_alias_vm = create_account_info(
-                &canonical_vm_state,
-                false,
-                false,
-                &mut lamports,
-                &mut vm_data,
-                &program_id,
-            );
-            let vm_account = create_account_info(
-                &canonical_vm_state,
-                false,
-                false,
-                &mut lamports,
-                &mut vm_data,
-                &program_id,
-            );
-
-            assert_eq!(
-                validate_vm_and_script_accounts(&program_id, &script_alias_vm, &vm_account),
-                Err(ProgramError::InvalidArgument)
-            );
-        }
     }
 
     #[test]
@@ -762,10 +731,6 @@ pub fn validate_vm_and_script_accounts(
     script_account: &AccountInfo,
     vm_state_account: &AccountInfo,
 ) -> ProgramResult {
-    // Prevent aliasing canonical vm_state as a script target.
-    if script_account.key() == vm_state_account.key() {
-        return Err(ProgramError::InvalidArgument);
-    }
     verify_program_matches_generated_constants(program_id)?;
     verify_program_owned(script_account, program_id)?;
     verify_hardcoded_vm_state_account(vm_state_account, program_id)?;

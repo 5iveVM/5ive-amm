@@ -219,21 +219,6 @@ describe('AccountResolver', () => {
       expect(metadata.isWritable).toBe(true);
     });
 
-    it('should treat close-constrained account as writable', () => {
-      const resolver = new AccountResolver({});
-
-      const param = {
-        name: 'vault',
-        type: 'Account',
-        is_account: true,
-        attributes: ['close'],
-      };
-
-      const metadata = resolver.getAccountMetadata(param);
-      expect(metadata.isSigner).toBe(false);
-      expect(metadata.isWritable).toBe(true);
-    });
-
     it('should return correct metadata for readonly account', () => {
       const resolver = new AccountResolver({});
 

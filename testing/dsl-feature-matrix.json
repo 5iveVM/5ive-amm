@@ -473,7 +473,7 @@
         "vm": false,
         "cli": false,
         "wasm": false,
-        "lsp": true,
+        "lsp": false,
         "solana_runtime": true,
         "validator_localnet": true,
         "validator_devnet_tracked": false

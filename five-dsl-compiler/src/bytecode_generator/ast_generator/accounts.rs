@@ -16,7 +16,7 @@ impl ASTGenerator {
         name.rsplit("::").next().unwrap_or(name)
     }
 
-    pub(super) fn resolve_registry_account_info<'a>(
+    fn resolve_registry_account_info<'a>(
         registry: &'a AccountRegistry,
         account_type: &str,
     ) -> Option<&'a AccountTypeInfo> {
@@ -164,8 +164,6 @@ impl ASTGenerator {
         emitter: &mut T,
         parameters: &[InstructionParameter],
     ) -> Result<(), VMError> {
-        // NOTE: Runtime signer derivation for INIT_PDA_ACCOUNT / INVOKE_SIGNED prepends
-        // active_script_key implicitly. The user-authored seeds below remain the public DSL surface.
         for (index, param) in parameters.iter().enumerate() {
             let Some(pda_config) = &param.pda_config else {
                 continue;
@@ -180,8 +178,6 @@ impl ASTGenerator {
                 }
                 self.generate_ast_node(emitter, &AstNode::Identifier(bump_var.clone()))?;
                 emitter.emit_const_u8((pda_config.seeds.len() + 1) as u8)?;
-                // CHECK_PDA stack contract requires program_id before expected_pda.
-                emitter.emit_opcode(PUSH_0);
                 emitter.emit_opcode(GET_KEY);
                 emitter.emit_u8(account_index);
                 emitter.emit_opcode(CHECK_PDA);

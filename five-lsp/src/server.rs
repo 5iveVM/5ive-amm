@@ -96,14 +96,9 @@ impl LanguageServer for FiveLanguageServer {
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
                         SemanticTokensOptions {
                             legend: SemanticTokensLegend {
-                                token_types: features::semantic::SEMANTIC_TOKEN_TYPES
-                                    .iter()
-                                    .map(|name| SemanticTokenType::new(*name))
-                                    .collect(),
+                                token_types: features::semantic::SEMANTIC_TOKEN_TYPES.to_vec(),
                                 token_modifiers: features::semantic::SEMANTIC_TOKEN_MODIFIERS
-                                    .iter()
-                                    .map(|name| SemanticTokenModifier::new(*name))
-                                    .collect(),
+                                    .to_vec(),
                             },
                             full: Some(SemanticTokensFullOptions::Bool(true)),
                             range: None, // Delta mode not yet implemented
@@ -122,7 +117,7 @@ impl LanguageServer for FiveLanguageServer {
                     ..Default::default()
                 }),
                 workspace_symbol_provider: Some(OneOf::Left(true)),
-                inlay_hint_provider: Some(OneOf::Right(InlayHintServerCapabilities::Options(
+                inlay_hint_provider: Some(OneOf::Left(InlayHintServerCapabilities::Options(
                     InlayHintOptions {
                         resolve_provider: Some(false),
                         ..Default::default()
@@ -264,7 +259,7 @@ impl LanguageServer for FiveLanguageServer {
         drop(documents);
 
         // Use write lock to ensure AST is compiled and cached
-        let bridge = self.bridge.write().await;
+        let mut bridge = self.bridge.write().await;
         let hover_info = features::hover::get_hover(&bridge, &doc.content, position, &uri);
 
         Ok(hover_info)
@@ -281,7 +276,7 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let bridge = self.bridge.write().await;
+        let mut bridge = self.bridge.write().await;
         let completion_list = features::completion::get_completions(
             &bridge,
             &doc.content,
@@ -398,30 +393,31 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let mut bridge = self.bridge.write().await;
-        let semantic_tokens =
-            features::semantic::get_semantic_tokens(&mut bridge, &doc.content, &uri);
+        let bridge = self.bridge.read().await;
+        let semantic_tokens = features::semantic::get_semantic_tokens(&bridge, &doc.content, &uri);
 
-        // Convert serializable tokens into delta-encoded LSP tokens.
+        // Convert SerializableSemanticToken to SemanticToken format (flat array)
         let mut data = Vec::new();
         let mut last_line = 0u32;
         let mut last_start = 0u32;
 
         for token in semantic_tokens {
-            let line_delta = token.line.saturating_sub(last_line);
+            let line_delta = if token.line >= last_line {
+                token.line - last_line
+            } else {
+                token.line - last_line
+            };
             let start_delta = if token.line == last_line {
-                token.start_character.saturating_sub(last_start)
+                token.start_character - last_start
             } else {
                 token.start_character
             };
 
-            data.push(SemanticToken {
-                delta_line: line_delta,
-                delta_start: start_delta,
-                length: token.length,
-                token_type: token.token_type,
-                token_modifiers_bitset: token.token_modifiers,
-            });
+            data.push(line_delta);
+            data.push(start_delta);
+            data.push(token.length);
+            data.push(token.token_type);
+            data.push(token.token_modifiers);
 
             last_line = token.line;
             last_start = token.start_character;
@@ -472,9 +468,8 @@ impl LanguageServer for FiveLanguageServer {
         };
         drop(documents);
 
-        let mut bridge = self.bridge.write().await;
-        let symbols =
-            features::document_symbols::get_document_symbols(&mut bridge, &doc.content, &uri);
+        let bridge = self.bridge.read().await;
+        let symbols = features::document_symbols::get_document_symbols(&bridge, &doc.content, &uri);
 
         Ok(if symbols.is_empty() {
             None
@@ -488,16 +483,11 @@ impl LanguageServer for FiveLanguageServer {
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
         let documents = self.documents.read().await;
-        let mut bridge = self.bridge.write().await;
         let mut all_symbols = Vec::new();
 
         for (uri, doc) in documents.iter() {
-            let symbols = features::workspace_symbols::workspace_symbols(
-                &mut bridge,
-                &doc.content,
-                &params.query,
-                uri,
-            );
+            let symbols =
+                features::workspace_symbols::workspace_symbols(&doc.content, &params.query, uri);
             all_symbols.extend(symbols);
         }
 
@@ -543,12 +533,28 @@ impl LanguageServer for FiveLanguageServer {
         let uri = params.text_document.uri.clone();
 
         let documents = self.documents.read().await;
-        let _doc = match documents.get(&uri) {
+        let doc = match documents.get(&uri) {
             Some(d) => d.clone(),
             None => return Ok(None),
         };
         drop(documents);
 
-        Ok(None)
+        // Get diagnostics in the range to provide context for code actions
+        let mut actions = Vec::new();
+
+        // For now, provide general code actions without relying on diagnostics
+        // In a real implementation, we'd analyze the code in the range
+        // and potentially fetch diagnostics to provide better suggestions
+
+        Ok(if actions.is_empty() {
+            None
+        } else {
+            Some(
+                actions
+                    .into_iter()
+                    .map(CodeActionOrCommand::CodeAction)
+                    .collect(),
+            )
+        })
     }
 }

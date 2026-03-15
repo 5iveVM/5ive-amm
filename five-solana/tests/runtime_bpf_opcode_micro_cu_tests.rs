@@ -10,7 +10,6 @@ use five_protocol::opcodes::{
     LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U64, PUSH_U8,
     REQUIRE, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0, SHIFT_LEFT, STORE_FIELD, SUB,
 };
-use five_vm_mito::systems::accounts::StateAccountOwnerMeta;
 use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
 use harness::perf::{assert_no_regression, print_bench_line, CuMetrics};
@@ -705,18 +704,12 @@ async fn opcode_micro_memory_store_load_field_cold_single_bpf_cu() {
     body.push(POP);
     body.push(HALT);
     let script = harness::script_with_header(1, 1, &body);
-    let script_pubkey = Pubkey::new_unique();
-    let mut state_data = vec![0u8; 64];
-    let owner_meta_start = state_data.len() - StateAccountOwnerMeta::LEN;
-    state_data[owner_meta_start..owner_meta_start + 4].copy_from_slice(b"5SAO");
-    state_data[owner_meta_start + 4..owner_meta_start + StateAccountOwnerMeta::LEN]
-        .copy_from_slice(script_pubkey.as_ref());
 
     let mut accounts = base_accounts(program_id, 20_000_000);
     accounts.insert(
         "script".to_string(),
         RuntimeAccount {
-            pubkey: script_pubkey,
+            pubkey: Pubkey::new_unique(),
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + script.len()),
@@ -733,7 +726,7 @@ async fn opcode_micro_memory_store_load_field_cold_single_bpf_cu() {
             signer: None,
             owner: program_id,
             lamports: Rent::default().minimum_balance(64),
-            data: state_data,
+            data: vec![0u8; 64],
             is_signer: false,
             is_writable: true,
             executable: false,

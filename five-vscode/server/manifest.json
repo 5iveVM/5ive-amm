@@ -1,9 +1,0 @@
-{
-  "version": "0.1.0",
-  "binaries": {
-    "aarch64-apple-darwin": {
-      "file": "aarch64-apple-darwin/five-lsp",
-      "sha256": "8ad6b9e6f15c9d5710ebbe8f7475f99d2ae51348318b136fd57c871ac2aabf41"
-    }
-  }
-}

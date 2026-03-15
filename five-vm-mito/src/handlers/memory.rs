@@ -275,9 +275,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
         LOAD_EXTERNAL_FIELD => {
             // LOAD_EXTERNAL_FIELD account_index_u8 field_offset_u32
-            let account_index = ctx.fetch_byte()?;
+            let account_index = ctx.fetch_byte()? as usize;
             let field_offset = ctx.fetch_u32()? as usize;
-            let resolved_account_index = ctx.resolve_bound_account_index_for_context(account_index)?;
 
             debug_log!(
                 "MitoVM: LOAD_EXTERNAL_FIELD account_index={}, field_offset={}",
@@ -285,16 +284,15 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 field_offset as u32
             );
 
-            if resolved_account_index as usize >= ctx.accounts().len() {
+            if account_index >= ctx.accounts().len() {
                 debug_log!(
-                    "MitoVM: LOAD_EXTERNAL_FIELD invalid account_index {} (resolved {})",
-                    account_index as u32,
-                    resolved_account_index as u32
+                    "MitoVM: LOAD_EXTERNAL_FIELD invalid account_index {}",
+                    account_index as u32
                 );
                 return Err(VMErrorCode::InvalidAccountIndex);
             }
 
-            let external_account = ctx.get_account_for_read(account_index)?;
+            let external_account = &ctx.accounts()[account_index];
             // SAFETY: Read-only access, no mutable references active
             let account_data = unsafe { external_account.borrow_data_unchecked() };
 
@@ -314,9 +312,8 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             );
 
             debug_log!(
-                "MitoVM: LOAD_EXTERNAL_FIELD account[{} -> {}] offset {} = {}",
+                "MitoVM: LOAD_EXTERNAL_FIELD account[{}] offset {} = {}",
                 account_index as u32,
-                resolved_account_index as u32,
                 field_offset as u32,
                 field_value
             );
@@ -474,139 +471,4 @@ pub(crate) fn store_value_into_buffer(
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::handle_memory;
-    use crate::{context::ExecutionContext, stack::StackStorage, error::VMErrorCode, MAX_PARAMETERS};
-    use five_protocol::opcodes::LOAD_EXTERNAL_FIELD;
-    use pinocchio::{account_info::AccountInfo, pubkey::Pubkey};
-
-    fn create_account_info<'a>(
-        key: &'a Pubkey,
-        is_signer: bool,
-        is_writable: bool,
-        lamports: &'a mut u64,
-        data: &'a mut [u8],
-        owner: &'a Pubkey,
-    ) -> AccountInfo {
-        AccountInfo::new(key, is_signer, is_writable, lamports, data, owner, false, 0)
-    }
-
-    #[test]
-    fn load_external_field_rejects_unbound_external_account_index() {
-        let program_id = Pubkey::from([61u8; 32]);
-        let vm_key = Pubkey::from([62u8; 32]);
-        let external_key = Pubkey::from([63u8; 32]);
-        let mut vm_lamports = 1u64;
-        let mut external_lamports = 1u64;
-        let mut vm_data = [0u8; 8];
-        let mut external_data = [0u8; 8];
-        external_data[..8].copy_from_slice(&7u64.to_le_bytes());
-
-        let vm_state = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut vm_lamports,
-            &mut vm_data,
-            &program_id,
-        );
-        let external = create_account_info(
-            &external_key,
-            false,
-            true,
-            &mut external_lamports,
-            &mut external_data,
-            &program_id,
-        );
-        let accounts = [vm_state, external];
-
-        let mut storage = StackStorage::new();
-        let mut ctx = ExecutionContext::new(
-            &[1u8, 0, 0, 0, 0],
-            &accounts,
-            program_id,
-            &[],
-            0,
-            &mut storage,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        );
-        ctx.current_context = 1;
-        ctx.set_external_account_remap([u8::MAX; MAX_PARAMETERS + 1]);
-
-        let result = handle_memory(LOAD_EXTERNAL_FIELD, &mut ctx);
-        assert_eq!(result, Err(VMErrorCode::InvalidAccountIndex));
-    }
-
-    #[test]
-    fn load_external_field_uses_bound_external_account_mapping() {
-        let program_id = Pubkey::from([64u8; 32]);
-        let vm_key = Pubkey::from([65u8; 32]);
-        let filler_key = Pubkey::from([66u8; 32]);
-        let external_key = Pubkey::from([67u8; 32]);
-        let mut vm_lamports = 1u64;
-        let mut filler_lamports = 1u64;
-        let mut external_lamports = 1u64;
-        let mut vm_data = [0u8; 8];
-        let mut filler_data = [0u8; 8];
-        let mut external_data = [0u8; 8];
-        external_data[..8].copy_from_slice(&11u64.to_le_bytes());
-
-        let vm_state = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut vm_lamports,
-            &mut vm_data,
-            &program_id,
-        );
-        let filler = create_account_info(
-            &filler_key,
-            false,
-            true,
-            &mut filler_lamports,
-            &mut filler_data,
-            &program_id,
-        );
-        let external = create_account_info(
-            &external_key,
-            false,
-            true,
-            &mut external_lamports,
-            &mut external_data,
-            &program_id,
-        );
-        let accounts = [vm_state, filler, external];
-
-        let mut storage = StackStorage::new();
-        let mut ctx = ExecutionContext::new(
-            &[1u8, 0, 0, 0, 0],
-            &accounts,
-            program_id,
-            &[],
-            0,
-            &mut storage,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        );
-        ctx.current_context = 1;
-        let mut remap = [u8::MAX; MAX_PARAMETERS + 1];
-        remap[1] = 2;
-        ctx.set_external_account_remap(remap);
-
-        handle_memory(LOAD_EXTERNAL_FIELD, &mut ctx).expect("load external field");
-        let value = ctx.pop().expect("pop loaded value");
-        assert_eq!(value.as_u64(), Some(11));
-    }
 }

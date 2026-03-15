@@ -158,11 +158,62 @@ impl types::TypeCheckerContext {
 
                             // Validate @init constraints
                             if param.is_init {
-                                // @init can only be applied to account-typed parameters.
+                                eprintln!(
+                                    "DEBUG: Validating @init for parameter '{}' with type '{:?}'",
+                                    param.name, param.param_type
+                                );
+                                // @init can only be applied to Account types (built-in or user-defined)
                                 let is_valid_account = match &param.param_type {
                                     crate::ast::TypeNode::Account => true,
                                     crate::ast::TypeNode::Named(name) => {
-                                        self.is_named_account_type_name(name)
+                                        eprintln!("DEBUG: Checking named type '{}'", name);
+                                        if name == "Account" || name == "account" {
+                                            true
+                                        } else if account_definitions.iter().any(|def| {
+                                            if let AstNode::AccountDefinition {
+                                                name: acc_name,
+                                                ..
+                                            } = def
+                                            {
+                                                // Match both unqualified name and namespaced name (e.g., "AMMPool" or "amm_types::AMMPool")
+                                                acc_name == name
+                                                    || acc_name.ends_with(&format!("::{}", name))
+                                            } else {
+                                                false
+                                            }
+                                        }) {
+                                            true
+                                        } else {
+                                            // Check module scope for imported accounts
+                                            // We need to verify that the named type resolves to an Account type
+                                            if let Some(scope) = &self.module_scope {
+                                                eprintln!(
+                                                    "DEBUG: Checking module scope for '{}'",
+                                                    name
+                                                );
+                                                if let Some(symbol) = scope
+                                                    .resolve_symbol(name, scope.current_module())
+                                                {
+                                                    eprintln!(
+                                                        "DEBUG: Resolved symbol for '{}': {:?}",
+                                                        name, symbol
+                                                    );
+                                                    matches!(
+                                                        symbol.type_info,
+                                                        crate::ast::TypeNode::Account
+                                                    )
+                                                } else {
+                                                    eprintln!("DEBUG: Could not resolve symbol for '{}' in module scope", name);
+                                                    false
+                                                }
+                                            } else {
+                                                eprintln!(
+                                                    "DEBUG: No module scope available for '{}'",
+                                                    name
+                                                );
+                                                false
+                                            }
+                                        }
                                     }
                                     _ => false,
                                 };

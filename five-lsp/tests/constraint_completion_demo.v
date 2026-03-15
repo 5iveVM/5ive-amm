@@ -4,7 +4,6 @@
 // - @signer - Requires account to sign the transaction
 // - @mut - Marks account as mutable/writable
 // - @init - Initializes a new account
-// - @close - Closes a script-owned account and refunds rent
 // - @writable - Alias for @mut
 //
 // Try typing '@' after the account type in function parameters:
@@ -42,12 +41,4 @@ pub read_only(
     viewer: account
 ) {
     // Read-only operation
-}
-
-// Example 5: Close constraint
-pub close_vault(
-    vault: account @mut @close(to=recipient),
-    recipient: account @mut
-) {
-    // vault is closed on successful exit and rent is sent to recipient
 }

@@ -160,31 +160,11 @@ impl ASTGenerator {
             {
                 *addr
             } else {
-                let mut candidate_suffixes = Vec::new();
-                candidate_suffixes.push(patch.function_name.clone());
-                if let Some((_, tail)) = patch.function_name.split_once("::") {
-                    candidate_suffixes.push(tail.to_string());
-                }
-                let parts: Vec<&str> = patch.function_name.split("::").collect();
-                if parts.len() >= 2 {
-                    candidate_suffixes.push(format!(
-                        "{}::{}",
-                        parts[parts.len() - 2],
-                        parts[parts.len() - 1]
-                    ));
-                    candidate_suffixes.push(parts[parts.len() - 1].to_string());
-                }
-                candidate_suffixes.sort();
-                candidate_suffixes.dedup();
-
+                let suffix = format!("::{}", patch.function_name);
                 let mut candidates: Vec<(&String, &usize)> = self
                     .function_positions
                     .iter()
-                    .filter(|(name, _)| {
-                        candidate_suffixes.iter().any(|candidate| {
-                            *name == candidate || name.ends_with(&format!("::{}", candidate))
-                        })
-                    })
+                    .filter(|(name, _)| *name == &patch.function_name || name.ends_with(&suffix))
                     .collect();
                 candidates.sort_by(|a, b| a.0.cmp(b.0));
 

@@ -151,10 +151,7 @@ export class AccountResolver {
 
     return {
       isSigner: attributes.includes('signer'),
-      isWritable:
-        attributes.includes('mut') ||
-        attributes.includes('init') ||
-        attributes.includes('close'),
+      isWritable: attributes.includes('mut') || attributes.includes('init'),
     };
   }
 

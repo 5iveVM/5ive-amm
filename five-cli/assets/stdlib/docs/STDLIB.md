@@ -62,7 +62,6 @@ Authority-aware CPI guidance:
 1. mark interface authority account params with `@authority`
 2. declare PDA authorities on caller params with `account @pda(seeds=[...])`
 3. let interface calls choose `INVOKE` vs signed CPI automatically; do not pass signer-seed arrays in normal interface call sites
-4. runtime signed-PDA derivation is script-scoped: VM prepends the active script key to user seeds (`effective_seeds = [active_script_key] + user_seeds (+ bump)`)
 
 Use these forms as canonical stdlib module paths.
 

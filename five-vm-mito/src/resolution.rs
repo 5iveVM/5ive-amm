@@ -133,14 +133,20 @@ fn resolve_value_ref_with_depth(
         }
         ValueRef::PubkeyRef(offset) => {
             if (*offset & 0xFF00) == 0xFF00 {
-                let account_idx = (*offset & 0x00FF) as u8;
-                let pk = *ctx.get_account(account_idx)?.key();
-                return Ok(Value::Pubkey(pk));
+                let account_idx = (*offset & 0x00FF) as usize;
+                if account_idx < ctx.accounts().len() {
+                    let pk = *ctx.accounts()[account_idx].key();
+                    return Ok(Value::Pubkey(pk));
+                }
+                return Err(VMErrorCode::InvalidAccountIndex);
             }
             if (*offset & 0xFF00) == 0xFE00 {
-                let account_idx = (*offset & 0x00FF) as u8;
-                let owner = *ctx.get_account(account_idx)?.owner();
-                return Ok(Value::Pubkey(Pubkey::from(owner)));
+                let account_idx = (*offset & 0x00FF) as usize;
+                if account_idx < ctx.accounts().len() {
+                    let owner = *ctx.accounts()[account_idx].owner();
+                    return Ok(Value::Pubkey(Pubkey::from(owner)));
+                }
+                return Err(VMErrorCode::InvalidAccountIndex);
             }
 
             let start = *offset as usize;
@@ -151,9 +157,7 @@ fn resolve_value_ref_with_depth(
                 pk_bytes.copy_from_slice(&data[start..end]);
                 Ok(Value::Pubkey(Pubkey::from(pk_bytes)))
             } else if start < ctx.accounts().len() {
-                let account_idx =
-                    u8::try_from(start).map_err(|_| VMErrorCode::InvalidAccountIndex)?;
-                let pk = *ctx.get_account(account_idx)?.key();
+                let pk = *ctx.accounts()[start].key();
                 Ok(Value::Pubkey(pk))
             } else {
                 Err(VMErrorCode::InvalidOperation)

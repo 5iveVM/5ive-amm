@@ -123,8 +123,4 @@ impl DocumentStore {
     pub fn documents(&self) -> impl Iterator<Item = &Document> {
         self.documents.values()
     }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&Url, &Document)> {
-        self.documents.iter()
-    }
 }

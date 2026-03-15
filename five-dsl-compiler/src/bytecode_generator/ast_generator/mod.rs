@@ -239,7 +239,6 @@ impl ASTGenerator {
             }
 
             AstNode::ReturnStatement { value } => {
-                self.emit_auto_close_actions(emitter)?;
                 if let Some(val) = value {
                     self.generate_ast_node(emitter, val)?;
                     emitter.emit_opcode(RETURN_VALUE);
@@ -540,83 +539,93 @@ impl ASTGenerator {
             } => {
                 // Clear the local symbol table for the new function
                 self.local_symbol_table.clear();
-                let previous_function_parameters = self.current_function_parameters.clone();
-                let previous_return_type = self.current_function_return_type.clone();
 
                 // Track the return type for proper tuple return handling
                 self.current_function_return_type = return_type.as_ref().map(|rt| (**rt).clone());
-                self.current_function_parameters = Some(parameters.clone());
 
-                let generation_result: Result<(), VMError> = (|| {
-                    // Start local variable counter after global fields to avoid conflicts
-                    self.field_counter = 0;
+                // Start local variable counter after global fields to avoid conflicts
+                self.field_counter = 0;
 
-                    // Process function parameters and add them to the local symbol table
-                    // Unified parameter counter for both accounts and data
-                    // This MUST match the VM's sequential storage of parameters in the stack/param array
-                    let mut param_counter: u32 = 0;
+                // Process function parameters and add them to the local symbol table
+                // Unified parameter counter for both accounts and data
+                // This MUST match the VM's sequential storage of parameters in the stack/param array
+                let mut param_counter: u32 = 0;
 
-                    for (index, param) in parameters.iter().enumerate() {
-                        // Generate @init account creation sequence if needed
-                        self.generate_init_account_sequence(emitter, param, index)?;
+                for (index, param) in parameters.iter().enumerate() {
+                    // Generate @init account creation sequence if needed
+                    self.generate_init_account_sequence(emitter, param, index)?;
 
-                        // Use unified offset for all parameters
-                        let offset = param_counter;
-                        param_counter += 1;
+                    // Use unified offset for all parameters
+                    let offset = param_counter;
+                    param_counter += 1;
 
-                        let field_info = FieldInfo {
-                            offset,
-                            field_type: self.type_node_to_string(&param.param_type),
-                            // Implicit mutability: @init/@close imply mutable, or explicit @mut
-                            is_mutable: param.is_init
-                                || param
-                                    .attributes
-                                    .iter()
-                                    .any(|a| a.name == "mut" || a.name == "close"),
-                            is_optional: param.is_optional,
-                            is_parameter: true, // Mark as parameter to generate LOAD_PARAM instead of GET_LOCAL
-                        };
-                        self.local_symbol_table
-                            .insert(param.name.clone(), field_info);
-                    }
+                    let field_info = FieldInfo {
+                        offset,
+                        field_type: self.type_node_to_string(&param.param_type),
+                        // Implicit mutability: @init implies mutable, or explicit @mut
+                        is_mutable: param.is_init
+                            || param.attributes.iter().any(|a| a.name == "mut"),
+                        is_optional: param.is_optional,
+                        is_parameter: true, // Mark as parameter to generate LOAD_PARAM instead of GET_LOCAL
+                    };
+                    self.local_symbol_table
+                        .insert(param.name.clone(), field_info);
+                }
 
-                    self.emit_pda_param_setup(emitter, parameters)?;
+                self.emit_pda_param_setup(emitter, parameters)?;
 
-                    // Inject @requires(condition) checks
-                    for param in parameters {
-                        for attr in &param.attributes {
-                            if attr.name == "requires" {
-                                if let Some(condition) = attr.args.first() {
-                                    // Generate require statement for validity check
-                                    // This will behave exactly like 'require(condition);' at the start of the function
-                                    self.generate_ast_node(
-                                        emitter,
-                                        &AstNode::RequireStatement {
-                                            condition: Box::new(condition.clone()),
-                                        },
-                                    )?;
-                                }
+                // Inject @requires(condition) checks
+                for param in parameters {
+                    for attr in &param.attributes {
+                        if attr.name == "requires" {
+                            if let Some(condition) = attr.args.first() {
+                                // Generate require statement for validity check
+                                // This will behave exactly like 'require(condition);' at the start of the function
+                                self.generate_ast_node(
+                                    emitter,
+                                    &AstNode::RequireStatement {
+                                        condition: Box::new(condition.clone()),
+                                    },
+                                )?;
                             }
                         }
                     }
+                }
 
-                    // Generate function body
-                    self.generate_ast_node(emitter, body)?;
+                // Generate function body
+                self.generate_ast_node(emitter, body)?;
 
-                    // Auto-lower @close(to=recipient) for implicit fallthrough success path.
-                    self.emit_auto_close_actions(emitter)?;
+                // Auto-lower @close(to=recipient) attribute to CLOSE_ACCOUNT at function epilogue.
+                for param in parameters {
+                    for attr in &param.attributes {
+                        if attr.name != "close" {
+                            continue;
+                        }
+                        let Some(crate::ast::AstNode::Identifier(target_name)) = attr.args.first()
+                        else {
+                            return Err(VMError::InvalidInstruction);
+                        };
 
-                    // Ensure function returns if flow reaches end
-                    // This prevents falling through into data sections or other functions
-                    emitter.emit_opcode(RETURN);
+                        let source_idx = self
+                            .resolve_account_param_by_name(&param.name)
+                            .ok_or(VMError::InvalidScript)?;
+                        let destination_idx = self
+                            .resolve_account_param_by_name(target_name)
+                            .ok_or(VMError::InvalidScript)?;
 
-                    Ok(())
-                })();
+                        emitter.emit_const_u8(source_idx)?;
+                        emitter.emit_const_u8(destination_idx)?;
+                        emitter.emit_opcode(CLOSE_ACCOUNT);
+                    }
+                }
 
-                // Restore function context even when generation fails.
-                self.current_function_return_type = previous_return_type;
-                self.current_function_parameters = previous_function_parameters;
-                generation_result
+                // Ensure function returns if flow reaches end
+                // This prevents falling through into data sections or other functions
+                emitter.emit_opcode(RETURN);
+
+                // Clear function context when exiting
+                self.current_function_return_type = None;
+                Ok(())
             }
 
             _ => {
@@ -625,35 +634,5 @@ impl ASTGenerator {
                 Ok(())
             }
         }
-    }
-
-    fn emit_auto_close_actions<T: OpcodeEmitter>(&mut self, emitter: &mut T) -> Result<(), VMError> {
-        let Some(parameters) = self.current_function_parameters.clone() else {
-            return Ok(());
-        };
-
-        for param in &parameters {
-            for attr in &param.attributes {
-                if attr.name != "close" {
-                    continue;
-                }
-                let Some(crate::ast::AstNode::Identifier(target_name)) = attr.args.first() else {
-                    return Err(VMError::InvalidInstruction);
-                };
-
-                let source_idx = self
-                    .resolve_account_param_by_name(&param.name)
-                    .ok_or(VMError::InvalidScript)?;
-                let destination_idx = self
-                    .resolve_account_param_by_name(target_name)
-                    .ok_or(VMError::InvalidScript)?;
-
-                emitter.emit_const_u8(source_idx)?;
-                emitter.emit_const_u8(destination_idx)?;
-                emitter.emit_opcode(CLOSE_ACCOUNT);
-            }
-        }
-
-        Ok(())
     }
 }

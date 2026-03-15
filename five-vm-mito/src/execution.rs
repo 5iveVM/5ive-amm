@@ -91,7 +91,6 @@ impl MitoVM {
         input_data: &'a [u8],
         accounts: &'a [AccountInfo],
         program_id: &Pubkey,
-        root_script_key: Option<Pubkey>,
         storage: &'a mut crate::stack::StackStorage,
     ) -> CompactResult<(ExecutionManager<'a>, usize)> {
         #[cfg(feature = "debug-logs")]
@@ -137,7 +136,6 @@ impl MitoVM {
             pool_desc.map(|d| d.string_blob_offset).unwrap_or(0),
             pool_desc.map(|d| d.string_blob_len).unwrap_or(0),
         );
-        ctx.set_active_script_key(root_script_key);
         ctx.set_header_features(header_features);
         if let Some((offset, count)) = public_entry_table {
             ctx.set_public_entry_table(offset, count);
@@ -265,7 +263,7 @@ impl MitoVM {
         Ok(())
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_opcode(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match opcode & 0xF0 {
             0x00 => handle_control_flow(opcode, ctx),
@@ -286,12 +284,12 @@ impl MitoVM {
         }
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_stack_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         handle_stack_ops(opcode, ctx)
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_locals_sparse(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         handle_locals(opcode, ctx)
     }
@@ -316,7 +314,7 @@ impl MitoVM {
         handle_arrays(opcode, ctx)
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_arrays_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_arrays(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => handle_constraints(opcode, ctx),
@@ -324,7 +322,7 @@ impl MitoVM {
         }
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_constraints_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match handle_constraints(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_system(opcode, ctx),
@@ -337,7 +335,7 @@ impl MitoVM {
         handle_system_ops(opcode, ctx)
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_system_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_system(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_functions(opcode, ctx),
@@ -350,7 +348,7 @@ impl MitoVM {
         handle_functions(opcode, ctx)
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_functions_compat(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         match Self::dispatch_functions(opcode, ctx) {
             Err(VMErrorCode::InvalidInstruction) => Self::dispatch_locals_sparse(opcode, ctx),
@@ -358,7 +356,7 @@ impl MitoVM {
         }
     }
 
-    #[inline(never)]
+    #[inline(always)]
     fn dispatch_fused(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
         crate::handlers::fused_ops::handle_fused_ops(opcode, ctx)
     }
@@ -411,59 +409,8 @@ impl MitoVM {
         storage: &'a mut crate::stack::StackStorage,
     ) -> Result<Option<Value>> {
         // Use provided storage buffer (caller controlled allocation)
-        let (mut ctx, _dispatch_ip) = Self::initialize_execution_context(
-            script, input_data, accounts, program_id, None, storage,
-        )?;
-        let execution_result = Self::execute_instruction_loop(&mut ctx);
-        match execution_result {
-            Ok(()) => {
-                let result =
-                    crate::resolution::finalize_execution_result(&mut ctx).map_err(VMError::from);
-                #[cfg(not(target_os = "solana"))]
-                {
-                    let (hits, misses, verify_hits) = ctx.external_cache_metrics();
-                    LAST_EXTERNAL_CACHE_HITS.store(hits as u64, Ordering::Relaxed);
-                    LAST_EXTERNAL_CACHE_MISSES.store(misses as u64, Ordering::Relaxed);
-                    LAST_IMPORT_VERIFY_CACHE_HITS.store(verify_hits as u64, Ordering::Relaxed);
-                }
-                #[cfg(not(target_os = "solana"))]
-                LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
-                // Clear temp buffer to avoid reusing stale data between runs
-                ctx.reset_temp_buffer();
-                result
-            }
-            Err(e) => {
-                #[cfg(not(target_os = "solana"))]
-                {
-                    let (hits, misses, verify_hits) = ctx.external_cache_metrics();
-                    LAST_EXTERNAL_CACHE_HITS.store(hits as u64, Ordering::Relaxed);
-                    LAST_EXTERNAL_CACHE_MISSES.store(misses as u64, Ordering::Relaxed);
-                    LAST_IMPORT_VERIFY_CACHE_HITS.store(verify_hits as u64, Ordering::Relaxed);
-                }
-                #[cfg(not(target_os = "solana"))]
-                LAST_COMPUTE_UNITS.store(ctx.compute_units_consumed(), Ordering::Relaxed);
-                Err(VMError::from(e))
-            }
-        }
-    }
-
-    #[inline(never)]
-    pub fn execute_direct_with_root_script<'a>(
-        script: &'a [u8],
-        input_data: &'a [u8],
-        accounts: &'a [AccountInfo],
-        program_id: &Pubkey,
-        root_script_key: Pubkey,
-        storage: &'a mut crate::stack::StackStorage,
-    ) -> Result<Option<Value>> {
-        let (mut ctx, _dispatch_ip) = Self::initialize_execution_context(
-            script,
-            input_data,
-            accounts,
-            program_id,
-            Some(root_script_key),
-            storage,
-        )?;
+        let (mut ctx, _dispatch_ip) =
+            Self::initialize_execution_context(script, input_data, accounts, program_id, storage)?;
         let execution_result = Self::execute_instruction_loop(&mut ctx);
         match execution_result {
             Ok(()) => {
@@ -538,7 +485,6 @@ impl MitoVM {
             input_data,
             accounts,
             program_id,
-            None,
             &mut storage,
         )
         .map_err(|e| {

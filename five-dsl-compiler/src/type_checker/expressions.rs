@@ -842,21 +842,6 @@ impl TypeCheckerContext {
                 }
                 Ok(TypeNode::Primitive("void".to_string()))
             }
-            "close_account" => {
-                // close_account(source: account, destination: account) -> void
-                if args.len() != 2 {
-                    return Err(VMError::InvalidOperation);
-                }
-                let source_ty = self.infer_type(&args[0])?;
-                let destination_ty = self.infer_type(&args[1])?;
-                let source_ok = matches!(source_ty, TypeNode::Account | TypeNode::Named(_));
-                let destination_ok =
-                    matches!(destination_ty, TypeNode::Account | TypeNode::Named(_));
-                if !source_ok || !destination_ok {
-                    return Err(VMError::TypeMismatch);
-                }
-                Ok(TypeNode::Primitive("void".to_string()))
-            }
             "pubkey" => {
                 // Backward compatibility constructor.
                 // Supported forms:

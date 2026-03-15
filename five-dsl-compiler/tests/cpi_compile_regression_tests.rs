@@ -57,70 +57,6 @@ fn count_source_requires(source: &str) -> usize {
     source.matches("require(").count()
 }
 
-fn collect_require_batch_pubkey_param_indices(bytecode: &[u8]) -> Vec<u8> {
-    let (header, start_offset, code_end) = match five_protocol::parse_code_bounds(bytecode) {
-        Ok(bounds) => bounds,
-        Err(_) => (
-            five_protocol::ScriptBytecodeHeaderV1 {
-                magic: [0; 4],
-                features: 0,
-                public_function_count: 0,
-                total_function_count: 0,
-            },
-            0,
-            bytecode.len(),
-        ),
-    };
-    let pool_enabled = (header.features & five_protocol::FEATURE_CONSTANT_POOL) != 0;
-    let mut out = Vec::new();
-    let mut pc = start_offset;
-
-    while pc < code_end {
-        let op = bytecode[pc];
-        if op == opcodes::REQUIRE_BATCH {
-            if pc + 2 > code_end {
-                break;
-            }
-            let clause_count = bytecode[pc + 1] as usize;
-            let mut cursor = pc + 2;
-            let mut malformed = false;
-            for _ in 0..clause_count {
-                if cursor >= code_end {
-                    malformed = true;
-                    break;
-                }
-                let tag = bytecode[cursor];
-                let Some(clause_size) = opcodes::require_batch_clause_size(tag) else {
-                    malformed = true;
-                    break;
-                };
-                if cursor + clause_size > code_end {
-                    malformed = true;
-                    break;
-                }
-                if tag == opcodes::REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM {
-                    // [tag:u8][acc:u8][off:u32][param:u8]
-                    out.push(bytecode[cursor + 6]);
-                }
-                cursor += clause_size;
-            }
-            if malformed {
-                break;
-            }
-            pc = cursor;
-            continue;
-        }
-
-        let remaining = bytecode.get(pc + 1..code_end).unwrap_or(&[]);
-        let Some(operand_size) = opcodes::operand_size(op, remaining, pool_enabled) else {
-            break;
-        };
-        pc += 1 + operand_size;
-    }
-
-    out
-}
-
 #[test]
 fn cpi_minimal_interface_call_compiles_without_jump_verification_failure() {
     let source = r#"
@@ -295,48 +231,6 @@ fn metaplex_like_raw_interface_shape_with_multiple_bounded_strings_compiles() {
     assert!(
         bytecode.iter().any(|op| *op == opcodes::INVOKE),
         "Metaplex-shaped interface call should emit INVOKE opcode"
-    );
-}
-
-#[test]
-fn require_batch_pubkey_clause_never_targets_non_pubkey_params() {
-    let source = r#"
-        account MixedState {
-            owner: pubkey;
-            nonce: u32;
-            status: u8;
-            frozen: bool;
-        }
-
-        pub validate(
-            state: MixedState,
-            expected_owner: pubkey,
-            expected_nonce: u32,
-            expected_status: u8,
-            expected_frozen: bool
-        ) {
-            require(state.owner == expected_owner);
-            require(state.nonce == expected_nonce);
-            require(state.status == expected_status);
-            require(state.frozen == expected_frozen);
-        }
-    "#;
-
-    let bytecode = DslCompiler::compile_dsl(source)
-        .expect("state-read source should compile without REQUIRE_BATCH type mismatches");
-
-    // Non-account params are 1-based at runtime (LOAD_PARAM index space):
-    // expected_owner=1, expected_nonce=2, expected_status=3, expected_frozen=4.
-    // Only expected_owner is pubkey.
-    let allowed_pubkey_params = [1u8];
-    let pubkey_clause_params = collect_require_batch_pubkey_param_indices(&bytecode);
-
-    assert!(
-        pubkey_clause_params
-            .iter()
-            .all(|idx| allowed_pubkey_params.contains(idx)),
-        "REQUIRE_BATCH pubkey clauses must only reference pubkey parameters, got {:?}",
-        pubkey_clause_params
     );
 }
 
@@ -535,11 +429,8 @@ fn stdlib_stake_authorize_checked_variable_emits_cast_opcode() {
         .duration_since(UNIX_EPOCH)
         .expect("clock should be monotonic")
         .as_nanos();
-    let temp_root = std::env::temp_dir().join(format!(
-        "five-stdlib-stake-cpi-{}-{}",
-        std::process::id(),
-        stamp
-    ));
+    let temp_root =
+        std::env::temp_dir().join(format!("five-stdlib-stake-cpi-{}-{}", std::process::id(), stamp));
     fs::create_dir_all(&temp_root).expect("create temp compile directory");
     let entry_path = temp_root.join("main.v");
     fs::write(&entry_path, source).expect("write temp entry source");

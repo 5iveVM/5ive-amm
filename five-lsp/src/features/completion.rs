@@ -160,11 +160,6 @@ fn get_constraint_suggestions(prefix: &str) -> Vec<CompletionItem> {
             "Creates and initializes a new account. Syntax: @init(payer=<account>, space=<bytes>)",
         ),
         (
-            "@close",
-            "Closes an account and refunds rent",
-            "Closes a script-owned account on successful exit. Syntax: @close(to=<recipient_account>)",
-        ),
-        (
             "@writable",
             "Alias for @mut - marks account as writable",
             "Alternate syntax for @mut constraint",
@@ -393,7 +388,6 @@ mod tests {
         assert!(items.iter().any(|i| i.label == "@signer"));
         assert!(items.iter().any(|i| i.label == "@mut"));
         assert!(items.iter().any(|i| i.label == "@init"));
-        assert!(items.iter().any(|i| i.label == "@close"));
         assert!(items.iter().any(|i| i.label == "@writable"));
     }
 
@@ -441,6 +435,6 @@ mod tests {
         let suggestions = try_get_constraint_suggestions(source, 0, 54);
         assert!(suggestions.is_some());
         let items = suggestions.unwrap();
-        assert_eq!(items.len(), 5); // All 5 constraints should be suggested
+        assert_eq!(items.len(), 4); // All 4 constraints should be suggested
     }
 }

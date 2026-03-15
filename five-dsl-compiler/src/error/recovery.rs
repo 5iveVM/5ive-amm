@@ -18,7 +18,7 @@ impl Default for LanguageContext {
                 "pub", "fn", "account", "let", "mut", "if", "else", "return", "require", "init",
                 "use", "import",
             ],
-            valid_constraints: &["@mut", "@signer", "@init", "@pda", "@close"],
+            valid_constraints: &["@mut", "@signer", "@init", "@pda"],
         }
     }
 }
@@ -59,7 +59,7 @@ pub fn suggest_for_parse_error(expected: &str, found: &str) -> Option<Vec<String
     if found.contains("@") {
         let mut suggestions = vec![];
         suggestions.push(
-            "Constraints (@mut, @signer, @init, @close) are only valid after account parameter names"
+            "Constraints (@mut, @signer, @init) are only valid after account parameter names"
                 .to_string(),
         );
         suggestions.push(format!(

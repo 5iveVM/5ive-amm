@@ -66,7 +66,10 @@ pub fn process_seed_value(
             if account_offset != 0 {
                 return Err(VMErrorCode::TypeMismatch);
             }
-            let account = ctx.get_account(account_idx)?;
+            let account = ctx
+                .accounts()
+                .get(account_idx as usize)
+                .ok_or(VMErrorCode::InvalidAccountIndex)?;
             seeds[seed_idx][..32].copy_from_slice(account.key().as_ref());
             Ok(32)
         }
@@ -225,7 +228,7 @@ pub fn handle_syscall_try_find_program_address(ctx: &mut ExecutionManager) -> Co
 }
 
 /// Execute a closure with parsed PDA seeds and program ID.
-#[inline(never)]
+#[inline(always)]
 pub fn with_pda_seeds<F>(ctx: &mut ExecutionManager, f: F) -> CompactResult<()>
 where
     F: FnOnce(&mut ExecutionManager, Pubkey, &[&[u8]]) -> CompactResult<()>,
@@ -242,7 +245,6 @@ where
     debug_log!("MitoVM: PDA seeds_count: {}", seeds_count);
 
     const MAX_SEEDS: usize = 8;
-    const MAX_EFFECTIVE_SEEDS: usize = MAX_SEEDS + 1;
     // Stack-allocated seed storage (no heap!)
     let mut seeds: [[u8; 32]; MAX_SEEDS] = [[0; 32]; MAX_SEEDS];
     let mut seed_lens: [usize; MAX_SEEDS] = [0; MAX_SEEDS];
@@ -255,23 +257,7 @@ where
         seed_refs[i] = &seeds[i][..seed_lens[i]];
     }
 
-    // Script-scoped PDA model:
-    // when deriving under the VM program id, prepend active_script_key so helper
-    // derivations (e.g. auto bump via FIND_PDA) match INIT_PDA_ACCOUNT/INVOKE_SIGNED.
-    if program_pubkey.as_ref() == &ctx.program_id {
-        let active_script_key = ctx
-            .active_script_key()
-            .ok_or(VMErrorCode::ScriptNotAuthorized)?;
-        let mut effective_seed_refs: [&[u8]; MAX_EFFECTIVE_SEEDS] =
-            [&[]; MAX_EFFECTIVE_SEEDS];
-        effective_seed_refs[0] = active_script_key.as_ref();
-        for i in 0..seeds_count as usize {
-            effective_seed_refs[i + 1] = seed_refs[i];
-        }
-        f(ctx, program_pubkey, &effective_seed_refs[..seeds_count as usize + 1])
-    } else {
-        f(ctx, program_pubkey, &seed_refs[..seeds_count as usize])
-    }
+    f(ctx, program_pubkey, &seed_refs[..seeds_count as usize])
 }
 
 /// Helper to push (PDA, bump) tuple result efficiently
@@ -315,7 +301,7 @@ fn push_pda_result(
 }
 
 /// Handle PDA operations for program derived addresses
-#[inline(never)]
+#[inline(always)]
 pub fn handle_pda_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()> {
     match opcode {
         DERIVE_PDA => {

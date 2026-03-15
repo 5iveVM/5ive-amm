@@ -503,10 +503,6 @@ pub(crate) fn parse_interface_definition(parser: &mut DslParser) -> Result<AstNo
                                 return Err(parser.parse_error("')' to close serializer arguments"));
                             }
                             parser.advance(); // consume ')'
-                            attributes.push(Attribute {
-                                name: "serializer".to_string(),
-                                args: vec![],
-                            });
                             continue;
                         }
                         let mut args = Vec::new();

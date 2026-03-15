@@ -303,9 +303,16 @@ fn init_large_program_internal(
     let fee_vault_account = &accounts[3];
     let system_program = &accounts[4];
 
-    validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
+    verify_program_owned(script_account, program_id)?;
+
+    // Verify VM state is owned by this program and initialized
+    crate::common::verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
     let data = unsafe { vm_state_account.borrow_data_unchecked() };
     let state = FIVEVMState::from_account_data(data)?;
+    if !state.is_initialized() {
+        return Err(crate::error::program_not_initialized_error());
+    }
 
     require_signer(owner)?;
 
@@ -743,82 +750,6 @@ mod tests {
     }
 
     #[test]
-    fn deploy_rejects_script_account_aliasing_vm_state() {
-        let program_id = Pubkey::from([121u8; 32]);
-        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
-        let owner_key = Pubkey::from([122u8; 32]);
-        let system_owner = Pubkey::default();
-        let (fee_vault_key, _fee_vault_bump) =
-            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
-
-        let bytecode = minimal_valid_bytecode();
-        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
-        let mut vm_data = [0u8; FIVEVMState::LEN];
-        {
-            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(owner_key, vm_bump);
-            vm_state.deploy_fee_lamports = 0;
-        }
-
-        let mut script_lamports = 1_000_000;
-        let mut vm_lamports = 1_000_000;
-        let mut owner_lamports = 1_000_000;
-        let mut fee_vault_lamports = 0;
-        let mut system_lamports = 1;
-        let mut owner_data = [];
-        let mut fee_vault_data = [];
-        let mut system_data = [];
-
-        // Deliberately alias script account key to canonical vm_state key.
-        let script_account = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut script_lamports,
-            script_data.as_mut_slice(),
-            &program_id,
-        );
-        let vm_account = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut vm_lamports,
-            &mut vm_data,
-            &program_id,
-        );
-        let owner = create_account_info(
-            &owner_key,
-            true,
-            false,
-            &mut owner_lamports,
-            &mut owner_data,
-            &system_owner,
-        );
-        let fee_vault = create_account_info(
-            &fee_vault_key,
-            false,
-            true,
-            &mut fee_vault_lamports,
-            &mut fee_vault_data,
-            &program_id,
-        );
-        let system_program = create_account_info(
-            &system_owner,
-            false,
-            false,
-            &mut system_lamports,
-            &mut system_data,
-            &system_owner,
-        );
-
-        let accounts = [script_account, vm_account, owner, fee_vault, system_program];
-        assert_eq!(
-            deploy(&program_id, &accounts, &bytecode, &[], 0, 0),
-            Err(ProgramError::InvalidArgument)
-        );
-    }
-
-    #[test]
     fn deploy_does_not_charge_fee_on_failed_overwrite() {
         let program_id = Pubkey::from([31u8; 32]);
         let script_key = Pubkey::from([32u8; 32]);
@@ -1004,83 +935,6 @@ mod tests {
         );
         assert_eq!(accounts[1].lamports(), owner_before - 25);
         assert_eq!(accounts[3].lamports(), vault_before + 25);
-    }
-
-    #[test]
-    fn init_large_program_rejects_script_account_aliasing_vm_state() {
-        let program_id = Pubkey::from([131u8; 32]);
-        let (vm_key, vm_bump) = canonical_vm_key(&program_id);
-        let owner_key = Pubkey::from([132u8; 32]);
-        let system_owner = Pubkey::default();
-        let (fee_vault_key, _fee_vault_bump) =
-            crate::common::derive_fee_vault_pda(&program_id, 0).unwrap();
-
-        let bytecode = minimal_valid_bytecode();
-        let expected_size = bytecode.len() as u32;
-
-        let mut script_data = vec![0u8; ScriptAccountHeader::LEN + bytecode.len()];
-        let mut vm_data = [0u8; FIVEVMState::LEN];
-        {
-            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
-            vm_state.initialize(owner_key, vm_bump);
-            vm_state.deploy_fee_lamports = 0;
-        }
-
-        let mut script_lamports = 1_000_000;
-        let mut owner_lamports = 1_000_000;
-        let mut vm_lamports = 1_000_000;
-        let mut fee_vault_lamports = 0;
-        let mut system_lamports = 1;
-        let mut owner_data = [];
-        let mut fee_vault_data = [];
-        let mut system_data = [];
-
-        let script_account = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut script_lamports,
-            script_data.as_mut_slice(),
-            &program_id,
-        );
-        let owner = create_account_info(
-            &owner_key,
-            true,
-            true,
-            &mut owner_lamports,
-            &mut owner_data,
-            &program_id,
-        );
-        let vm_account = create_account_info(
-            &vm_key,
-            false,
-            true,
-            &mut vm_lamports,
-            &mut vm_data,
-            &program_id,
-        );
-        let fee_vault = create_account_info(
-            &fee_vault_key,
-            false,
-            true,
-            &mut fee_vault_lamports,
-            &mut fee_vault_data,
-            &program_id,
-        );
-        let system_program = create_account_info(
-            &system_owner,
-            false,
-            false,
-            &mut system_lamports,
-            &mut system_data,
-            &system_owner,
-        );
-
-        let accounts = [script_account, owner, vm_account, fee_vault, system_program];
-        assert_eq!(
-            init_large_program(&program_id, &accounts, expected_size, Some(&bytecode)),
-            Err(ProgramError::InvalidArgument)
-        );
     }
 
     #[test]

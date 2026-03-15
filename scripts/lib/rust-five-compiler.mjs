@@ -17,7 +17,7 @@ function findRepoRoot(startDir) {
   }
 }
 
-export function compileWithRustFiveCompiler(scriptPath, options = {}) {
+export function compileWithRustFiveCompiler(scriptPath) {
   const repoRoot = findRepoRoot(path.dirname(scriptPath));
   const cliPath = path.join(repoRoot, 'five-cli', 'dist', 'index.js');
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'five-compile-'));
@@ -46,15 +46,9 @@ std = { package = "@5ive/std", version = "0.1.0", source = "bundled", link = "in
       'utf8',
     );
 
-    const env = { ...process.env };
-    if (options.disableRequireBatch) {
-      env.FIVE_DISABLE_REQUIRE_BATCH = '1';
-    }
-
     execFileSync('node', [cliPath, 'build', '--project', tempDir], {
       cwd: repoRoot,
       stdio: 'pipe',
-      env,
     });
 
     if (!fs.existsSync(outputPath)) {
