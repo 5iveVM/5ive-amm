@@ -5,12 +5,24 @@
 [clusters.localnet]
 program_id = "2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN"
 fee_vault_shard_count = 4
+session_v1_status = 1
+session_v1_version = 1
+session_v1_script_account = "11111111111111111111111111111111"
+session_v1_code_hash = "11111111111111111111111111111111"
 
 [clusters.devnet]
 program_id = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst"
 fee_vault_shard_count = 4
+session_v1_status = 1
+session_v1_version = 1
+session_v1_script_account = "11111111111111111111111111111111"
+session_v1_code_hash = "11111111111111111111111111111111"
 
 [clusters.mainnet]
 # Reserved production program ID for the current release train.
 program_id = "5ive58PJUPaTyAe7tvU1bvBi25o7oieLLTRsJDoQNJst"
 fee_vault_shard_count = 4
+session_v1_status = 1
+session_v1_version = 1
+session_v1_script_account = "11111111111111111111111111111111"
+session_v1_code_hash = "11111111111111111111111111111111"

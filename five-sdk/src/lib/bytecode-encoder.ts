@@ -97,6 +97,8 @@ export class BytecodeEncoder {
       };
     });
 
+    let wasmLoadError: unknown = null;
+
     // Load WASM module using shared loader
     if (!wasmModule) {
       try {
@@ -115,12 +117,12 @@ export class BytecodeEncoder {
           wasmModule = null;
         }
       } catch (e) {
-        // Silently ignore loader errors and try fallback
         wasmModule = null;
+        wasmLoadError = e;
       }
 
       // Fallback: import the wasm-pack generated module for Node.js.
-      if (!wasmModule && typeof process !== 'undefined') {
+      if (!wasmModule && typeof window === 'undefined' && typeof process !== 'undefined') {
         console.log("[DEBUG] (SRC) Attempting wasm-pack module import...");
         try {
           const fs = await import('fs');
@@ -150,6 +152,16 @@ export class BytecodeEncoder {
           console.error("[DEBUG] Module import FAILED:", err);
           // Don't throw - let it fall through to error handling below.
         }
+      }
+
+      if (!wasmModule || !(wasmModule as any).ParameterEncoder) {
+        const detail =
+          wasmLoadError instanceof Error
+            ? wasmLoadError.message
+            : wasmLoadError
+              ? String(wasmLoadError)
+              : "WASM module loaded without ParameterEncoder";
+        throw new Error(`[BytecodeEncoder] WASM ParameterEncoder unavailable: ${detail}`);
       }
     }
 

@@ -5,8 +5,8 @@ pub mod verify;
 
 // Re-export functions to maintain compatibility with lib.rs usage
 pub use deploy::{
-    append_bytecode, deploy, finalize_script_upload, init_large_program, init_large_program_v2,
-    initialize,
+    append_bytecode, deploy, deploy_with_service, finalize_script_upload, init_large_program,
+    init_large_program_v2, initialize,
 };
 pub use execute::execute;
 pub use fees::{init_fee_vault, set_authority, set_fees, withdraw_script_fees};
@@ -103,6 +103,7 @@ pub enum FIVEInstruction<'a> {
         metadata: &'a [u8],
         permissions: u8,
         fee_shard_index: u8,
+        service_kind: u8,
     },
     Execute {
         params: &'a [u8],
@@ -220,8 +221,18 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 }
                 let metadata_start = crate::instructions::deploy::MIN_DEPLOY_LEN;
                 let metadata_end = metadata_start + metadata_len;
-                let fee_shard_index = if data.len() >= total_len + 1 {
-                    data[total_len]
+                let mut cursor = total_len;
+                let mut fee_shard_index = 0u8;
+                if data.len() >= cursor + 2 {
+                    // Backward-compatible trailer: [fee_shard, fee_vault_bump]
+                    fee_shard_index = data[cursor];
+                    cursor += 2;
+                } else if data.len() >= cursor + 1 {
+                    fee_shard_index = data[cursor];
+                    cursor += 1;
+                }
+                let service_kind = if data.len() >= cursor + 1 {
+                    data[cursor]
                 } else {
                     0u8
                 };
@@ -230,6 +241,7 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                     bytecode: &data[metadata_end..total_len],
                     permissions,
                     fee_shard_index,
+                    service_kind,
                 })
             }
             EXECUTE_INSTRUCTION => {

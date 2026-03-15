@@ -5,6 +5,37 @@ use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
 
 pub const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
+pub const SERVICE_REGISTRY_SLOT_COUNT: usize = 2; // active + previous
+pub const SERVICE_REGISTRY_ENTRY_LEN: usize = 80;
+pub const VM_SERVICE_REGISTRY_OFFSET: usize = 56;
+pub const VM_STATE_TOTAL_LEN: usize =
+    VM_SERVICE_REGISTRY_OFFSET + (SERVICE_REGISTRY_SLOT_COUNT * SERVICE_REGISTRY_ENTRY_LEN);
+
+pub const SERVICE_KIND_NONE: u8 = 0;
+pub const SERVICE_KIND_SESSION_V1: u8 = 1;
+pub const SERVICE_STATUS_DISABLED: u8 = 0;
+pub const SERVICE_STATUS_ACTIVE: u8 = 1;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CanonicalServiceEntry {
+    pub script_account: Pubkey,
+    pub code_hash: [u8; 32],
+    pub status: u8,
+    pub manager_version: u8,
+    pub epoch: u64,
+}
+
+impl Default for CanonicalServiceEntry {
+    fn default() -> Self {
+        Self {
+            script_account: Pubkey::default(),
+            code_hash: [0u8; 32],
+            status: SERVICE_STATUS_DISABLED,
+            manager_version: 0,
+            epoch: 0,
+        }
+    }
+}
 
 /// VM state account that tracks initialization and deployed scripts.
 #[repr(C)]
@@ -95,6 +126,61 @@ impl FIVEVMState {
             return Err(ProgramError::Custom(8012));
         }
         Ok(state)
+    }
+
+    #[inline(always)]
+    pub fn service_registry_slot_offset(slot: usize) -> Option<usize> {
+        if slot >= SERVICE_REGISTRY_SLOT_COUNT {
+            return None;
+        }
+        Some(VM_SERVICE_REGISTRY_OFFSET + (slot * SERVICE_REGISTRY_ENTRY_LEN))
+    }
+
+    pub fn read_service_entry(data: &[u8], slot: usize) -> CanonicalServiceEntry {
+        let Some(offset) = Self::service_registry_slot_offset(slot) else {
+            return CanonicalServiceEntry::default();
+        };
+        if data.len() < offset + SERVICE_REGISTRY_ENTRY_LEN {
+            return CanonicalServiceEntry::default();
+        }
+
+        let mut script = [0u8; 32];
+        script.copy_from_slice(&data[offset..offset + 32]);
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&data[offset + 32..offset + 64]);
+        let status = data[offset + 64];
+        let manager_version = data[offset + 65];
+        let mut epoch_bytes = [0u8; 8];
+        epoch_bytes.copy_from_slice(&data[offset + 72..offset + 80]);
+
+        CanonicalServiceEntry {
+            script_account: Pubkey::from(script),
+            code_hash: hash,
+            status,
+            manager_version,
+            epoch: u64::from_le_bytes(epoch_bytes),
+        }
+    }
+
+    pub fn write_service_entry(
+        data: &mut [u8],
+        slot: usize,
+        entry: &CanonicalServiceEntry,
+    ) -> Result<(), ProgramError> {
+        let Some(offset) = Self::service_registry_slot_offset(slot) else {
+            return Err(ProgramError::InvalidInstructionData);
+        };
+        if data.len() < offset + SERVICE_REGISTRY_ENTRY_LEN {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+
+        data[offset..offset + 32].copy_from_slice(entry.script_account.as_ref());
+        data[offset + 32..offset + 64].copy_from_slice(&entry.code_hash);
+        data[offset + 64] = entry.status;
+        data[offset + 65] = entry.manager_version;
+        data[offset + 66..offset + 72].fill(0);
+        data[offset + 72..offset + 80].copy_from_slice(&entry.epoch.to_le_bytes());
+        Ok(())
     }
 }
 

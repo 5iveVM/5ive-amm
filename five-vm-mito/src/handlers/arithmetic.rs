@@ -37,6 +37,103 @@ fn check_equality(a: ValueRef, b: ValueRef, ctx: &mut ExecutionManager) -> Compa
     }
 
     match (a, b) {
+        // String/byte-slice equality for DSL string semantics.
+        // This must run before pubkey/temp32 handling so string refs don't fall into numeric fallback.
+        (ValueRef::StringRef(_) | ValueRef::HeapString(_), ValueRef::StringRef(_) | ValueRef::HeapString(_))
+        | (ValueRef::StringRef(_) | ValueRef::HeapString(_), ValueRef::U64(0))
+        | (ValueRef::U64(0), ValueRef::StringRef(_) | ValueRef::HeapString(_)) =>
+        {
+            #[inline(always)]
+            fn resolve_bytes_for_eq<'a>(
+                value: &ValueRef,
+                ctx: &'a ExecutionManager,
+            ) -> CompactResult<&'a [u8]> {
+                match value {
+                    ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+                        let (_len, bytes) = ctx.extract_string_slice(value)?;
+                        Ok(bytes)
+                    }
+                    ValueRef::TempRef(offset, len) => {
+                        let start = *offset as usize;
+                        let end = start + (*len as usize);
+                        let temp = ctx.temp_buffer();
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation.into());
+                        }
+                        Ok(&temp[start..end])
+                    }
+                    ValueRef::U64(0) => Ok(&[]),
+                    _ => Err(VMErrorCode::TypeMismatch.into()),
+                }
+            }
+
+            let a_bytes = resolve_bytes_for_eq(&a, ctx)?;
+            let b_bytes = resolve_bytes_for_eq(&b, ctx)?;
+            Ok(a_bytes == b_bytes)
+        }
+        (ValueRef::StringRef(_) | ValueRef::HeapString(_), ValueRef::TempRef(_, len))
+            if len != 32 =>
+        {
+            #[inline(always)]
+            fn resolve_bytes_for_eq<'a>(
+                value: &ValueRef,
+                ctx: &'a ExecutionManager,
+            ) -> CompactResult<&'a [u8]> {
+                match value {
+                    ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+                        let (_len, bytes) = ctx.extract_string_slice(value)?;
+                        Ok(bytes)
+                    }
+                    ValueRef::TempRef(offset, len) => {
+                        let start = *offset as usize;
+                        let end = start + (*len as usize);
+                        let temp = ctx.temp_buffer();
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation.into());
+                        }
+                        Ok(&temp[start..end])
+                    }
+                    ValueRef::U64(0) => Ok(&[]),
+                    _ => Err(VMErrorCode::TypeMismatch.into()),
+                }
+            }
+
+            let a_bytes = resolve_bytes_for_eq(&a, ctx)?;
+            let b_bytes = resolve_bytes_for_eq(&b, ctx)?;
+            Ok(a_bytes == b_bytes)
+        }
+        (ValueRef::TempRef(_, len), ValueRef::StringRef(_) | ValueRef::HeapString(_))
+            if len != 32 =>
+        {
+            #[inline(always)]
+            fn resolve_bytes_for_eq<'a>(
+                value: &ValueRef,
+                ctx: &'a ExecutionManager,
+            ) -> CompactResult<&'a [u8]> {
+                match value {
+                    ValueRef::StringRef(_) | ValueRef::HeapString(_) => {
+                        let (_len, bytes) = ctx.extract_string_slice(value)?;
+                        Ok(bytes)
+                    }
+                    ValueRef::TempRef(offset, len) => {
+                        let start = *offset as usize;
+                        let end = start + (*len as usize);
+                        let temp = ctx.temp_buffer();
+                        if end > temp.len() {
+                            return Err(VMErrorCode::MemoryViolation.into());
+                        }
+                        Ok(&temp[start..end])
+                    }
+                    ValueRef::U64(0) => Ok(&[]),
+                    _ => Err(VMErrorCode::TypeMismatch.into()),
+                }
+            }
+
+            let a_bytes = resolve_bytes_for_eq(&a, ctx)?;
+            let b_bytes = resolve_bytes_for_eq(&b, ctx)?;
+            Ok(a_bytes == b_bytes)
+        }
+
         // Numeric comparisons with promotion
         (ValueRef::U64(a), ValueRef::U128(b)) => Ok((a as u128) == b),
         (ValueRef::U128(a), ValueRef::U64(b)) => Ok(a == (b as u128)),

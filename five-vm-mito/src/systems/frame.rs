@@ -1,4 +1,4 @@
-use crate::debug_log;
+use crate::{debug_log, error_log};
 use crate::error::{CompactResult, Result, VMError, VMErrorCode};
 use crate::types::CallFrame;
 use crate::{MAX_CALL_DEPTH, MAX_LOCALS, MAX_PARAMETERS};
@@ -121,6 +121,14 @@ impl<'a> FrameManager<'a> {
     pub fn set_local(&mut self, index: u8, value: ValueRef) -> CompactResult<()> {
         let absolute_index = self.local_base as usize + index as usize;
         if absolute_index >= MAX_LOCALS {
+            error_log!(
+                "MitoVM: set_local overflow abs={} base={} idx={} count={} max={}",
+                absolute_index as u32,
+                self.local_base as u32,
+                index as u32,
+                self.local_count as u32,
+                MAX_LOCALS as u32
+            );
             debug_log!(
                 "LOCAL_DEBUG: set_local absolute index out of bounds: {} >= {}",
                 absolute_index,
@@ -221,6 +229,12 @@ impl<'a> FrameManager<'a> {
     #[inline(always)]
     pub fn allocate_locals(&mut self, count: u8) -> CompactResult<()> {
         if (self.local_base as usize + count as usize) > MAX_LOCALS {
+            error_log!(
+                "MitoVM: allocate_locals overflow base={} count={} max={}",
+                self.local_base as u32,
+                count as u32,
+                MAX_LOCALS as u32
+            );
             return Err(VMErrorCode::LocalsOverflow);
         }
         // Initialize newly exposed slots to Empty to prevent stale-value reuse.

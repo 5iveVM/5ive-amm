@@ -149,6 +149,12 @@ export const deployCommand: CommandDefinition = {
       flags: '--namespace-manager <script>',
       description: 'Namespace manager script account (overrides project/env/lockfile)',
       required: false
+    },
+    {
+      flags: '--service <kind>',
+      description: 'Deploy as canonical service script (currently: session_v1)',
+      choices: ['session_v1'],
+      required: false
     }
   ],
 
@@ -538,6 +544,10 @@ async function setupDeploymentOptions(
     namespaceManager: options.namespaceManager,
   };
 
+  if (options.service) {
+    (deploymentOptions as any).service = options.service;
+  }
+
 
   return deploymentOptions;
 }
@@ -800,6 +810,7 @@ export async function __regularDeployFitsTransaction(
         fiveVMProgramId: deploymentOptions.fiveVMProgramId,
         computeBudget: deploymentOptions.computeBudget,
         exportMetadata: deploymentOptions.exportMetadata,
+        service: (deploymentOptions as any).service,
       },
     );
 
@@ -941,6 +952,7 @@ async function executeDeployment(
               fiveVMProgramId: deploymentOptions.fiveVMProgramId,
               vmStateAccount: deploymentOptions.vmStateAccount,
               exportMetadata: deploymentOptions.exportMetadata,
+              service: (deploymentOptions as any).service,
               maxRetries: 3,
               chunkSize,
               forceChunkedSmallProgram: Boolean(options.forceChunked),
@@ -958,6 +970,7 @@ async function executeDeployment(
               network: deploymentOptions.network,
               fiveVMProgramId: deploymentOptions.fiveVMProgramId,
               vmStateAccount: deploymentOptions.vmStateAccount,
+              service: (deploymentOptions as any).service,
               maxRetries: 3,
               chunkSize,
               forceChunkedSmallProgram: Boolean(options.forceChunked),
@@ -1021,6 +1034,7 @@ async function executeDeployment(
           fiveVMProgramId: deploymentOptions.fiveVMProgramId,
           vmStateAccount: deploymentOptions.vmStateAccount,
           exportMetadata: deploymentOptions.exportMetadata,
+          service: (deploymentOptions as any).service,
           maxRetries: 3
         }
       ));

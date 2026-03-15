@@ -267,6 +267,119 @@ impl<'a> ExecutionContext<'a> {
         self.bytecode = bytecode;
     }
 
+    #[inline]
+    fn derive_script_layout(script: &[u8]) -> CompactResult<(u32, u32, u16, u32, u32)> {
+        if script.len() < five_protocol::FIVE_HEADER_OPTIMIZED_SIZE {
+            return Err(VMErrorCode::InvalidScript);
+        }
+        if script[0..4] != five_protocol::FIVE_MAGIC {
+            return Err(VMErrorCode::InvalidScript);
+        }
+
+        let features = u32::from_le_bytes([script[4], script[5], script[6], script[7]]);
+        let mut offset = five_protocol::FIVE_HEADER_OPTIMIZED_SIZE;
+
+        if (features & five_protocol::FEATURE_FUNCTION_NAMES) != 0 {
+            if offset + 2 > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]) as usize;
+            offset = offset
+                .checked_add(2 + section_size)
+                .ok_or(VMErrorCode::InvalidScript)?;
+            if offset > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+        }
+
+        if (features & five_protocol::FEATURE_PUBLIC_ENTRY_TABLE) != 0 {
+            if offset + 2 > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let section_size = u16::from_le_bytes([script[offset], script[offset + 1]]) as usize;
+            offset = offset
+                .checked_add(2 + section_size)
+                .ok_or(VMErrorCode::InvalidScript)?;
+            if offset > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+        }
+
+        let mut pool_offset = 0u32;
+        let mut pool_slots = 0u16;
+        let mut string_blob_offset = 0u32;
+        let mut string_blob_len = 0u32;
+
+        if (features & five_protocol::FEATURE_CONSTANT_POOL) != 0 {
+            let desc_size = core::mem::size_of::<five_protocol::ConstantPoolDescriptor>();
+            if offset + desc_size > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            pool_offset = u32::from_le_bytes([
+                script[offset],
+                script[offset + 1],
+                script[offset + 2],
+                script[offset + 3],
+            ]);
+            string_blob_offset = u32::from_le_bytes([
+                script[offset + 4],
+                script[offset + 5],
+                script[offset + 6],
+                script[offset + 7],
+            ]);
+            string_blob_len = u32::from_le_bytes([
+                script[offset + 8],
+                script[offset + 9],
+                script[offset + 10],
+                script[offset + 11],
+            ]);
+            pool_slots = u16::from_le_bytes([script[offset + 12], script[offset + 13]]);
+
+            let pool_offset_usize = pool_offset as usize;
+            if (pool_offset_usize % 8) != 0 {
+                return Err(VMErrorCode::InvalidScript);
+            }
+            let pool_size = (pool_slots as usize) * 8;
+            let code_offset = pool_offset_usize
+                .checked_add(pool_size)
+                .ok_or(VMErrorCode::InvalidScript)?;
+            if code_offset > script.len() {
+                return Err(VMErrorCode::InvalidScript);
+            }
+
+            if string_blob_len > 0 {
+                let blob_start = string_blob_offset as usize;
+                let blob_end = blob_start
+                    .checked_add(string_blob_len as usize)
+                    .ok_or(VMErrorCode::InvalidScript)?;
+                if blob_end > script.len() {
+                    return Err(VMErrorCode::InvalidScript);
+                }
+            }
+        }
+
+        Ok((
+            features,
+            pool_offset,
+            pool_slots,
+            string_blob_offset,
+            string_blob_len,
+        ))
+    }
+
+    #[inline]
+    pub fn refresh_script_layout(&mut self) -> CompactResult<()> {
+        let (features, pool_offset, pool_slots, string_blob_offset, string_blob_len) =
+            Self::derive_script_layout(self.bytecode)?;
+        self.header_features = features;
+        self.pool_offset = pool_offset;
+        self.pool_slots = pool_slots;
+        self.string_blob_offset = string_blob_offset;
+        self.string_blob_len = string_blob_len;
+        Ok(())
+    }
+
     #[inline(always)]
     pub fn ip(&self) -> usize {
         self.pc as usize
@@ -1018,6 +1131,7 @@ impl<'a> ExecutionContext<'a> {
             return Err(VMErrorCode::InvalidInstructionPointer);
         }
         self.bytecode = external_bytecode;
+        self.refresh_script_layout()?;
         self.pc = offset as u16;
         Ok(())
     }

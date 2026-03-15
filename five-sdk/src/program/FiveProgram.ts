@@ -32,6 +32,7 @@ import { TypeGenerator } from './TypeGenerator.js';
 import { ProgramAccount } from './ProgramAccount.js';
 import { PublicKey } from '@solana/web3.js';
 import { ProgramIdResolver } from '../config/ProgramIdResolver.js';
+import type { SessionManager } from './SessionManager.js';
 
 export interface FiveProgramOptions {
   /** Enable debug logging */
@@ -46,6 +47,13 @@ export interface FiveProgramOptions {
   feeReceiverAccount?: string;
   /** Wallet/Network Provider for RPC calls */
   provider?: Provider;
+  /** Optional session helper for delegated signer flows */
+  session?: {
+    manager: SessionManager;
+    mode?: 'auto' | 'force-direct' | 'force-session';
+    sessionAccountByFunction?: Record<string, string>;
+    delegateAccountByFunction?: Record<string, string>;
+  };
 }
 
 /**
@@ -284,6 +292,19 @@ export class FiveProgram {
    */
   getFiveVMProgramId(): string {
     return ProgramIdResolver.resolve(this.options.fiveVMProgramId);
+  }
+
+  /**
+   * Return a program instance that auto-applies session account/delegate mapping.
+   */
+  withSession(config: NonNullable<FiveProgramOptions['session']>): FiveProgram {
+    return new FiveProgram(this.scriptAccount, this.abi, {
+      ...this.options,
+      session: {
+        mode: 'auto',
+        ...config,
+      },
+    });
   }
 
   /**

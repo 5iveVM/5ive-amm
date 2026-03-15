@@ -33,6 +33,12 @@ export interface VmClusterProfile {
   configPath: string;
   programId: string;
   feeVaultShardCount: number;
+  sessionService?: {
+    scriptAccount?: string;
+    codeHash?: string;
+    status?: 'active' | 'disabled';
+    version?: number;
+  };
 }
 
 export interface VmClusterAddresses {
@@ -102,11 +108,27 @@ export class VmClusterConfigResolver {
       throw new Error(`Invalid fee_vault_shard_count for cluster ${cluster}`);
     }
     const programId = new PublicKey(entry.program_id).toBase58();
+    const sessionScript = entry.session_v1_script_account
+      ? new PublicKey(entry.session_v1_script_account).toBase58()
+      : undefined;
+    const sessionHash = entry.session_v1_code_hash
+      ? new PublicKey(entry.session_v1_code_hash).toBase58()
+      : undefined;
+    const sessionStatus = entry.session_v1_status === 0 ? 'disabled' : 'active';
+    const sessionVersion = Number.isInteger(entry.session_v1_version)
+      ? entry.session_v1_version
+      : 1;
     return {
       cluster: cluster as VmClusterProfile['cluster'],
       configPath,
       programId,
       feeVaultShardCount: entry.fee_vault_shard_count,
+      sessionService: {
+        scriptAccount: sessionScript,
+        codeHash: sessionHash,
+        status: sessionStatus,
+        version: sessionVersion,
+      },
     };
   }
 

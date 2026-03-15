@@ -401,7 +401,11 @@ impl ASTGenerator {
                                 account_name,
                             )?; // Pass account_type string
                             emitter.emit_opcode(STORE_FIELD); // Use STORE_FIELD for now, assuming it handles account fields
-                            emitter.emit_u8(field_info.offset as u8);
+                            emitter.emit_u8(
+                                super::super::account_utils::account_index_from_param_offset(
+                                    field_info.offset,
+                                ),
+                            );
                             emitter.emit_u32(field_offset);
                         } else {
                             return Err(VMError::InvalidScript); // Undefined account

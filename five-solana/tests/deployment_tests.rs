@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod deployment_tests {
-    use five::instructions::{append_bytecode, deploy, finalize_script_upload, init_large_program};
-    use five::state::{FIVEVMState, ScriptAccountHeader};
+    use five::instructions::{
+        append_bytecode, deploy, deploy_with_service, finalize_script_upload, init_large_program,
+    };
+    use five::state::{
+        FIVEVMState, ScriptAccountHeader, SERVICE_KIND_SESSION_V1, VM_STATE_TOTAL_LEN,
+    };
     use five_protocol::bytecode;
     use pinocchio::account_info::AccountInfo;
     use pinocchio::program_error::ProgramError;
@@ -302,6 +306,190 @@ mod deployment_tests {
         let script_data_ref = script_account.try_borrow_data().unwrap();
         let header = ScriptAccountHeader::from_account_data(&script_data_ref).unwrap();
         assert_eq!(header.permissions, 0x01);
+    }
+
+    #[test]
+    fn test_service_deploy_rejects_non_admin_owner() {
+        let program_id = five::hardcoded_program_id();
+        let admin_key = key(41);
+        let non_admin_owner = key(42);
+        let vm_key = canonical_vm_key(&program_id);
+
+        let (expected_service_pda, _) = five_vm_mito::utils::find_program_address_offchain(
+            &[b"session_v1"],
+            &program_id,
+        )
+        .expect("session_v1 service pda");
+
+        let mut vm_lamports = 0u64;
+        let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(admin_key, 0);
+            vm_state.deploy_fee_lamports = 0;
+        }
+
+        let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
+        let required_size = ScriptAccountHeader::LEN + test_bytecode.len();
+        let mut script_lamports = 0u64;
+        let mut script_data = vec![0u8; required_size];
+        let mut owner_lamports = 10_000u64;
+        let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
+
+        let script_account = create_account(
+            &expected_service_pda,
+            false,
+            true,
+            &mut script_lamports,
+            &mut script_data,
+            &Pubkey::default(),
+        );
+        let vm_account = create_account(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let owner_account = create_account(
+            &non_admin_owner,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
+
+        let accounts = [
+            script_account,
+            vm_account,
+            owner_account,
+            fee_vault_account,
+            system_program_account,
+        ];
+
+        let result = deploy_with_service(
+            &program_id,
+            &accounts,
+            &test_bytecode,
+            &[],
+            0,
+            0,
+            SERVICE_KIND_SESSION_V1,
+        );
+        assert!(matches!(result, Err(ProgramError::InvalidArgument)));
+    }
+
+    #[test]
+    fn test_service_deploy_rejects_non_canonical_service_script_account() {
+        let program_id = five::hardcoded_program_id();
+        let admin_key = key(51);
+        let wrong_script_key = key(52);
+        let vm_key = canonical_vm_key(&program_id);
+
+        let mut vm_lamports = 0u64;
+        let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(&mut vm_data).unwrap();
+            vm_state.initialize(admin_key, 0);
+            vm_state.deploy_fee_lamports = 0;
+        }
+
+        let test_bytecode = bytecode!(emit_header(0, 0), emit_halt());
+        let required_size = ScriptAccountHeader::LEN + test_bytecode.len();
+        let mut script_lamports = 0u64;
+        let mut script_data = vec![0u8; required_size];
+        let mut owner_lamports = 10_000u64;
+        let mut owner_data = [];
+        let mut fee_vault_lamports = 0u64;
+        let mut fee_vault_data = [];
+        let mut system_lamports = 0u64;
+        let mut system_data = [];
+        let fee_vault_key = fee_vault_key(&program_id);
+        let system_program = Pubkey::default();
+
+        let script_account = create_account(
+            &wrong_script_key,
+            false,
+            true,
+            &mut script_lamports,
+            &mut script_data,
+            &Pubkey::default(),
+        );
+        let vm_account = create_account(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            &mut vm_data,
+            &program_id,
+        );
+        let owner_account = create_account(
+            &admin_key,
+            true,
+            true,
+            &mut owner_lamports,
+            &mut owner_data,
+            &program_id,
+        );
+        let fee_vault_account = create_account(
+            &fee_vault_key,
+            false,
+            true,
+            &mut fee_vault_lamports,
+            &mut fee_vault_data,
+            &program_id,
+        );
+        let system_program_account = create_account(
+            &system_program,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program,
+        );
+
+        let accounts = [
+            script_account,
+            vm_account,
+            owner_account,
+            fee_vault_account,
+            system_program_account,
+        ];
+
+        let result = deploy_with_service(
+            &program_id,
+            &accounts,
+            &test_bytecode,
+            &[],
+            0,
+            0,
+            SERVICE_KIND_SESSION_V1,
+        );
+        assert!(matches!(result, Err(ProgramError::InvalidArgument)));
     }
 
     // NOTE: test_deploy_fee_collection_custom is omitted because Rent::get() syscall

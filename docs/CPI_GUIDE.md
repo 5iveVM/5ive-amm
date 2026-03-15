@@ -510,3 +510,8 @@ For typed external account reads and serializer precedence tests, see:
 - **Compiler Source:** See `five-dsl-compiler/src/interface_serializer.rs` for Borsh/Bincode encoding
 - **Tests:** See `five-dsl-compiler/tests/lib.rs` (lines 2628-2766) for CPI compiler tests
 - **VM Tests:** See `five-vm-mito/tests/*cpi*.rs` for VM and integration tests
+
+
+## Session Auth
+
+For account-backed delegated sessions, see [`SESSION_AUTH_GUIDE.md`](./SESSION_AUTH_GUIDE.md).

@@ -7,6 +7,7 @@ use crate::{
     context::ExecutionManager,
     debug_log,
     error::{CompactResult, VMErrorCode},
+    error_log,
 };
 use five_protocol::opcodes::*;
 use pinocchio::pubkey::Pubkey;
@@ -31,10 +32,16 @@ fn eq_32_bytes(a: &[u8], b: &[u8]) -> bool {
 }
 
 macro_rules! check_constraint {
-    ($ctx:expr, $name:literal, $account:ident, $check:expr) => {{
+    ($ctx:expr, $op:expr, $name:literal, $account:ident, $check:expr) => {{
         let account_idx = $ctx.fetch_byte()?;
         let $account = $ctx.get_account_for_read(account_idx)?;
         if !($check) {
+            error_log!(
+                "MitoVM: {} constraint violation (account={} opcode=0x{:02X})",
+                $name,
+                account_idx,
+                $op
+            );
             debug_log!(
                 "MitoVM: {} failed - account {} check failed",
                 $name,
@@ -55,10 +62,10 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
         // ===== CONSTRAINT VALIDATION OPERATIONS (0x70-0x7F) =====
         // Core account constraint checking operations
         CHECK_SIGNER => {
-            check_constraint!(ctx, "CHECK_SIGNER", account, account.is_signer());
+            check_constraint!(ctx, opcode, "CHECK_SIGNER", account, account.is_signer());
         }
         CHECK_WRITABLE => {
-            check_constraint!(ctx, "CHECK_WRITABLE", account, account.is_writable());
+            check_constraint!(ctx, opcode, "CHECK_WRITABLE", account, account.is_writable());
         }
         CHECK_OWNER => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx from bytecode
@@ -72,13 +79,18 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             let expected_owner_bytes = ctx.get_temp_data(expected_owner_ref, 32)?;
 
             if actual_owner_bytes.as_ref() != expected_owner_bytes {
+                error_log!(
+                    "MitoVM: CHECK_OWNER constraint violation (account={} opcode=0x{:02X})",
+                    account_idx,
+                    opcode
+                );
                 return Err(VMErrorCode::ConstraintViolation);
             }
             debug_log!("MitoVM: CHECK_OWNER passed for account {}", account_idx);
         }
         CHECK_INITIALIZED => {
             // Check if account has data (is initialized)
-            check_constraint!(ctx, "CHECK_INITIALIZED", account, account.data_len() > 0);
+            check_constraint!(ctx, opcode, "CHECK_INITIALIZED", account, account.data_len() > 0);
         }
         CHECK_UNINITIALIZED => {
             let account_idx = ctx.fetch_byte()?; // Fetch account_idx directly from bytecode
@@ -87,6 +99,11 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             // Account should be uninitialized (empty data) for @init
             // SAFETY: We only read the data slice; mutable borrows are ruled out by `ExecutionManager`.
             if !unsafe { account.borrow_data_unchecked() }.is_empty() {
+                error_log!(
+                    "MitoVM: CHECK_UNINITIALIZED constraint violation (account={} opcode=0x{:02X})",
+                    account_idx,
+                    opcode
+                );
                 debug_log!(
                     "MitoVM: CHECK_UNINITIALIZED failed - data_len={} (expected 0)",
                     account.data_len()
@@ -97,6 +114,11 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
             // Also check that account owner is the System Program for new accounts
             let account_owner = *account.owner();
             if account_owner != Pubkey::from(SYSTEM_PROGRAM_ID) {
+                error_log!(
+                    "MitoVM: CHECK_UNINITIALIZED owner constraint violation (account={} opcode=0x{:02X})",
+                    account_idx,
+                    opcode
+                );
                 debug_log!(
                     "MitoVM: CHECK_UNINITIALIZED failed - owner mismatch (expected SystemProgram)"
                 );
@@ -137,6 +159,7 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
                     Ok(derived_pda) => {
                         // Compare derived PDA with expected PDA
                         if derived_pda != expected_pubkey {
+                            error_log!("MitoVM: CHECK_PDA constraint violation (opcode=0x{:02X})", opcode);
                             debug_log!("MitoVM: CHECK_PDA failed - PDA mismatch");
                             return Err(VMErrorCode::ConstraintViolation);
                         }
@@ -144,6 +167,7 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
                         Ok(())
                     }
                     Err(_) => {
+                        error_log!("MitoVM: CHECK_PDA derivation constraint violation (opcode=0x{:02X})", opcode);
                         debug_log!("MitoVM: CHECK_PDA failed - PDA derivation error");
                         Err(VMErrorCode::ConstraintViolation)
                     }
@@ -179,6 +203,13 @@ pub fn handle_constraints(opcode: u8, ctx: &mut ExecutionManager) -> CompactResu
 
             // Compare and require equal
             if !eq_32_bytes(field_pubkey, signer_key.as_ref()) {
+                error_log!(
+                    "MitoVM: REQUIRE_OWNER constraint violation (account={} signer={} offset={} opcode=0x{:02X})",
+                    account_idx,
+                    signer_idx,
+                    field_offset,
+                    opcode
+                );
                 debug_log!("MitoVM: REQUIRE_OWNER failed - pubkey mismatch");
                 return Err(VMErrorCode::ConstraintViolation);
             }

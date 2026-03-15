@@ -5,9 +5,30 @@ use super::types::{InterfaceInfo, InterfaceMethod, InterfaceSerializer, TypeChec
 use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use five_vm_mito::error::VMError;
 use sha2::Digest;
+use five_protocol::Value;
 use std::collections::{HashMap, HashSet};
 
 impl TypeCheckerContext {
+    fn session_attr_value<'a>(
+        attr: &'a crate::ast::Attribute,
+        key: &str,
+        positional_index: usize,
+    ) -> Option<&'a AstNode> {
+        let mut has_keyed_args = false;
+        for arg in &attr.args {
+            if let AstNode::Assignment { target, value } = arg {
+                has_keyed_args = true;
+                if target == key {
+                    return Some(value.as_ref());
+                }
+            }
+        }
+        if has_keyed_args {
+            return None;
+        }
+        attr.args.get(positional_index)
+    }
+
     fn param_has_attribute(param: &InstructionParameter, attr_name: &str) -> bool {
         param.attributes.iter().any(|attr| attr.name == attr_name)
     }
@@ -530,6 +551,67 @@ impl TypeCheckerContext {
                             || target_param.attributes.iter().any(|a| a.name == "mut");
                         if !target_mutable {
                             return Err(VMError::ConstraintViolation);
+                        }
+                    }
+                    "session" => {
+                        if !is_account_param {
+                            return Err(VMError::TypeMismatch);
+                        }
+                        let delegate_name = match Self::session_attr_value(attr, "delegate", 0) {
+                            Some(AstNode::Identifier(name)) => name,
+                            _ => return Err(VMError::InvalidInstruction),
+                        };
+                        let authority_name =
+                            match Self::session_attr_value(attr, "authority", 1) {
+                                Some(AstNode::Identifier(name)) => name,
+                            _ => return Err(VMError::InvalidInstruction),
+                            };
+
+                        let Some(delegate_param) =
+                            parameters.iter().find(|p| p.name == *delegate_name)
+                        else {
+                            return Err(VMError::InvalidScript);
+                        };
+                        if !self.is_account_param_type(&delegate_param.param_type) {
+                            return Err(VMError::TypeMismatch);
+                        }
+
+                        let Some(authority_param) =
+                            parameters.iter().find(|p| p.name == *authority_name)
+                        else {
+                            return Err(VMError::InvalidScript);
+                        };
+                        if !self.is_account_param_type(&authority_param.param_type) {
+                            return Err(VMError::TypeMismatch);
+                        }
+
+                        for (key, pos) in [
+                            ("target_program", 2usize),
+                            ("scope_hash", 3usize),
+                            ("bind_account", 4usize),
+                            ("nonce", 5usize),
+                            ("nonce_field", 5usize),
+                            ("current_slot", 6usize),
+                            ("manager_script_account", 7usize),
+                            ("manager_script", 7usize),
+                            ("manager_code_hash", 8usize),
+                            ("manager_hash", 8usize),
+                            ("manager_version", 9usize),
+                        ] {
+                            if let Some(arg) = Self::session_attr_value(attr, key, pos) {
+                                match arg {
+                                    AstNode::Identifier(name) => {
+                                        if !parameters.iter().any(|p| p.name == *name) {
+                                            return Err(VMError::InvalidScript);
+                                        }
+                                    }
+                                    AstNode::Literal(Value::U8(_)) if key == "manager_version" => {}
+                                    AstNode::Literal(Value::U64(_)) if key == "manager_version" => {}
+                                    _ => {
+                                        return Err(VMError::InvalidInstruction);
+                                    }
+                                }
+                            }
                         }
                     }
                     _ => {}

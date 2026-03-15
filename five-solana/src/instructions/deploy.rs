@@ -7,14 +7,19 @@ use pinocchio::{
     sysvars::Sysvar,
     ProgramResult,
 };
+use solana_nostd_sha256::hashv;
 
 use crate::{
     common::{
         validate_permissions, validate_vm_and_script_accounts, verify_admin_signer,
-        verify_hardcoded_vm_state_account_with_bump, verify_program_owned,
+        verify_hardcoded_vm_state_account, verify_hardcoded_vm_state_account_with_bump,
+        verify_program_owned,
     },
     error::program_already_initialized_error,
-    state::{FIVEVMState, ScriptAccountHeader},
+    state::{
+        CanonicalServiceEntry, FIVEVMState, ScriptAccountHeader, SERVICE_KIND_NONE,
+        SERVICE_KIND_SESSION_V1, SERVICE_STATUS_ACTIVE, VM_STATE_TOTAL_LEN,
+    },
 };
 
 use super::{
@@ -27,6 +32,7 @@ use super::{
 /// discriminator + u32 bytecode length + permissions byte + u32 metadata length.
 pub const MIN_DEPLOY_LEN: usize = 10;
 const CLOSED_MARKER: [u8; 4] = *b"CLSD";
+const SESSION_V1_SERVICE_SEED: &[u8] = b"session_v1";
 
 #[inline]
 fn is_closed_tombstone(data: &[u8]) -> bool {
@@ -46,6 +52,58 @@ fn resolve_fee_shard_index(
         }
     }
     Err(ProgramError::InvalidArgument)
+}
+
+fn derive_service_pda(program_id: &Pubkey, service_kind: u8) -> Result<(Pubkey, u8), ProgramError> {
+    let seed = match service_kind {
+        SERVICE_KIND_SESSION_V1 => SESSION_V1_SERVICE_SEED,
+        _ => return Err(ProgramError::InvalidInstructionData),
+    };
+
+    #[cfg(not(target_os = "solana"))]
+    {
+        let mut pid = [0u8; 32];
+        pid.copy_from_slice(program_id.as_ref());
+        let (pda, bump) = five_vm_mito::utils::find_program_address_offchain(&[seed], &pid)
+            .map_err(|_| ProgramError::InvalidArgument)?;
+        return Ok((Pubkey::from(pda), bump));
+    }
+
+    #[cfg(target_os = "solana")]
+    {
+        use pinocchio::pubkey::create_program_address;
+        for bump in (0u8..=255u8).rev() {
+            let bump_seed = [bump];
+            let seeds: &[&[u8]] = &[seed, &bump_seed];
+            if let Ok(pda) = create_program_address(seeds, program_id) {
+                return Ok((pda, bump));
+            }
+        }
+        Err(ProgramError::InvalidArgument)
+    }
+}
+
+fn register_canonical_service(
+    vm_state_data: &mut [u8],
+    script_account: &Pubkey,
+    code_hash: [u8; 32],
+) -> ProgramResult {
+    let current = FIVEVMState::read_service_entry(vm_state_data, 0);
+    if current.status == SERVICE_STATUS_ACTIVE
+        && (current.script_account != *script_account || current.code_hash != code_hash)
+    {
+        FIVEVMState::write_service_entry(vm_state_data, 1, &current)?;
+    }
+
+    let next = CanonicalServiceEntry {
+        script_account: *script_account,
+        code_hash,
+        status: SERVICE_STATUS_ACTIVE,
+        manager_version: 1,
+        epoch: FIVEVMState::from_account_data(vm_state_data)?.script_count,
+    };
+    FIVEVMState::write_service_entry(vm_state_data, 0, &next)?;
+    Ok(())
 }
 
 /// Initialize the VM state account
@@ -73,10 +131,10 @@ pub fn initialize(program_id: &Pubkey, accounts: &[AccountInfo], bump: u8) -> Pr
         // Calculate rent for VM state account
         let rent = pinocchio::sysvars::rent::Rent::get()
             .map_err(|_| ProgramError::AccountNotRentExempt)?;
-        let rent_lamports = rent.minimum_balance(FIVEVMState::LEN);
+        let rent_lamports = rent.minimum_balance(VM_STATE_TOTAL_LEN);
 
         let create_account_data =
-            build_system_create_account_ix(rent_lamports, FIVEVMState::LEN as u64, program_id);
+            build_system_create_account_ix(rent_lamports, VM_STATE_TOTAL_LEN as u64, program_id);
 
         let bump_seed = [bump];
         let seeds: &[Seed] = &[Seed::from(b"vm_state"), Seed::from(&bump_seed)];
@@ -153,6 +211,26 @@ pub fn deploy(
     permissions: u8,
     fee_shard_index: u8,
 ) -> ProgramResult {
+    deploy_with_service(
+        program_id,
+        accounts,
+        bytecode,
+        metadata,
+        permissions,
+        fee_shard_index,
+        SERVICE_KIND_NONE,
+    )
+}
+
+pub fn deploy_with_service(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    bytecode: &[u8],
+    metadata: &[u8],
+    permissions: u8,
+    fee_shard_index: u8,
+    service_kind: u8,
+) -> ProgramResult {
     // Validate permissions bitmask
     validate_permissions(permissions)?;
 
@@ -161,11 +239,22 @@ pub fn deploy(
     let script_account = &accounts[0];
     let vm_state_account = &accounts[1];
     let owner = &accounts[2];
-
-    validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
-    let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
-    let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
     require_signer(owner)?;
+
+    let vm_state = if service_kind == SERVICE_KIND_NONE {
+        validate_vm_and_script_accounts(program_id, script_account, vm_state_account)?;
+        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+        FIVEVMState::from_account_data(&vm_state_data)?
+    } else {
+        verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
+        verify_program_owned(vm_state_account, program_id)?;
+        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+        let vm_state = FIVEVMState::from_account_data(&vm_state_data)?;
+        if !vm_state.is_initialized() {
+            return Err(crate::error::program_not_initialized_error());
+        }
+        vm_state
+    };
 
     // If any permissions are set, require admin key (VM authority) signature
     let (fee_vault_idx, system_program_idx) = if permissions != 0 {
@@ -181,6 +270,13 @@ pub fn deploy(
     };
     let fee_vault_account = &accounts[fee_vault_idx];
     let system_program = &accounts[system_program_idx];
+
+    if service_kind != SERVICE_KIND_NONE {
+        if service_kind != SERVICE_KIND_SESSION_V1 {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+        verify_admin_signer(owner, &vm_state.authority)?;
+    }
 
     // Validate bytecode size
     if bytecode.len() < 4 || bytecode.len() > five_protocol::MAX_SCRIPT_SIZE {
@@ -204,8 +300,57 @@ pub fn deploy(
     // Calculate required account size: header + metadata + bytecode
     let required_size = ScriptAccountHeader::LEN + metadata.len() + bytecode.len();
 
-    if script_account.data_len() < required_size {
+    if service_kind == SERVICE_KIND_NONE && script_account.data_len() < required_size {
         return Err(ProgramError::Custom(7005));
+    }
+
+    if service_kind == SERVICE_KIND_SESSION_V1 {
+        let (expected_service_pda, bump) = derive_service_pda(program_id, service_kind)?;
+        if script_account.key() != &expected_service_pda {
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        if script_account.owner() == &Pubkey::default() {
+            // Create the canonical service script account at PDA[b"session_v1"].
+            let rent = pinocchio::sysvars::rent::Rent::get()
+                .map_err(|_| ProgramError::AccountNotRentExempt)?;
+            let rent_lamports = rent.minimum_balance(required_size);
+            let create_account_data =
+                build_system_create_account_ix(rent_lamports, required_size as u64, program_id);
+            let bump_seed = [bump];
+            let seeds: &[Seed] = &[Seed::from(SESSION_V1_SERVICE_SEED), Seed::from(&bump_seed)];
+            let signer = Signer::from(seeds);
+
+            let metas = [
+                AccountMeta {
+                    pubkey: owner.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                AccountMeta {
+                    pubkey: script_account.key(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+            ];
+
+            let instruction = Instruction {
+                program_id: system_program.key(),
+                accounts: &metas,
+                data: &create_account_data,
+            };
+
+            invoke_signed::<3>(
+                &instruction,
+                &[owner, script_account, system_program],
+                &[signer],
+            )?;
+        } else {
+            verify_program_owned(script_account, program_id)?;
+            if script_account.data_len() < required_size {
+                safe_realloc(script_account, owner, required_size)?;
+            }
+        }
     }
 
     // Prevent overwriting an existing deployed script account.
@@ -221,6 +366,10 @@ pub fn deploy(
     }
 
     // Charge deploy fee only after all non-mutating deployment validations pass.
+    if service_kind != SERVICE_KIND_NONE && vm_state_account.data_len() < VM_STATE_TOTAL_LEN {
+        safe_realloc(vm_state_account, owner, VM_STATE_TOTAL_LEN)?;
+    }
+
     collect_deploy_fee_with_state(
         program_id,
         owner,
@@ -254,6 +403,11 @@ pub fn deploy(
     let metadata_end = metadata_start + metadata.len();
     script_data[metadata_start..metadata_end].copy_from_slice(metadata);
     script_data[metadata_end..metadata_end + bytecode.len()].copy_from_slice(bytecode);
+
+    if service_kind == SERVICE_KIND_SESSION_V1 {
+        let code_hash = hashv(&[bytecode]);
+        register_canonical_service(vm_state_data, script_account.key(), code_hash)?;
+    }
 
     Ok(())
 }

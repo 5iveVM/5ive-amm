@@ -232,13 +232,16 @@ impl MitoVM {
                 error_log!("Stack size: {}", ctx.size() as u64);
                 #[cfg(target_os = "solana")]
                 unsafe {
-                    // Error-only telemetry: [marker, vm_error, opcode, ip, stack_size]
+                    // Error-only telemetry: [marker, vm_error, opcode, ip, locals_window]
+                    // locals_window packs (local_base << 32) | local_count.
+                    let locals_window =
+                        ((ctx.local_base() as u64) << 32) | (ctx.local_count() as u64);
                     pinocchio::log::sol_log_64(
                         0xF1,
                         e as u64,
                         opcode as u64,
                         current_ip as u64,
-                        ctx.size() as u64,
+                        locals_window,
                     );
                 }
                 return Err(e);

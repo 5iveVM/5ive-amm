@@ -396,13 +396,22 @@ mod function_call_tests {
 
         #[test]
         fn test_local_variable_overflow() {
-            // Test accessing local variable index beyond limit
-            let bytecode = test_bytecode![
-                push_u64!(42),
-                opcodes![SET_LOCAL, 16], // Index 16 exceeds MAX_LOCALS
-            ];
+            // Drive local_base high, then exceed MAX_LOCALS with a large local index.
+            let mut main_code = vec![ALLOC_LOCALS, 200];
+            // CALL param_count=0, func_addr to be filled
+            main_code.extend_from_slice(&[CALL, 0x00, 0x00, 0x00]);
+            main_code.push(RETURN);
 
-            TestUtils::assert_execution_error(&bytecode, VMError::InvalidOperation);
+            let func_addr = (10 + main_code.len()) as u16;
+            main_code[4] = (func_addr & 0xFF) as u8;
+            main_code[5] = (func_addr >> 8) as u8;
+
+            let mut function_code = vec![PUSH_U64];
+            function_code.extend_from_slice(&1u64.to_le_bytes());
+            function_code.extend_from_slice(&[SET_LOCAL, 80, RETURN]);
+
+            let bytecode = TestUtils::create_function_bytecode(&main_code, &function_code);
+            TestUtils::assert_execution_error(&bytecode, VMError::LocalsOverflow);
         }
 
         #[test]
@@ -457,6 +466,63 @@ mod function_call_tests {
     /// Test call stack management
     mod call_stack_management {
         use super::*;
+        use crate::MAX_CALL_DEPTH;
+
+        fn build_recursive_call_bytecode(depth: u64) -> Vec<u8> {
+            let mut bytecode = vec![0x35, 0x49, 0x56, 0x45]; // "5IVE" magic
+            bytecode.extend_from_slice(&0u32.to_le_bytes()); // features
+            bytecode.push(0); // public_count
+            bytecode.push(0); // total_count
+            let header_len = bytecode.len();
+
+            let mut main = Vec::new();
+            main.extend_from_slice(&push_u64!(depth));
+            main.push(CALL);
+            main.push(1);
+            let main_call_addr_offset = main.len();
+            main.extend_from_slice(&[0u8; 2]); // placeholder for func addr
+            main.push(RETURN_VALUE);
+
+            let func_start = header_len + main.len();
+            main[main_call_addr_offset..main_call_addr_offset + 2]
+                .copy_from_slice(&(func_start as u16).to_le_bytes());
+
+            let mut func = Vec::new();
+            func.extend_from_slice(&[LOAD_PARAM, 1]);
+            func.extend_from_slice(&[SET_LOCAL, 0]);
+            func.extend_from_slice(&[GET_LOCAL, 0]);
+            func.push(PUSH_0);
+            func.push(EQ);
+            func.push(JUMP_IF);
+            let jump_offset_pos = func.len();
+            func.extend_from_slice(&[0u8; 2]); // placeholder for base case jump
+
+            func.extend_from_slice(&[GET_LOCAL, 0]);
+            func.push(PUSH_1);
+            func.push(SUB);
+            func.push(CALL);
+            func.push(1);
+            let func_call_addr_pos = func.len();
+            func.extend_from_slice(&[0u8; 2]); // placeholder for func addr
+            func.extend_from_slice(&[GET_LOCAL, 0]);
+            func.push(ADD);
+            func.push(RETURN_VALUE);
+
+            let base_case_pos = func.len();
+            func.push(PUSH_1);
+            func.push(RETURN_VALUE);
+
+            let func_start = header_len + main.len();
+            func[func_call_addr_pos..func_call_addr_pos + 2]
+                .copy_from_slice(&(func_start as u16).to_le_bytes());
+            let base_case_abs = (func_start + base_case_pos) as u16;
+            func[jump_offset_pos..jump_offset_pos + 2]
+                .copy_from_slice(&base_case_abs.to_le_bytes());
+
+            bytecode.extend_from_slice(&main);
+            bytecode.extend_from_slice(&func);
+            bytecode
+        }
 
         #[test]
         fn test_nested_function_calls() {
@@ -486,6 +552,31 @@ mod function_call_tests {
             let result = TestUtils::execute_simple(&bytecode);
             // Should eventually fail with CallStackOverflow
             assert!(result.is_err(), "Recursive calls should hit stack limit");
+        }
+
+        #[test]
+        fn test_call_depth_probe_with_locals_and_params() {
+            let depth = MAX_CALL_DEPTH.saturating_sub(1) as u64;
+            let bytecode = build_recursive_call_bytecode(depth);
+            let result = TestUtils::execute_simple(&bytecode);
+            let expected = 1 + (depth * (depth + 1)) / 2;
+            match result {
+                Ok(Some(Value::U64(value))) => {
+                    assert_eq!(
+                        value, expected,
+                        "Recursive call chain should preserve locals/params"
+                    );
+                }
+                Ok(result) => panic!("Expected U64({}), got {:?}", expected, result),
+                Err(e) => panic!("Call depth probe failed: {:?}", e),
+            }
+        }
+
+        #[test]
+        fn test_call_depth_probe_overflow() {
+            let depth = MAX_CALL_DEPTH as u64;
+            let bytecode = build_recursive_call_bytecode(depth);
+            TestUtils::assert_execution_error(&bytecode, VMError::CallStackOverflow);
         }
 
         #[test]

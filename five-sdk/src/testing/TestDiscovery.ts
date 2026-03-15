@@ -59,7 +59,10 @@ export class TestDiscovery {
       return testCases;
     }
     if (testCases && typeof testCases === 'object') {
-      return null;
+      return Object.entries(testCases).map(([name, value]) => ({
+        name,
+        ...(typeof value === 'object' && value !== null ? value : {}),
+      }));
     }
     return [];
   }
@@ -139,7 +142,7 @@ export class TestDiscovery {
           }
           for (const testCase of testCases) {
             tests.push({
-              name: testCase.name,
+              name: testCase.name || testCase.function || testCase.id || 'unnamed_test',
               path: file,
               type: 'json-suite',
               description: testCase.description,
@@ -173,7 +176,7 @@ export class TestDiscovery {
           return [];
         }
         return testCases.map((testCase: any) => ({
-          name: testCase.name,
+          name: testCase.name || testCase.function || testCase.id || 'unnamed_test',
           path: file,
           type: 'json-suite' as const,
           description: testCase.description,

@@ -43,9 +43,12 @@ pub const SCRIPT_VERSION: u8 = 3;
 pub const OPCODE_SPEC_VERSION: u16 = 1;
 
 // Keep protocol/runtime aligned with on-chain VM stack limits.
-pub const MAX_CALL_DEPTH: usize = 8;
+// Chess-style rule evaluation can exceed 8 nested helper calls in valid execution paths.
+// Keep this conservative but high enough for deep deterministic game logic.
+pub const MAX_CALL_DEPTH: usize = 24;
 pub const MAX_FUNCTION_PARAMS: usize = 24;
-pub const MAX_LOCALS: usize = 32;
+// Chess and similar contracts can compose multiple helper frames with dense locals.
+pub const MAX_LOCALS: usize = 256;
 pub const MAX_FUNCTIONS: usize = 255;
 
 // Canonical bytecode header constants

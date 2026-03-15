@@ -26,3 +26,9 @@ export type { ResolvedSystemAccounts } from './AccountResolver.js';
 
 export { TypeGenerator } from './TypeGenerator.js';
 export type { TypeGeneratorOptions } from './TypeGenerator.js';
+export * from './FiveProgram.js';
+export * from './FunctionBuilder.js';
+export * from './ProgramAccount.js';
+export * from './TypeGenerator.js';
+export * from './AccountResolver.js';
+export * from './SessionManager.js';

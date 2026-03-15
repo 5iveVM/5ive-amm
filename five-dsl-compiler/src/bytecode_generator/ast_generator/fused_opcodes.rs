@@ -562,9 +562,7 @@ impl ASTGenerator {
                     if let Ok(offset) =
                         self.calculate_account_field_offset(account_type, field, account_name)
                     {
-                        let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                            field_info.offset
-                        );
+                        let acc_idx = self.resolve_account_param_by_name(account_name)?;
                         return Some((acc_idx, offset));
                     }
                 }
@@ -585,9 +583,7 @@ impl ASTGenerator {
                     if let Ok(offset) =
                         self.calculate_account_field_offset(account_type, field, account_name)
                     {
-                        let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                            field_info.offset
-                        );
+                        let acc_idx = self.resolve_account_param_by_name(account_name)?;
                         return Some((acc_idx, offset));
                     }
                 }
@@ -1045,13 +1041,7 @@ impl ASTGenerator {
         if let AstNode::FieldAccess { object, field } = node {
             if field == "key" {
                 if let AstNode::Identifier(account_name) = object.as_ref() {
-                    if let Some(field_info) = self.local_symbol_table.get(account_name) {
-                        // This should be an account parameter
-                        let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                            field_info.offset
-                        );
-                        return Some(acc_idx);
-                    }
+                    return self.resolve_account_param_by_name(account_name);
                 }
 
                 if let AstNode::FieldAccess {
@@ -1061,12 +1051,7 @@ impl ASTGenerator {
                 {
                     if inner_field == "ctx" {
                         if let AstNode::Identifier(account_name) = inner_object.as_ref() {
-                            if let Some(field_info) = self.local_symbol_table.get(account_name) {
-                                let acc_idx = crate::bytecode_generator::account_utils::account_index_from_param_offset(
-                                    field_info.offset
-                                );
-                                return Some(acc_idx);
-                            }
+                            return self.resolve_account_param_by_name(account_name);
                         }
                     }
                 }

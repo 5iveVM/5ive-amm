@@ -35,6 +35,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             let account_data = unsafe { account.borrow_mut_data_unchecked() };
 
             if (field_offset as usize + 8) > account_data.len() {
+                error_log!(
+                    "MitoVM: STORE invalid account data (account={} offset={} len={} opcode=STORE)",
+                    account_index,
+                    field_offset,
+                    account_data.len()
+                );
                 debug_log!(
                     "MitoVM: STORE bounds check failed: offset={} + 8 > len={}",
                     field_offset,
@@ -109,6 +115,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             if field_offset <= u16::MAX as u32 {
                 // Eager bounds check: even if lazy, we verify the data *exists*
                 if (field_offset as usize + 8) > account.data_len() {
+                    error_log!(
+                        "MitoVM: LOAD_FIELD invalid account data (account={} offset={} len={} opcode=LOAD_FIELD)",
+                        account_index,
+                        field_offset,
+                        account.data_len()
+                    );
                     debug_log!(
                         "MitoVM: LOAD_FIELD eager bounds check failed: offset={} + 8 > len={}",
                         field_offset,
@@ -123,6 +135,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 let data = unsafe { account.borrow_data_unchecked() };
 
                 if (field_offset as usize + 8) > data.len() {
+                    error_log!(
+                        "MitoVM: LOAD_FIELD invalid account data (account={} offset={} len={} opcode=LOAD_FIELD)",
+                        account_index,
+                        field_offset,
+                        data.len()
+                    );
                     return Err(VMErrorCode::InvalidAccountData);
                 }
 
@@ -148,6 +166,12 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             let data = unsafe { account.borrow_data_unchecked() };
 
             if (field_offset as usize + 32) > data.len() {
+                error_log!(
+                    "MitoVM: LOAD_FIELD_PUBKEY invalid account data (account={} offset={} len={} opcode=LOAD_FIELD_PUBKEY)",
+                    account_index,
+                    field_offset,
+                    data.len()
+                );
                 debug_log!(
                     "MitoVM: LOAD_FIELD_PUBKEY Out of bounds: offset {} + 32 > len {}",
                     field_offset,

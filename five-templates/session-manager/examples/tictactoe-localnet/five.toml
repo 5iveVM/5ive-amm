@@ -1,0 +1,11 @@
+schema_version = 1
+
+[project]
+name = "five-session-tictactoe-localnet"
+version = "1.0.0"
+description = "Sessionized tic-tac-toe localnet test fixture"
+
+[build]
+target = "vm"
+entry_point = "src/main.v"
+output = "build/five-session-tictactoe-localnet.five"

@@ -1,0 +1,13 @@
+{
+  "artifact_path": "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/session-manager/examples/tictactoe-localnet/build/five-session-tictactoe-localnet.five",
+  "compiler_version": "unknown",
+  "source_files": [
+    "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/session-manager/examples/tictactoe-localnet/src/main.v"
+  ],
+  "target": "vm",
+  "timestamp": "2026-03-15T15:49:54.249Z",
+  "hash": "362d342d597eb5b67bddff35b5dfa6d57fb647a6b69140c5981d686021203037",
+  "format": "five",
+  "entry_point": "src/main.v",
+  "source_dir": "src"
+}

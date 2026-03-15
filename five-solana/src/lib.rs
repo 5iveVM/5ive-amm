@@ -174,19 +174,21 @@ fn process_administrative_instruction(
             metadata,
             permissions,
             fee_shard_index,
+            service_kind,
         } => {
             debug_log!(
                 "Processing Deploy instruction with {} bytes of bytecode, permissions: 0x{}",
                 bytecode.len(),
                 permissions
             );
-            instructions::deploy(
+            instructions::deploy_with_service(
                 program_id,
                 accounts,
                 bytecode,
                 metadata,
                 permissions,
                 fee_shard_index,
+                service_kind,
             )
         }
         FIVEInstruction::Execute { .. } => {

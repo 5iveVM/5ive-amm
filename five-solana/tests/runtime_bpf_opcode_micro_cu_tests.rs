@@ -8,7 +8,9 @@ use five_dsl_compiler::DslCompiler;
 use five_protocol::opcodes::{
     self, ADD, AND, BITWISE_AND, CHECK_SIGNER, DIV, GET_CLOCK, GET_KEY, GET_LOCAL_0, HALT,
     LOAD_FIELD, MUL, MUL_DIV, NOT, OR, POP, PUSH_1, PUSH_2, PUSH_STRING, PUSH_U64, PUSH_U8,
-    REQUIRE, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0, SHIFT_LEFT, STORE_FIELD, SUB,
+    REQUIRE, REQUIRE_BATCH, REQUIRE_BATCH_FIELD_EQ_IMM, REQUIRE_BATCH_FIELD_GTE_PARAM,
+    REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM, REQUIRE_OWNER, REQUIRE_PARAM_GT_ZERO, SET_LOCAL_0,
+    SHIFT_LEFT, STORE_FIELD, SUB,
 };
 use harness::addresses::{canonical_execute_fee_header, fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::{canonical_execute_payload, TypedParam};
@@ -664,6 +666,154 @@ async fn opcode_micro_constraint_check_signer_cold_single_bpf_cu() {
 
     print_bench_line("constraint", "CHECK_SIGNER", "cold_single", &metrics);
     assert_no_regression("opcode_constraint_check_signer_single", &metrics);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn opcode_micro_session_auth_path_cold_single_bpf_cu() {
+    let program_id = load_program_id();
+
+    let status_offset = 64u32;
+    let version_offset = 72u32;
+    let expires_offset = 88u32;
+    let target_program_offset = 96u32;
+
+    let mut body = Vec::with_capacity(64);
+    body.extend_from_slice(&[CHECK_SIGNER, 2]);
+    body.push(REQUIRE_OWNER);
+    body.push(1);
+    body.push(3);
+    body.extend_from_slice(&0u32.to_le_bytes());
+    body.push(REQUIRE_OWNER);
+    body.push(1);
+    body.push(2);
+    body.extend_from_slice(&32u32.to_le_bytes());
+    body.push(REQUIRE_BATCH);
+    body.push(4);
+    body.push(REQUIRE_BATCH_FIELD_EQ_IMM);
+    body.push(1);
+    body.extend_from_slice(&status_offset.to_le_bytes());
+    body.push(1);
+    body.push(REQUIRE_BATCH_FIELD_EQ_IMM);
+    body.push(1);
+    body.extend_from_slice(&version_offset.to_le_bytes());
+    body.push(1);
+    body.push(REQUIRE_BATCH_FIELD_GTE_PARAM);
+    body.push(1);
+    body.extend_from_slice(&expires_offset.to_le_bytes());
+    body.push(1);
+    body.push(REQUIRE_BATCH_PUBKEY_FIELD_EQ_PARAM);
+    body.push(1);
+    body.extend_from_slice(&target_program_offset.to_le_bytes());
+    body.push(2);
+    body.push(HALT);
+
+    let script = harness::script_with_header(1, 1, &body);
+
+    let mut accounts = base_accounts(program_id, 20_000_000);
+    accounts.insert(
+        "script".to_string(),
+        RuntimeAccount {
+            pubkey: Pubkey::new_unique(),
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(ScriptAccountHeader::LEN + script.len()),
+            data: vec![0u8; ScriptAccountHeader::LEN + script.len()],
+            is_signer: false,
+            is_writable: true,
+            executable: false,
+        },
+    );
+    let session_pubkey = Pubkey::new_unique();
+    let delegate = Keypair::new();
+    let mut session_data = vec![0u8; 128];
+    session_data[0..32].copy_from_slice(accounts["owner"].pubkey.as_ref());
+    session_data[32..64].copy_from_slice(delegate.pubkey().as_ref());
+    session_data[status_offset as usize..(status_offset as usize + 8)].copy_from_slice(&1u64.to_le_bytes());
+    session_data[version_offset as usize..(version_offset as usize + 8)].copy_from_slice(&1u64.to_le_bytes());
+    session_data[expires_offset as usize..(expires_offset as usize + 8)]
+        .copy_from_slice(&10_000_000u64.to_le_bytes());
+    session_data[target_program_offset as usize..(target_program_offset as usize + 32)]
+        .copy_from_slice(program_id.as_ref());
+
+    accounts.insert(
+        "session".to_string(),
+        RuntimeAccount {
+            pubkey: session_pubkey,
+            signer: None,
+            owner: program_id,
+            lamports: Rent::default().minimum_balance(session_data.len()),
+            data: session_data,
+            is_signer: false,
+            is_writable: false,
+            executable: false,
+        },
+    );
+    accounts.insert(
+        "delegate".to_string(),
+        RuntimeAccount {
+            pubkey: delegate.pubkey(),
+            signer: Some(delegate),
+            owner: system_program::ID,
+            lamports: Rent::default().minimum_balance(0),
+            data: vec![],
+            is_signer: true,
+            is_writable: false,
+            executable: false,
+        },
+    );
+
+    let mut ctx = start_context(program_id, &accounts).await;
+    let deploy_ix = build_deploy_instruction(
+        program_id, &accounts, "script", "vm_state", "owner", &script,
+    );
+    let deploy = simulate_and_process(
+        &mut ctx,
+        vec![deploy_ix],
+        collect_signers(&accounts, &["owner"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        deploy.success,
+        "opcode_session_auth_path_single deploy failed: {:?}",
+        deploy.error
+    );
+
+    let payload = canonical_execute_payload(
+        0,
+        &[
+            TypedParam::U64(1_000_000),
+            TypedParam::Pubkey(program_id.to_bytes()),
+        ],
+    );
+    let execute_ix = build_execute_instruction(
+        program_id,
+        &accounts,
+        "script",
+        "vm_state",
+        &["session", "delegate", "owner"],
+        payload,
+    );
+    let execute = simulate_and_process(
+        &mut ctx,
+        vec![execute_ix],
+        collect_signers(&accounts, &["owner", "delegate"]),
+        Some(1_400_000),
+    )
+    .await;
+    assert!(
+        execute.success,
+        "opcode_session_auth_path_single execute failed: {:?}",
+        execute.error
+    );
+
+    let metrics = CuMetrics {
+        deploy: deploy.units_consumed,
+        execute: execute.units_consumed,
+        total: deploy.units_consumed.saturating_add(execute.units_consumed),
+    };
+    print_bench_line("session", "SESSION_AUTH_PATH", "cold_single", &metrics);
+    assert_no_regression("opcode_session_auth_path_single", &metrics);
 }
 
 #[tokio::test(flavor = "multi_thread")]

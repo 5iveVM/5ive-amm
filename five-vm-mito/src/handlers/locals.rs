@@ -100,7 +100,20 @@ pub fn handle_locals(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
             }
 
             let value = ctx.pop()?;
-            ctx.set_local(index as u8, value)?;
+            if let Err(err) = ctx.set_local(index as u8, value) {
+                #[cfg(target_os = "solana")]
+                unsafe {
+                    // [marker, local_index, local_base, local_count, max_locals]
+                    pinocchio::log::sol_log_64(
+                        0xF2,
+                        index as u64,
+                        ctx.local_base() as u64,
+                        ctx.local_count() as u64,
+                        MAX_LOCALS as u64,
+                    );
+                }
+                return Err(err);
+            }
             debug_log!(
                 "MitoVM: SET_LOCAL index: {}, stack size after pop: {}",
                 index,

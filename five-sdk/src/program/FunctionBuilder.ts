@@ -119,6 +119,9 @@ export class FunctionBuilder {
     // Validate parameters later, after auto-injection
 
 
+    // Optional session auto-wiring.
+    this.applySessionDefaults();
+
     // Resolve system accounts (auto-inject when needed)
     const resolver = new AccountResolver(this.options);
     const resolvedSystemAccounts = resolver.resolveSystemAccounts(
@@ -239,10 +242,47 @@ export class FunctionBuilder {
     const tx = await this.transaction({ computeUnits: options.computeUnits });
 
     // Send
-    const signers = options.signers || [];
+    const signers = [...(options.signers || [])];
+    const sessionSigner = this.resolveSessionSigner();
+    if (sessionSigner) {
+      signers.push(sessionSigner);
+    }
     return await provider.sendAndConfirm(tx, signers, {
       skipPreflight: options.skipPreflight
     });
+  }
+
+  private applySessionDefaults(): void {
+    const session = this.options.session;
+    if (!session || session.mode === 'force-direct') {
+      return;
+    }
+
+    const functionName = this.functionDef.name;
+    const delegateAddress = session.delegateAccountByFunction?.[functionName];
+    const sessionAddress = session.sessionAccountByFunction?.[functionName];
+
+    for (const param of this.functionDef.parameters) {
+      if (!param.is_account) continue;
+      const attrs = param.attributes || [];
+
+      if (attrs.includes('session') && sessionAddress && !this.accountsMap.has(param.name)) {
+        this.accountsMap.set(param.name, sessionAddress);
+      }
+
+      if (attrs.includes('signer') && delegateAddress && !this.accountsMap.has(param.name)) {
+        this.accountsMap.set(param.name, delegateAddress);
+      }
+    }
+  }
+
+  private resolveSessionSigner(): any | undefined {
+    const session = this.options.session;
+    if (!session || session.mode === 'force-direct') {
+      return undefined;
+    }
+    const maybeSigner = (session.manager as any)?.delegateSigner;
+    return maybeSigner;
   }
 
 

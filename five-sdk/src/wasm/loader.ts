@@ -15,6 +15,18 @@ export async function getWasmModule(): Promise<any> {
     return wasmModule;
   }
 
+  // Monorepo fallback for linked workspace resolution (five-sdk -> five-wasm).
+  try {
+    const directMono = await import('../../../five-wasm/pkg-bundler/five_vm_wasm.js');
+    const normalized = resolveEncoderModule(directMono);
+    if (normalized) {
+      wasmModule = normalized;
+      return wasmModule;
+    }
+  } catch {
+    // Fall through to candidate-based loader below.
+  }
+
   // Build candidate list from config and sensible defaults
   const cfg = await ConfigManager.getInstance().get();
   const prefer = cfg.wasm?.loader || 'auto';
@@ -101,17 +113,23 @@ export async function getWasmModule(): Promise<any> {
       // Universal initialization (Browser/Node) if default export is init function
       if (mod && typeof (mod as any).default === 'function') {
         try {
-          await (mod as any).default();
+          const initialized = await (mod as any).default();
+          const normalizedInit = resolveEncoderModule(initialized);
+          if (normalizedInit) {
+            wasmModule = normalizedInit;
+            return wasmModule;
+          }
         } catch (initErr) {
           tried.push({ path: candidate, error: initErr });
         }
       }
 
-      if (mod) {
-        wasmModule = mod;
+      const normalized = resolveEncoderModule(mod);
+      if (normalized) {
+        wasmModule = normalized;
         return wasmModule;
       }
-      tried.push({ path: candidate, error: 'Module import returned null/undefined' });
+      tried.push({ path: candidate, error: 'Module missing ParameterEncoder export' });
     } catch (e) {
       tried.push({ path: candidate, error: e });
     }
@@ -125,3 +143,9 @@ export async function getWasmModule(): Promise<any> {
     `Five VM WASM module not found or failed to load. Please ensure five-wasm is built.\nAttempts:\n${attempted}`
   );
 }
+  const resolveEncoderModule = (mod: any): any | null => {
+    if (!mod) return null;
+    if (mod.ParameterEncoder) return mod;
+    if (mod.default && mod.default.ParameterEncoder) return mod.default;
+    return null;
+  };

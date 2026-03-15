@@ -89,8 +89,26 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     ctx.call_depth() as u32
                 );
 
+                #[cfg(feature = "debug-logs")]
+                let depth_before = ctx.call_depth();
+                #[cfg(feature = "debug-logs")]
+                let ip_before = ctx.ip();
+
                 // CRITICAL FIX (Issue 1.4): Use pop_call_frame() for atomic frame access + depth decrement
                 let frame = ctx.pop_call_frame()?;
+
+                #[cfg(feature = "debug-logs")]
+                debug_log!(
+                    "MitoVM: RETURN POP frame depth_before={} depth_after={} ip={} local_base={} local_count={} param_start={} param_len={} return_ip={}",
+                    depth_before as u32,
+                    ctx.call_depth() as u32,
+                    ip_before as u32,
+                    frame.local_base as u32,
+                    frame.local_count as u32,
+                    frame.param_start as u32,
+                    frame.param_len as u32,
+                    frame.return_address as u32
+                );
 
                 // Safety check: Validate return address
                 // Note: We check against the script length AFTER restoring context logic below,
@@ -128,6 +146,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     }
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
+                ctx.refresh_script_layout()?;
                 ctx.current_context = frame.bytecode_context;
                 ctx.set_temp_offset(frame.saved_temp_offset as usize);
 
@@ -167,8 +186,26 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     return Err(VMErrorCode::CallStackUnderflow);
                 }
 
+                #[cfg(feature = "debug-logs")]
+                let depth_before = ctx.call_depth();
+                #[cfg(feature = "debug-logs")]
+                let ip_before = ctx.ip();
+
                 // Pop call stack safely using pop_call_frame instead of manual access
                 let frame = ctx.pop_call_frame()?;
+
+                #[cfg(feature = "debug-logs")]
+                debug_log!(
+                    "MitoVM: RETURN_VALUE POP frame depth_before={} depth_after={} ip={} local_base={} local_count={} param_start={} param_len={} return_ip={}",
+                    depth_before as u32,
+                    ctx.call_depth() as u32,
+                    ip_before as u32,
+                    frame.local_base as u32,
+                    frame.local_count as u32,
+                    frame.param_start as u32,
+                    frame.param_len as u32,
+                    frame.return_address as u32
+                );
 
                 let return_value = ctx.pop()?;
 
@@ -203,6 +240,7 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
                     }
                     ctx.set_script(&data[SCRIPT_ACCOUNT_HEADER_LEN..]);
                 }
+                ctx.refresh_script_layout()?;
                 ctx.current_context = frame.bytecode_context;
                 ctx.set_temp_offset(frame.saved_temp_offset as usize);
 

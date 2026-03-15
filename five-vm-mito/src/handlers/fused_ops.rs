@@ -209,7 +209,7 @@ pub fn handle_fused_ops(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult
         REQUIRE_LOCAL_GT_ZERO => {
             let local_idx = ctx.fetch_byte()?;
             let local_value = ctx.get_local(local_idx)?;
-            let local_u64 = local_value.as_u64().ok_or(VMErrorCode::TypeMismatch)?;
+            let local_u64 = crate::utils::resolve_u64(local_value, ctx)?;
 
             if local_u64 == 0 {
                 debug_log!(

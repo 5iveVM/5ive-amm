@@ -323,6 +323,7 @@ export interface DeploymentOptions {
     }>;
   };
   namespace?: string;
+  service?: 'session_v1';
 }
 
 export interface FeeInformation {

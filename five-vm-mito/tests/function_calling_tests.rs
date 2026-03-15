@@ -419,3 +419,79 @@ mod error_handling {
         );
     }
 }
+
+mod call_depth_probes {
+    use super::*;
+    use five_vm_mito::MAX_CALL_DEPTH;
+
+    #[test]
+    fn test_call_depth_probe_with_locals_and_params() {
+        let depth = MAX_CALL_DEPTH.saturating_sub(1) as u64;
+        let result = execute_script(|script| {
+            script
+                .public_function("main", |f| {
+                    f.push_u64(depth).call("recur", 1).return_value();
+                })
+                .unwrap();
+            script
+                .private_function("recur", |f| {
+                    f.load_param(1);
+                    f.emit(SET_LOCAL).emit(0);
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(PUSH_0);
+                    f.emit(EQ);
+                    f.jump_if("base");
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(PUSH_1);
+                    f.emit(SUB);
+                    f.call("recur", 1);
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(ADD);
+                    f.return_value();
+                    f.label("base");
+                    f.emit(PUSH_1);
+                    f.return_value();
+                })
+                .unwrap();
+        })
+        .unwrap();
+
+        let expected = 1 + (depth * (depth + 1)) / 2;
+        assert_eq!(result, Some(Value::U64(expected)));
+    }
+
+    #[test]
+    fn test_call_depth_probe_overflow() {
+        let depth = MAX_CALL_DEPTH as u64;
+        let err = execute_script(|script| {
+            script
+                .public_function("main", |f| {
+                    f.push_u64(depth).call("recur", 1).return_value();
+                })
+                .unwrap();
+            script
+                .private_function("recur", |f| {
+                    f.load_param(1);
+                    f.emit(SET_LOCAL).emit(0);
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(PUSH_0);
+                    f.emit(EQ);
+                    f.jump_if("base");
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(PUSH_1);
+                    f.emit(SUB);
+                    f.call("recur", 1);
+                    f.emit(GET_LOCAL).emit(0);
+                    f.emit(ADD);
+                    f.return_value();
+                    f.label("base");
+                    f.emit(PUSH_1);
+                    f.return_value();
+                })
+                .unwrap();
+        })
+        .unwrap_err();
+
+        assert!(matches!(err, VMError::CallStackOverflow));
+    }
+}

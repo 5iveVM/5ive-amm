@@ -3,7 +3,7 @@ use crate::ast::{
     TestAttribute,
 };
 use crate::parser::{types, DslParser};
-use crate::tokenizer::Token;
+use crate::tokenizer::{Token, TokenKind};
 use five_vm_mito::error::VMError;
 
 fn parse_account_serializer(parser: &mut DslParser) -> Result<AccountSerializer, VMError> {
@@ -211,6 +211,10 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                         let (seeds, bump) = parse_pda_arguments(parser)?;
                         pda_config = Some(PdaConfig { seeds, bump });
                         continue;
+                    } else if name == "session" {
+                        let args = parse_session_arguments(parser)?;
+                        leading_attributes.push(Attribute { name, args });
+                        continue;
                     }
                     let mut args = Vec::new();
 
@@ -351,6 +355,10 @@ pub(crate) fn parse_instruction_definition(parser: &mut DslParser) -> Result<Ast
                     if name == "pda" {
                         let (seeds, bump) = parse_pda_arguments(parser)?;
                         pda_config = Some(PdaConfig { seeds, bump });
+                        continue;
+                    } else if name == "session" {
+                        let args = parse_session_arguments(parser)?;
+                        trailing_attributes.push(Attribute { name, args });
                         continue;
                     } else if name == "serializer" {
                         if !matches!(parser.current_token, Token::LeftParen) {
@@ -805,4 +813,45 @@ pub(crate) fn parse_pda_arguments(
     }
 
     Ok((seeds, bump))
+}
+
+pub(crate) fn parse_session_arguments(parser: &mut DslParser) -> Result<Vec<AstNode>, VMError> {
+    if !matches!(parser.current_token, Token::LeftParen) {
+        return Ok(Vec::new());
+    }
+    parser.advance(); // consume '('
+
+    let mut args: Vec<AstNode> = Vec::new();
+
+    while !matches!(parser.current_token, Token::RightParen | Token::Eof) {
+        // key=value form
+        if matches!(parser.current_token, Token::Identifier(_)) && parser.peek_kind(1) == TokenKind::Assign {
+            let key = match &parser.current_token {
+                Token::Identifier(name) => name.clone(),
+                _ => return Err(parser.parse_error("session argument key")),
+            };
+            parser.advance(); // key
+            parser.advance(); // '='
+            let value = parser.parse_expression()?;
+            args.push(AstNode::Assignment {
+                target: key,
+                value: Box::new(value),
+            });
+        } else {
+            // positional form
+            args.push(parser.parse_expression()?);
+        }
+
+        if matches!(parser.current_token, Token::Comma) {
+            parser.advance();
+        } else {
+            break;
+        }
+    }
+
+    if !matches!(parser.current_token, Token::RightParen) {
+        return Err(parser.parse_error("')' to close session arguments"));
+    }
+    parser.advance(); // consume ')'
+    Ok(args)
 }

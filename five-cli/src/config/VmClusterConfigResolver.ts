@@ -36,6 +36,12 @@ export interface VmClusterProfile {
   configPath: string;
   programId: string;
   feeVaultShardCount: number;
+  sessionService?: {
+    scriptAccount?: string;
+    codeHash?: string;
+    status?: 'active' | 'disabled';
+    version?: number;
+  };
 }
 
 function parseSimpleVmToml(raw: string): { clusters: Record<string, any> } {
@@ -103,6 +109,16 @@ export class VmClusterConfigResolver {
       configPath,
       programId: new PublicKey(entry.program_id).toBase58(),
       feeVaultShardCount: entry.fee_vault_shard_count,
+      sessionService: {
+        scriptAccount: entry.session_v1_script_account
+          ? new PublicKey(entry.session_v1_script_account).toBase58()
+          : undefined,
+        codeHash: entry.session_v1_code_hash
+          ? new PublicKey(entry.session_v1_code_hash).toBase58()
+          : undefined,
+        status: entry.session_v1_status === 0 ? 'disabled' : 'active',
+        version: Number.isInteger(entry.session_v1_version) ? entry.session_v1_version : 1,
+      },
     };
   }
 

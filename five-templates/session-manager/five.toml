@@ -1,0 +1,11 @@
+schema_version = 1
+
+[project]
+name = "five-session-manager-template"
+version = "1.0.0"
+description = "Session sidecar manager template for delegated gameplay auth"
+
+[build]
+target = "vm"
+entry_point = "src/main.v"
+output = "build/five-session-manager-template.five"

@@ -5,8 +5,12 @@ use crate::{
 use core::mem::{align_of, size_of};
 use five_protocol::ValueRef;
 
-/// Total storage size flattened to 16KB to stay within SBF heap limits.
-pub const STORAGE_SIZE: usize = 16384;
+/// Total storage size tuned to keep room for enlarged locals/call frames while
+/// reducing heap-allocation pressure vs a full 32KB block.
+#[cfg(target_os = "solana")]
+pub const STORAGE_SIZE: usize = 28672;
+#[cfg(not(target_os = "solana"))]
+pub const STORAGE_SIZE: usize = 32768;
 
 // Calculate offsets and sizes
 // We use align_of to ensure proper alignment padding

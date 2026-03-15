@@ -37,6 +37,16 @@ pub struct CallFrame {
     pub caller_script_len: u32, // Length of caller bytecode slice
 }
 
+#[cfg(target_os = "solana")]
+pub const EXTERNAL_CALL_CACHE_SIZE: usize = 8;
+#[cfg(not(target_os = "solana"))]
+pub const EXTERNAL_CALL_CACHE_SIZE: usize = 32;
+
+#[cfg(target_os = "solana")]
+pub const EXTERNAL_IMPORT_VERIFY_CACHE_SIZE: usize = 4;
+#[cfg(not(target_os = "solana"))]
+pub const EXTERNAL_IMPORT_VERIFY_CACHE_SIZE: usize = 16;
+
 /// Fixed-size entry for transaction-local CALL_EXTERNAL resolution cache.
 #[derive(Debug, Clone, Copy)]
 pub struct ExternalCallCacheEntry {
@@ -89,9 +99,9 @@ impl ExternalImportVerifyCacheEntry {
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct ExternalCacheState {
-    pub external_call_cache: [ExternalCallCacheEntry; 32],
+    pub external_call_cache: [ExternalCallCacheEntry; EXTERNAL_CALL_CACHE_SIZE],
     pub external_call_cache_next: usize,
-    pub external_import_verify_cache: [ExternalImportVerifyCacheEntry; 16],
+    pub external_import_verify_cache: [ExternalImportVerifyCacheEntry; EXTERNAL_IMPORT_VERIFY_CACHE_SIZE],
     pub external_import_verify_cache_next: usize,
     pub external_hot_account_index: u8,
     pub external_hot_script_ptr: usize,
@@ -107,9 +117,9 @@ pub struct ExternalCacheState {
 impl ExternalCacheState {
     pub const fn empty() -> Self {
         Self {
-            external_call_cache: [ExternalCallCacheEntry::empty(); 32],
+            external_call_cache: [ExternalCallCacheEntry::empty(); EXTERNAL_CALL_CACHE_SIZE],
             external_call_cache_next: 0,
-            external_import_verify_cache: [ExternalImportVerifyCacheEntry::empty(); 16],
+            external_import_verify_cache: [ExternalImportVerifyCacheEntry::empty(); EXTERNAL_IMPORT_VERIFY_CACHE_SIZE],
             external_import_verify_cache_next: 0,
             external_hot_account_index: u8::MAX,
             external_hot_script_ptr: 0,

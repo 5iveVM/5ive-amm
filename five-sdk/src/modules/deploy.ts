@@ -41,10 +41,19 @@ const FEE_VAULT_NAMESPACE_SEED = Buffer.from([
   0xff, 0x66, 0x69, 0x76, 0x65, 0x5f, 0x76, 0x6d, 0x5f, 0x66, 0x65, 0x65,
   0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x76, 0x31,
 ]);
+const SESSION_V1_SERVICE_SEED = Buffer.from("session_v1", "utf-8");
+const SERVICE_KIND_NONE = 0;
+const SERVICE_KIND_SESSION_V1 = 1;
 
 function clampShardCount(rawCount: number): number {
   const normalized = rawCount > 0 ? rawCount : DEFAULT_FEE_VAULT_SHARD_COUNT;
   return Math.max(1, Math.min(MAX_FEE_VAULT_SHARD_COUNT, normalized));
+}
+
+function resolveServiceKind(service?: string): number {
+  if (!service) return SERVICE_KIND_NONE;
+  if (service === "session_v1") return SERVICE_KIND_SESSION_V1;
+  throw new Error(`Unsupported deploy service: ${service}`);
 }
 
 function normalizeRpcEndpoint(connection: any): string {
@@ -117,6 +126,18 @@ async function resolveScriptAccountDerivation(
   options: DeploymentOptions,
 ): Promise<{ address: string; bump: number; seed: string }> {
   const { PublicKey } = await import("@solana/web3.js");
+
+  if (options.service === "session_v1") {
+    const [servicePda, serviceBump] = PublicKey.findProgramAddressSync(
+      [SESSION_V1_SERVICE_SEED],
+      new PublicKey(programId),
+    );
+    return {
+      address: servicePda.toBase58(),
+      bump: serviceBump,
+      seed: "session_v1",
+    };
+  }
 
   if (options.scriptAccount) {
     validator.validateBase58Address(
@@ -301,6 +322,7 @@ export async function generateDeployInstruction(
     exportMetadata,
     deployShardIndex,
     deployVault.bump,
+    resolveServiceKind(options.service),
   );
 
   const result: SerializedDeployment = {
@@ -314,15 +336,24 @@ export async function generateDeployInstruction(
     requiredSigners: [deployer],
     estimatedCost: rentLamports + (options.extraLamports || 0),
     bytecodeSize: bytecode.length,
-    setupInstructions: {
-      createScriptAccount: {
-        pda: scriptAccount,
-        seed: scriptSeed,
-        space: totalAccountSize,
-        rent: rentLamports,
-        owner: programId,
-      },
-    },
+    setupInstructions:
+      options.service === "session_v1"
+        ? {
+            serviceDeployment: {
+              service: "session_v1",
+              pda: scriptAccount,
+              seed: scriptSeed,
+            },
+          }
+        : {
+            createScriptAccount: {
+              pda: scriptAccount,
+              seed: scriptSeed,
+              space: totalAccountSize,
+              rent: rentLamports,
+              owner: programId,
+            },
+          },
     adminAccount: options.adminAccount,
   };
 
@@ -374,6 +405,7 @@ export async function createDeploymentTransaction(
     fiveVMProgramId?: string;
     computeBudget?: number;
     exportMetadata?: ExportMetadataInput;
+    service?: "session_v1";
   } = {},
 ): Promise<{
   transaction: any;
@@ -394,9 +426,20 @@ export async function createDeploymentTransaction(
   const programIdStr = ProgramIdResolver.resolve(options.fiveVMProgramId);
   const programId = new PublicKey(programIdStr);
 
-  // Generate script keypair
-  const scriptKeypair = Keypair.generate();
-  const scriptAccount = scriptKeypair.publicKey.toString();
+  const serviceKind = resolveServiceKind((options as any).service);
+  let scriptKeypair: any | null = null;
+  let scriptPubkey: any;
+  if (serviceKind === SERVICE_KIND_SESSION_V1) {
+    const derived = PublicKey.findProgramAddressSync(
+      [SESSION_V1_SERVICE_SEED],
+      new PublicKey(programIdStr),
+    );
+    scriptPubkey = derived[0];
+  } else {
+    scriptKeypair = Keypair.generate();
+    scriptPubkey = scriptKeypair.publicKey;
+  }
+  const scriptAccount = scriptPubkey.toString();
 
   // Calculate account size and rent
   const exportMetadata = encodeExportMetadata(options.exportMetadata);
@@ -445,21 +488,32 @@ export async function createDeploymentTransaction(
 
   // 2. Create Script Account
   tx.add(
-    SystemProgram.createAccount({
-      fromPubkey: deployerPublicKey,
-      newAccountPubkey: scriptKeypair.publicKey,
-      lamports: rentLamports,
-      space: totalAccountSize,
-      programId: programId,
-    }),
+    ...(scriptKeypair
+      ? [
+          SystemProgram.createAccount({
+            fromPubkey: deployerPublicKey,
+            newAccountPubkey: scriptKeypair.publicKey,
+            lamports: rentLamports,
+            space: totalAccountSize,
+            programId: programId,
+          }),
+        ]
+      : []),
   );
 
   // 3. Deploy Instruction
-  const deployData = encodeDeployInstruction(bytecode, 0, exportMetadata);
+  const deployData = encodeDeployInstruction(
+    bytecode,
+    0,
+    exportMetadata,
+    0,
+    undefined,
+    serviceKind,
+  );
   tx.add(
     new TransactionInstruction({
       keys: [
-        { pubkey: scriptKeypair.publicKey, isSigner: false, isWritable: true },
+        { pubkey: scriptPubkey, isSigner: false, isWritable: true },
         { pubkey: vmStatePubkey, isSigner: false, isWritable: true },
         { pubkey: deployerPublicKey, isSigner: true, isWritable: true },
       ],
@@ -473,7 +527,9 @@ export async function createDeploymentTransaction(
   tx.feePayer = deployerPublicKey;
 
   // Partial sign with generated keys
-  tx.partialSign(scriptKeypair);
+  if (scriptKeypair) {
+    tx.partialSign(scriptKeypair);
+  }
 
   return {
     transaction: tx,
@@ -497,6 +553,7 @@ export async function deployToSolana(
     vmStateAccount?: string;
     adminAccount?: string;
     exportMetadata?: ExportMetadataInput;
+    service?: "session_v1";
   } = {},
 ): Promise<{
   success: boolean;
@@ -530,11 +587,27 @@ export async function deployToSolana(
       TransactionInstruction,
       SystemProgram,
     } = await import("@solana/web3.js");
-    const scriptKeypair = Keypair.generate();
-    const scriptAccount = scriptKeypair.publicKey.toString();
+    const serviceKind = resolveServiceKind((options as any).service);
+    let scriptKeypair: any | null = null;
+    let scriptPubkey: any;
+    if (serviceKind === SERVICE_KIND_SESSION_V1) {
+      const derived = PublicKey.findProgramAddressSync(
+        [SESSION_V1_SERVICE_SEED],
+        new PublicKey(programId),
+      );
+      scriptPubkey = derived[0];
+    } else {
+      scriptKeypair = Keypair.generate();
+      scriptPubkey = scriptKeypair.publicKey;
+    }
+    const scriptAccount = scriptPubkey.toString();
 
     if (options.debug) {
-      console.log(`[FiveSDK] Generated script keypair: ${scriptAccount}`);
+      if (scriptKeypair) {
+        console.log(`[FiveSDK] Generated script keypair: ${scriptAccount}`);
+      } else {
+        console.log(`[FiveSDK] Using canonical service PDA script account: ${scriptAccount}`);
+      }
     }
 
     // Calculate account size and rent
@@ -607,15 +680,17 @@ export async function deployToSolana(
       } catch { }
     }
 
-    // 1) Create script account
-    const createAccountIx = SystemProgram.createAccount({
-      fromPubkey: deployerKeypair.publicKey,
-      newAccountPubkey: scriptKeypair.publicKey,
-      lamports: rentLamports,
-      space: totalAccountSize,
-      programId: new PublicKey(programId),
-    });
-    tx.add(createAccountIx);
+    // 1) Create script account for non-service deployments.
+    if (scriptKeypair) {
+      const createAccountIx = SystemProgram.createAccount({
+        fromPubkey: deployerKeypair.publicKey,
+        newAccountPubkey: scriptKeypair.publicKey,
+        lamports: rentLamports,
+        space: totalAccountSize,
+        programId: new PublicKey(programId),
+      });
+      tx.add(createAccountIx);
+    }
 
     const deployData = encodeDeployInstruction(
       bytecode,
@@ -623,6 +698,7 @@ export async function deployToSolana(
       exportMetadata,
       deployShardIndex,
       deployVault.bump,
+      serviceKind,
     );
 
     const instructionDataBuffer = Buffer.from(deployData);
@@ -630,7 +706,7 @@ export async function deployToSolana(
     const deployIx = new TransactionInstruction({
       keys: [
         {
-          pubkey: scriptKeypair.publicKey,
+          pubkey: scriptPubkey,
           isSigner: false,
           isWritable: true,
         },
@@ -665,7 +741,9 @@ export async function deployToSolana(
     tx.feePayer = deployerKeypair.publicKey;
 
     tx.partialSign(deployerKeypair);
-    tx.partialSign(scriptKeypair);
+    if (scriptKeypair) {
+      tx.partialSign(scriptKeypair);
+    }
 
     const txSerialized = tx.serialize();
     if (options.debug) {
@@ -1606,6 +1684,7 @@ function encodeDeployInstruction(
   metadata: Uint8Array = new Uint8Array(),
   feeShardIndex: number = 0,
   feeVaultBump?: number,
+  serviceKind: number = SERVICE_KIND_NONE,
 ): Uint8Array {
   const lengthBuffer = Buffer.allocUnsafe(4);
   lengthBuffer.writeUInt32LE(bytecode.length, 0);
@@ -1613,8 +1692,9 @@ function encodeDeployInstruction(
   metadataLenBuffer.writeUInt32LE(metadata.length, 0);
 
   const hasFeeTrailer = typeof feeVaultBump === "number";
+  const hasServiceTrailer = serviceKind !== SERVICE_KIND_NONE;
   const result = new Uint8Array(
-    1 + 4 + 1 + 4 + metadata.length + bytecode.length + (hasFeeTrailer ? 2 : 0),
+    1 + 4 + 1 + 4 + metadata.length + bytecode.length + (hasFeeTrailer ? 2 : 0) + (hasServiceTrailer ? 1 : 0),
   );
   result[0] = 8; // Deploy discriminator (matches on-chain FIVE program)
   result.set(new Uint8Array(lengthBuffer), 1); // u32 LE length at bytes 1-4
@@ -1627,6 +1707,10 @@ function encodeDeployInstruction(
     result[trailerOffset] = feeShardIndex & 0xff;
     result[trailerOffset + 1] = feeVaultBump! & 0xff;
   }
+  if (hasServiceTrailer) {
+    const trailerOffset = 10 + metadata.length + bytecode.length + (hasFeeTrailer ? 2 : 0);
+    result[trailerOffset] = serviceKind & 0xff;
+  }
 
   console.log(`[FiveSDK] Deploy instruction encoded:`, {
     discriminator: result[0],
@@ -1635,7 +1719,8 @@ function encodeDeployInstruction(
     metadataLength: metadata.length,
     bytecodeLength: bytecode.length,
     totalInstructionLength: result.length,
-    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, ${metadata.length}_as_u32le, metadata_bytes, bytecode_bytes, optional(shard,bump)]`,
+    serviceKind,
+    expectedFormat: `[8, ${bytecode.length}_as_u32le, 0x${permissions.toString(16).padStart(2, '0')}, ${metadata.length}_as_u32le, metadata_bytes, bytecode_bytes, optional(shard,bump), optional(service_kind)]`,
     instructionHex:
       Buffer.from(result).toString("hex").substring(0, 20) + "...",
   });

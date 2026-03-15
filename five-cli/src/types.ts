@@ -20,6 +20,7 @@ export interface CLIOptions {
   forceLocal?: boolean;
   namespace?: string;
   namespaceManager?: string;
+  service?: 'session_v1';
 }
 
 // WASM Module Types

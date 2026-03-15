@@ -20,6 +20,8 @@ mod types;
 mod expressions_tests;
 #[cfg(test)]
 mod statements_tests;
+#[cfg(test)]
+mod session_tests;
 
 /// Handles lexical analysis of .five DSL syntax into tokens.
 pub struct DslParser {

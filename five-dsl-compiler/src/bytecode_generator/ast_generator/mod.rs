@@ -348,14 +348,27 @@ impl ASTGenerator {
                         };
                         match field.as_str() {
                             "lamports" | "owner" | "key" | "data" => {
+                                if let Some(account_idx) =
+                                    self.resolve_account_param_by_name(account_name)
+                                {
+                                    match field.as_str() {
+                                        "lamports" => emitter.emit_opcode(GET_LAMPORTS),
+                                        "key" => emitter.emit_opcode(GET_KEY),
+                                        "owner" => emitter.emit_opcode(GET_OWNER),
+                                        "data" => emitter.emit_opcode(GET_DATA),
+                                        _ => return Err(VMError::InvalidInstruction),
+                                    }
+                                    emitter.emit_u8(account_idx);
+                                    return Ok(());
+                                }
+
                                 if let Some(account_system) = &self.account_system {
-                                    return account_system
-                                        .generate_builtin_account_property_access(
-                                            emitter,
-                                            account_name,
-                                            field,
-                                            &self.local_symbol_table,
-                                        );
+                                    return account_system.generate_builtin_account_property_access(
+                                        emitter,
+                                        account_name,
+                                        field,
+                                        &self.local_symbol_table,
+                                    );
                                 }
                                 return Err(VMError::InvalidScript);
                             }

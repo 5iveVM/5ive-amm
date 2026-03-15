@@ -6,7 +6,7 @@
  */
 
 import { readFile } from 'fs/promises';
-import { basename } from 'path';
+import { basename, dirname, join } from 'path';
 import { FiveSDK } from '../FiveSDK.js';
 import { FiveBytecode, FiveScriptSource } from '../types.js';
 import { TestDiscovery } from './TestDiscovery.js';
@@ -315,6 +315,11 @@ export class FiveTestRunner {
     const suites: TestSuite[] = [];
     const byFile = new Map<string, TestCase[]>();
     const loadedJsonSuites = new Set<string>();
+    const jsonSuitePaths = new Set(
+      discovered
+        .filter((test) => test.type === 'json-suite')
+        .map((test) => test.path)
+    );
 
     for (const test of discovered) {
       if (test.type === 'json-suite') {
@@ -324,13 +329,30 @@ export class FiveTestRunner {
         try {
           const content = await readFile(test.path, 'utf8');
           const data = JSON.parse(content);
-          const testCases = Array.isArray(data.tests || data.testCases)
-            ? (data.tests || data.testCases)
-            : [];
+          const rawCases = data.tests || data.testCases || [];
+          const testCases = Array.isArray(rawCases)
+            ? rawCases
+            : Object.entries(rawCases).map(([name, value]) => ({
+                name,
+                ...(typeof value === 'object' && value !== null ? value : {}),
+              }));
+          const inferredSource = data.source
+            ? join(dirname(test.path), data.source)
+            : test.path.replace(/\.test\.json$/i, '.test.v');
+          const defaultSource = inferredSource;
+          const normalizedCases = testCases.map((testCase: any, idx: number) => {
+            const name = testCase.name || testCase.function || testCase.id || `test_${idx}`;
+            return {
+              ...testCase,
+              name,
+              source: testCase.source || defaultSource,
+              function: testCase.function || name,
+            };
+          });
           suites.push({
             name: data.name || basename(test.path, '.test.json'),
             description: data.description,
-            testCases
+            testCases: normalizedCases
           });
           loadedJsonSuites.add(test.path);
         } catch (error) {
@@ -340,6 +362,12 @@ export class FiveTestRunner {
       }
 
       if (test.type === 'v-source' && test.source) {
+        const jsonPath = test.path.endsWith('.test.v')
+          ? test.path.replace(/\.test\.v$/i, '.test.json')
+          : test.path.replace(/\.v$/i, '.test.json');
+        if (jsonSuitePaths.has(jsonPath)) {
+          continue;
+        }
         const cases = byFile.get(test.path) || [];
         cases.push({
           name: test.name,

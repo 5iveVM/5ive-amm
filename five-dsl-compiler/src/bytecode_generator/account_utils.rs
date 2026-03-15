@@ -82,7 +82,7 @@ pub fn has_account_attributes(attributes: &[Attribute]) -> bool {
     attributes.iter().any(|attr| {
         matches!(
             attr.name.as_str(),
-            "mut" | "signer" | "init" | "writable" | "owner"
+            "mut" | "signer" | "init" | "writable" | "owner" | "session"
         )
     })
 }

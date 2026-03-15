@@ -3,13 +3,13 @@ version = 1
 [[packages]]
 name = "e2e-interface-lib"
 version = "0.0.0"
-address = "111111131h1vYVSYuKP6AhS86fbRdMw9XHiZAvAaj"
+address = "1111111Af7Udc9v3L82dQM5b4zee1Xt77Be4czzbH"
 bytecode_hash = "deadbeef"
 deployed_at = "2026-01-01T00:00:00Z"
 
 [packages.exports]
-methods = ["transfer"]
+methods = ["transfer_checked"]
 
 [[packages.exports.interfaces]]
 name = "TokenOps"
-method_map = { "transfer" = "transfer" }
+method_map = { "transfer" = "transfer_checked" }
