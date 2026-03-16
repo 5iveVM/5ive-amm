@@ -122,7 +122,8 @@ export class BytecodeEncoder {
       }
 
       // Fallback: import the wasm-pack generated module for Node.js.
-      if (!wasmModule && typeof window === 'undefined' && typeof process !== 'undefined') {
+      const hasWindow = typeof (globalThis as { window?: unknown }).window !== 'undefined';
+      if (!wasmModule && !hasWindow && typeof process !== 'undefined') {
         console.log("[DEBUG] (SRC) Attempting wasm-pack module import...");
         try {
           const fs = await import('fs');
