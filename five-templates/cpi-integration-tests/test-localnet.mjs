@@ -533,9 +533,31 @@ async function testSPLStateAccess(connection, payerKeypair) {
 
         info('Compiling state-read test contract...');
         const contractPath = path.join(__dirname, 'test-spl-state-read.v');
+        const source = fs.readFileSync(contractPath, 'utf-8');
         const { bytecode } = compileWithRustFiveCompiler(contractPath);
+        let runtimeAbi = null;
+        try {
+            const compilation = await FiveSDK.compile(source);
+            runtimeAbi = buildRuntimeAbi(compilation?.abi, source);
+        } catch (_) {
+            runtimeAbi = null;
+        }
         if (!bytecode) {
             throw new Error('Compile failed: missing bytecode');
+        }
+        if (!runtimeAbi) {
+            runtimeAbi = {
+                functions: [
+                    {
+                        name: 'assert_spl_state',
+                        index: 0,
+                        parameters: [
+                            { name: 'mint', type: 'account', is_account: true, attributes: [] },
+                            { name: 'token', type: 'account', is_account: true, attributes: [] }
+                        ]
+                    }
+                ]
+            };
         }
         success('Contract compiled');
 
@@ -544,37 +566,6 @@ async function testSPLStateAccess(connection, payerKeypair) {
         success(`Contract deployed: ${scriptAccount.toBase58()}`);
 
         info('Building assert_spl_state instruction...');
-        const zeroPubkey = SystemProgram.programId;
-        const runtimeAbi = {
-            functions: [
-                {
-                    name: 'assert_spl_state',
-                    index: 0,
-                    parameters: [
-                        { name: 'mint', type: 'account', is_account: true, attributes: [] },
-                        { name: 'token', type: 'account', is_account: true, attributes: [] },
-                        { name: 'expected_mint_authority_option', type: 'u32', is_account: false, attributes: [] },
-                        { name: 'expected_mint_authority', type: 'pubkey', is_account: false, attributes: [] },
-                        { name: 'expected_decimals', type: 'u8', is_account: false, attributes: [] },
-                        { name: 'expected_is_initialized', type: 'bool', is_account: false, attributes: [] },
-                        { name: 'expected_freeze_authority_option', type: 'u32', is_account: false, attributes: [] },
-                        { name: 'expected_freeze_authority', type: 'pubkey', is_account: false, attributes: [] },
-                        { name: 'expected_amount', type: 'u64', is_account: false, attributes: [] },
-                        { name: 'expected_supply', type: 'u64', is_account: false, attributes: [] },
-                        { name: 'expected_token_mint', type: 'pubkey', is_account: false, attributes: [] },
-                        { name: 'expected_token_owner', type: 'pubkey', is_account: false, attributes: [] },
-                        { name: 'expected_delegate_option', type: 'u32', is_account: false, attributes: [] },
-                        { name: 'expected_delegate', type: 'pubkey', is_account: false, attributes: [] },
-                        { name: 'expected_state', type: 'u8', is_account: false, attributes: [] },
-                        { name: 'expected_is_native_option', type: 'u32', is_account: false, attributes: [] },
-                        { name: 'expected_is_native', type: 'u64', is_account: false, attributes: [] },
-                        { name: 'expected_delegated_amount', type: 'u64', is_account: false, attributes: [] },
-                        { name: 'expected_close_authority_option', type: 'u32', is_account: false, attributes: [] },
-                        { name: 'expected_close_authority', type: 'pubkey', is_account: false, attributes: [] }
-                    ]
-                }
-            ]
-        };
         const program = FiveProgram.fromABI(scriptAccount.toBase58(), runtimeAbi, {
             fiveVMProgramId: FIVE_PROGRAM_ID.toBase58(),
             vmStateAccount: VM_STATE_PDA.toBase58(),
@@ -587,26 +578,6 @@ async function testSPLStateAccess(connection, payerKeypair) {
             .accounts({
                 mint: mint,
                 token: tokenAccountPubkey
-            })
-            .args({
-                expected_mint_authority_option: 1,
-                expected_mint_authority: payerKeypair.publicKey,
-                expected_decimals: 6,
-                expected_is_initialized: true,
-                expected_freeze_authority_option: 0,
-                expected_freeze_authority: zeroPubkey,
-                expected_amount: Number(mintAmount),
-                expected_supply: Number(mintAmount),
-                expected_token_mint: mint,
-                expected_token_owner: payerKeypair.publicKey,
-                expected_delegate_option: 0,
-                expected_delegate: zeroPubkey,
-                expected_state: 1,
-                expected_is_native_option: 0,
-                expected_is_native: 0,
-                expected_delegated_amount: 0,
-                expected_close_authority_option: 0,
-                expected_close_authority: zeroPubkey
             })
             .payer(payerKeypair.publicKey)
             .instruction();

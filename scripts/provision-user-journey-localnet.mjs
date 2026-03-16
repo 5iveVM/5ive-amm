@@ -15,7 +15,8 @@ const targets = [
   {
     key: 'token',
     envName: 'FIVE_TOKEN_SCRIPT_ACCOUNT',
-    projectDir: path.join(ROOT_DIR, '5ive-token'),
+    // SDK validator token scenarios are authored against the template ABI/contract.
+    projectDir: path.join(ROOT_DIR, 'five-templates', 'token'),
   },
   {
     key: 'amm',

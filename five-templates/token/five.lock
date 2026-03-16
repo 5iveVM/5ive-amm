@@ -3,9 +3,9 @@ version = 1
 [[packages]]
 name = "five-token-template"
 version = "0.0.0"
-address = "9iDwHioQVe3n5VYD53z3cx3FY7RksWb3permuSJN9dqX"
+address = "6WxFfDXmY5odFhtd6YN6FD9LHeJzoLAvUCSbJpk6REcL"
 bytecode_hash = "b58bfed4abb0afc58269e3d3ba2ee8f9f2a6b151143b192d2b4d546198f0b6a8"
-deployed_at = "2026-03-07T04:57:08.532Z"
+deployed_at = "2026-03-16T02:23:32.689Z"
 
   [packages.exports]
   methods = [
