@@ -37,7 +37,7 @@ impl TypeCheckerContext {
     fn is_account_param_type(&self, type_node: &TypeNode) -> bool {
         match type_node {
             TypeNode::Account => true,
-            TypeNode::Named(name) => self.is_named_account_type_name(name),
+            TypeNode::Named(name) => self.is_named_account_type_name(name) || name.contains("::"),
             _ => false,
         }
     }
@@ -558,59 +558,31 @@ impl TypeCheckerContext {
                         if !is_account_param {
                             return Err(VMError::TypeMismatch);
                         }
-                        let has_keyed_args =
-                            attr.args
-                                .iter()
-                                .any(|arg| matches!(arg, AstNode::Assignment { .. }));
-                        if !has_keyed_args
-                            && !attr.args.is_empty()
-                            && session_support::session_deprecation_warnings_enabled()
-                        {
-                            eprintln!(
-                                "warning: positional @session(...) arguments are deprecated; use keyed arguments"
-                            );
+                        let has_keyed_args = attr
+                            .args
+                            .iter()
+                            .all(|arg| matches!(arg, AstNode::Assignment { .. }));
+                        if !has_keyed_args && !attr.args.is_empty() {
+                            return Err(VMError::InvalidInstruction);
                         }
 
                         let is_legacy_session_param = session_support::is_session_type(param);
-                        if is_legacy_session_param
-                            && session_support::session_deprecation_warnings_enabled()
-                        {
-                            eprintln!(
-                                "warning: applying @session on a dedicated Session parameter is deprecated; attach @session to the authority/owner account parameter instead"
-                            );
+                        if is_legacy_session_param {
+                            // Immediate break: dedicated Session @session params are no longer supported.
+                            return Err(VMError::InvalidInstruction);
                         }
 
-                        let delegate_name = match Self::session_attr_value(attr, "delegate", 0) {
-                            Some(AstNode::Identifier(name)) => name.clone(),
-                            _ if !is_legacy_session_param => {
-                                session_support::IMPLICIT_DELEGATE_PARAM_NAME.to_string()
-                            }
-                            _ => return Err(VMError::InvalidInstruction),
-                        };
-                        let authority_name = if is_legacy_session_param {
-                            match Self::session_attr_value(attr, "authority", 1) {
-                                Some(AstNode::Identifier(name)) => name.clone(),
-                                _ => return Err(VMError::InvalidInstruction),
-                            }
-                        } else if let Some(AstNode::Identifier(name)) =
-                            Self::session_attr_value(attr, "authority", 1)
+                        let authority_name = if let Some(AstNode::Identifier(name)) =
+                            Self::session_attr_value(attr, "authority", 0)
                         {
                             name.clone()
                         } else {
                             param.name.clone()
                         };
 
-                        if delegate_name != session_support::IMPLICIT_DELEGATE_PARAM_NAME {
-                            let Some(delegate_param) =
-                                parameters
-                                    .iter()
-                                    .find(|p| p.name == delegate_name.as_str())
-                            else {
-                                return Err(VMError::InvalidScript);
-                            };
-                            if !self.is_account_param_type(&delegate_param.param_type) {
-                                return Err(VMError::TypeMismatch);
-                            }
+                        if Self::session_attr_value(attr, "delegate", 0).is_some() {
+                            // Identity is sourced from the owner/authority slot only.
+                            return Err(VMError::InvalidInstruction);
                         }
 
                         let Some(authority_param) =
@@ -647,17 +619,17 @@ impl TypeCheckerContext {
                         }
 
                         for (key, pos) in [
-                            ("target_program", 2usize),
-                            ("scope_hash", 3usize),
-                            ("bind_account", 4usize),
-                            ("nonce", 5usize),
-                            ("nonce_field", 5usize),
-                            ("current_slot", 6usize),
-                            ("manager_script_account", 7usize),
-                            ("manager_script", 7usize),
-                            ("manager_code_hash", 8usize),
-                            ("manager_hash", 8usize),
-                            ("manager_version", 9usize),
+                            ("target_program", 1usize),
+                            ("scope_hash", 2usize),
+                            ("bind_account", 3usize),
+                            ("nonce", 4usize),
+                            ("nonce_field", 4usize),
+                            ("current_slot", 5usize),
+                            ("manager_script_account", 6usize),
+                            ("manager_script", 6usize),
+                            ("manager_code_hash", 7usize),
+                            ("manager_hash", 7usize),
+                            ("manager_version", 8usize),
                         ] {
                             if let Some(arg) = Self::session_attr_value(attr, key, pos) {
                                 match arg {

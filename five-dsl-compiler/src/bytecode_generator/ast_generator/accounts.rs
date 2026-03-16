@@ -101,7 +101,11 @@ impl ASTGenerator {
                 .map(|s| s.get_account_registry());
             let mut account_ordinal: u8 = 0;
             for param in params.iter() {
-                let is_account = super::super::account_utils::is_account_parameter(
+                // `@serializer(...)` parameters are account-like even when they do not
+                // carry @mut/@signer and their type name is namespaced (for example
+                // spl_token::Mint). They must still participate in account indexing.
+                let is_account = param.serializer.is_some()
+                    || super::super::account_utils::is_account_parameter(
                     &param.param_type,
                     &param.attributes,
                     registry,

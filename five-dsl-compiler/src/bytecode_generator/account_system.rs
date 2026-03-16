@@ -718,7 +718,10 @@ mod tests {
     #[test]
     fn test_account_system_creation() {
         let account_system = AccountSystem::new();
-        assert_eq!(account_system.account_registry.account_types.len(), 0);
+        assert!(
+            account_system.account_registry.account_types.len() >= 1,
+            "expected default account registry entries to be preloaded"
+        );
         assert!(account_system.zerocopy_enabled);
         assert_eq!(account_system.builtin_properties.len(), 4);
     }
@@ -811,6 +814,7 @@ mod tests {
     #[test]
     fn test_account_definition_processing() {
         let mut account_system = AccountSystem::new();
+        let initial_count = account_system.account_registry.account_types.len();
 
         let fields = vec![
             StructField {
@@ -832,7 +836,10 @@ mod tests {
             .unwrap();
 
         assert!(account_system.validate_account_type("CustomAccount"));
-        assert_eq!(account_system.account_registry.account_types.len(), 1);
+        assert_eq!(
+            account_system.account_registry.account_types.len(),
+            initial_count + 1
+        );
 
         let account_info = &account_system.account_registry.account_types["CustomAccount"];
         assert_eq!(account_info.fields.len(), 2);

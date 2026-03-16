@@ -49,7 +49,13 @@ pub fn is_account_type(type_node: &TypeNode, account_registry: Option<&AccountRe
 
             // Pattern-based detection: types ending with "Account"
             // This catches custom types like StateAccount, VaultAccount, UserAccount, etc.
-            name.ends_with("Account")
+            if name.ends_with("Account") {
+                return true;
+            }
+
+            // Namespaced interface account types (for example, spl_token::Mint)
+            // should participate in account detection and indexing.
+            name.contains("::")
         }
 
         TypeNode::Primitive(name) => {
@@ -82,7 +88,7 @@ pub fn has_account_attributes(attributes: &[Attribute]) -> bool {
     attributes.iter().any(|attr| {
         matches!(
             attr.name.as_str(),
-            "mut" | "signer" | "init" | "writable" | "owner" | "session"
+            "mut" | "signer" | "init" | "writable" | "owner" | "session" | "serializer"
         )
     })
 }

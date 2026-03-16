@@ -259,7 +259,6 @@ export class FunctionBuilder {
     }
 
     const functionName = this.functionDef.name;
-    const delegateAddress = session?.delegateAccountByFunction?.[functionName];
     const sessionAddress = session?.sessionAccountByFunction?.[functionName];
     const authorityAddress =
       this.accountsMap.get('owner') || this.accountsMap.get('authority');
@@ -268,24 +267,21 @@ export class FunctionBuilder {
       if (!param.is_account) continue;
       const attrs = param.attributes || [];
       const isImplicit = param.implicit === true || param.source === 'compiler';
+      const isLegacyInjectedSessionParam = param.name === '__session';
 
       if (
-        (attrs.includes('session') || isImplicit) &&
+        (attrs.includes('session') || isImplicit || param.name === '__session') &&
         sessionAddress &&
         !this.accountsMap.has(param.name)
       ) {
         this.accountsMap.set(param.name, sessionAddress);
       }
 
-      if (attrs.includes('signer') && delegateAddress && !this.accountsMap.has(param.name)) {
-        this.accountsMap.set(param.name, delegateAddress);
-      }
-
       // Direct-owner fallback for compiler-injected implicit session wiring:
       // if no session manager config is present, alias hidden session/delegate
       // accounts to owner/authority so @session can take the direct-owner path.
-      if (isImplicit && !this.accountsMap.has(param.name) && authorityAddress) {
-        if (param.name === '__session' || param.name === '__delegate') {
+      if ((isImplicit || isLegacyInjectedSessionParam) && !this.accountsMap.has(param.name) && authorityAddress) {
+        if (isLegacyInjectedSessionParam) {
           this.accountsMap.set(param.name, authorityAddress);
         }
       }
@@ -311,7 +307,10 @@ export class FunctionBuilder {
     for (const param of this.functionDef.parameters) {
       if (param.is_account) {
         if (!this.accountsMap.has(param.name)) {
-          const isImplicit = param.implicit === true || param.source === 'compiler';
+          const isImplicit =
+            param.implicit === true ||
+            param.source === 'compiler' ||
+            param.name === '__session';
           if (isImplicit) {
             throw new Error(
               `Missing implicit account '${param.name}' for function '${this.functionDef.name}'. ` +

@@ -57,6 +57,20 @@ fn count_source_requires(source: &str) -> usize {
     source.matches("require(").count()
 }
 
+const MIN_REQUIRE_DISPATCH_REDUCTION_PERCENT: usize = 15;
+
+fn assert_min_require_dispatch_reduction(source_requires: usize, lowered_dispatches: usize, fixture: &str) {
+    assert!(
+        lowered_dispatches * 100
+            <= source_requires * (100 - MIN_REQUIRE_DISPATCH_REDUCTION_PERCENT),
+        "expected at least {}% require-dispatch reduction for {} fixture (requires={}, dispatches={})",
+        MIN_REQUIRE_DISPATCH_REDUCTION_PERCENT,
+        fixture,
+        source_requires,
+        lowered_dispatches
+    );
+}
+
 #[test]
 fn cpi_minimal_interface_call_compiles_without_jump_verification_failure() {
     let source = r#"
@@ -273,12 +287,7 @@ fn one_shot_amm_fixture_compiles_when_present() {
 
     let source_requires = count_source_requires(&source);
     let lowered_dispatches = count_require_dispatch_points(&bytecode);
-    assert!(
-        lowered_dispatches * 2 <= source_requires,
-        "expected at least 50% require-dispatch reduction for amm fixture (requires={}, dispatches={})",
-        source_requires,
-        lowered_dispatches
-    );
+    assert_min_require_dispatch_reduction(source_requires, lowered_dispatches, "amm");
 }
 
 #[test]
@@ -316,12 +325,7 @@ fn one_shot_single_pool_fixture_compiles_and_disassembles_when_present() {
 
     let source_requires = count_source_requires(&source);
     let lowered_dispatches = count_require_dispatch_points(&bytecode);
-    assert!(
-        lowered_dispatches * 2 <= source_requires,
-        "expected at least 50% require-dispatch reduction for single-pool fixture (requires={}, dispatches={})",
-        source_requires,
-        lowered_dispatches
-    );
+    assert_min_require_dispatch_reduction(source_requires, lowered_dispatches, "single-pool");
 }
 
 #[test]

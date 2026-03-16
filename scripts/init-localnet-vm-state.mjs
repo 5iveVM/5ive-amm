@@ -18,8 +18,8 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const VM_STATE_SEED = Buffer.from('vm_state', 'utf-8');
 const INIT_INSTRUCTION = 0; // Initialize
-// VM state account base (56 bytes) + canonical service registry extension (160 bytes).
-const VM_STATE_SPACE = 216;
+// VM state account base (56 bytes) + session service script key (32 bytes).
+const VM_STATE_SPACE = 88;
 
 function parseArgs(argv) {
   const args = { network: 'localnet' };

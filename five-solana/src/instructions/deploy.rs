@@ -7,7 +7,6 @@ use pinocchio::{
     sysvars::Sysvar,
     ProgramResult,
 };
-use solana_nostd_sha256::hashv;
 
 use crate::{
     common::{
@@ -17,8 +16,8 @@ use crate::{
     },
     error::program_already_initialized_error,
     state::{
-        CanonicalServiceEntry, FIVEVMState, ScriptAccountHeader, SERVICE_KIND_NONE,
-        SERVICE_KIND_SESSION_V1, SERVICE_STATUS_ACTIVE, VM_STATE_TOTAL_LEN,
+        FIVEVMState, ScriptAccountHeader, SERVICE_KIND_NONE, SERVICE_KIND_SESSION_V1,
+        VM_STATE_TOTAL_LEN,
     },
 };
 
@@ -83,26 +82,8 @@ fn derive_service_pda(program_id: &Pubkey, service_kind: u8) -> Result<(Pubkey, 
     }
 }
 
-fn register_canonical_service(
-    vm_state_data: &mut [u8],
-    script_account: &Pubkey,
-    code_hash: [u8; 32],
-) -> ProgramResult {
-    let current = FIVEVMState::read_service_entry(vm_state_data, 0);
-    if current.status == SERVICE_STATUS_ACTIVE
-        && (current.script_account != *script_account || current.code_hash != code_hash)
-    {
-        FIVEVMState::write_service_entry(vm_state_data, 1, &current)?;
-    }
-
-    let next = CanonicalServiceEntry {
-        script_account: *script_account,
-        code_hash,
-        status: SERVICE_STATUS_ACTIVE,
-        manager_version: 1,
-        epoch: FIVEVMState::from_account_data(vm_state_data)?.script_count,
-    };
-    FIVEVMState::write_service_entry(vm_state_data, 0, &next)?;
+fn register_canonical_service(vm_state_data: &mut [u8], script_account: &Pubkey) -> ProgramResult {
+    FIVEVMState::write_session_service_key(vm_state_data, script_account)?;
     Ok(())
 }
 
@@ -405,8 +386,7 @@ pub fn deploy_with_service(
     script_data[metadata_end..metadata_end + bytecode.len()].copy_from_slice(bytecode);
 
     if service_kind == SERVICE_KIND_SESSION_V1 {
-        let code_hash = hashv(&[bytecode]);
-        register_canonical_service(vm_state_data, script_account.key(), code_hash)?;
+        register_canonical_service(vm_state_data, script_account.key())?;
     }
 
     Ok(())

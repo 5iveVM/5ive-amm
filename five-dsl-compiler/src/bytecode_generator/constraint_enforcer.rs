@@ -324,23 +324,16 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // Format:
-    // positional: @session(delegate, authority, target_program?, scope_hash?, bind_account?, nonce?, current_slot?, manager_script_account?, manager_code_hash?, manager_version?)
-    // keyed:      @session(delegate=..., authority=..., target_program=..., scope_hash=..., ...)
-    let delegate_name = match session_arg(attribute, "delegate", 0) {
-        Some(AstNode::Identifier(name)) => name,
-        _ => return Err(VMError::InvalidInstruction),
-    };
-    let authority_name = match session_arg(attribute, "authority", 1) {
+    // keyed-only canonical form:
+    // @session(authority=..., target_program=..., scope_hash=..., bind_account=..., nonce_field=..., ...)
+    let authority_name = match session_arg(attribute, "authority", 0) {
         Some(AstNode::Identifier(name)) => name,
         _ => return Err(VMError::InvalidInstruction),
     };
 
-    let (delegate_idx, delegate_param) = resolve_parameter(all_parameters, delegate_name)?;
     let (authority_idx, authority_param) = resolve_parameter(all_parameters, authority_name)?;
 
-    if !is_account_param(delegate_param, account_registry)
-        || !is_account_param(authority_param, account_registry)
-    {
+    if !is_account_param(authority_param, account_registry) {
         return Err(VMError::TypeMismatch);
     }
 
@@ -377,21 +370,8 @@ fn emit_session_check<T: OpcodeEmitter>(
         emitter.emit_u8(1); // v1
     }
 
-    // delegate field == delegate account key
+    // delegate field == owner/authority account key
     if let Ok(offset) = session_field_offset(session_param, account_registry, "delegate") {
-        emit_field_eq_param(
-            emitter,
-            session_account_idx,
-            offset,
-            delegate_idx,
-            delegate_param,
-            all_parameters,
-            account_registry,
-        )?;
-    }
-
-    // authority field == authority account key
-    if let Ok(offset) = session_field_offset(session_param, account_registry, "authority") {
         emit_field_eq_param(
             emitter,
             session_account_idx,
@@ -405,7 +385,7 @@ fn emit_session_check<T: OpcodeEmitter>(
 
     // Optional args map by position.
     // target_program field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "target_program", 2) {
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "target_program", 1) {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "target_program") {
             emit_field_eq_param(
@@ -421,8 +401,8 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // manager_script_account field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_script_account", 7)
-        .or_else(|| session_arg(attribute, "manager_script", 7))
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_script_account", 6)
+        .or_else(|| session_arg(attribute, "manager_script", 6))
     {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) =
@@ -441,8 +421,8 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // manager_code_hash field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_code_hash", 8)
-        .or_else(|| session_arg(attribute, "manager_hash", 8))
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_code_hash", 7)
+        .or_else(|| session_arg(attribute, "manager_hash", 7))
     {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "manager_code_hash")
@@ -460,7 +440,7 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // manager_version field == param or numeric literal
-    if let Some(arg) = session_arg(attribute, "manager_version", 9) {
+    if let Some(arg) = session_arg(attribute, "manager_version", 8) {
         if let Ok(offset) = session_field_offset(session_param, account_registry, "manager_version") {
             match arg {
                 AstNode::Identifier(name) => {
@@ -500,7 +480,7 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // scope_hash field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "scope_hash", 3) {
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "scope_hash", 2) {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "scope_hash") {
             emit_field_eq_param(
@@ -516,7 +496,7 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // bind_account field == param (if provided)
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "bind_account", 4) {
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "bind_account", 3) {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "bind_account") {
             emit_field_eq_param(
@@ -532,8 +512,8 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // nonce field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "nonce", 5)
-        .or_else(|| session_arg(attribute, "nonce_field", 5))
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "nonce", 4)
+        .or_else(|| session_arg(attribute, "nonce_field", 4))
     {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "nonce") {
@@ -550,7 +530,7 @@ fn emit_session_check<T: OpcodeEmitter>(
     }
 
     // expires_at_slot >= current_slot (if provided)
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "current_slot", 6) {
+    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "current_slot", 5) {
         let (slot_idx, _) = resolve_parameter(all_parameters, name)?;
         if let Ok(offset) = session_field_offset(session_param, account_registry, "expires_at_slot")
         {
@@ -784,10 +764,6 @@ mod tests {
                     name: "session".to_string(),
                     args: vec![
                         AstNode::Assignment {
-                            target: "delegate".to_string(),
-                            value: Box::new(AstNode::Identifier("delegate".to_string())),
-                        },
-                        AstNode::Assignment {
                             target: "authority".to_string(),
                             value: Box::new(AstNode::Identifier("authority".to_string())),
                         },
@@ -941,7 +917,6 @@ mod tests {
                     ],
                 }],
             ),
-            mk_param("delegate", TypeNode::Account, vec![]),
             mk_param("authority", TypeNode::Account, vec![]),
             mk_param("manager_script", TypeNode::Account, vec![]),
             mk_param("manager_hash", TypeNode::Account, vec![]),
@@ -956,7 +931,7 @@ mod tests {
             .filter(|b| **b == REQUIRE_OWNER)
             .count();
         assert!(
-            require_owner_count >= 4,
+            require_owner_count >= 3,
             "expected manager provenance pubkey checks to emit REQUIRE_OWNER; got {}",
             require_owner_count
         );

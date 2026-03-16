@@ -1,0 +1,12 @@
+version = 1
+
+[[packages]]
+name = "five-session-manager-template"
+version = "0.0.0"
+address = "8k2ctQ5dFfD1e2WsBBr5ULhxyvbaoPyycENLnDyFhLiD"
+bytecode_hash = "f19e4e324e2775f16fd4f1c0a3ac427f263ab80a4eff45216e7be0b795cbbb68"
+deployed_at = "2026-03-15T21:45:17.964Z"
+
+  [packages.exports]
+  methods = [ "create_session", "revoke_session" ]
+  interfaces = [ ]

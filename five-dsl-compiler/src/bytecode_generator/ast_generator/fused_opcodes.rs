@@ -3,6 +3,7 @@
 use super::super::OpcodeEmitter;
 use super::types::ASTGenerator;
 use crate::ast::AstNode;
+use crate::session_support;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
@@ -69,6 +70,43 @@ impl ASTGenerator {
         if let Some((acc_idx, signer_idx, offset)) =
             self.match_pubkey_field_eq_account_key(condition)
         {
+            if let Some((session_idx, session_delegate_offset, session_authority_offset)) =
+                self.resolve_session_owner_context(signer_idx)
+            {
+                // Owner-or-session check:
+                // 1) direct owner key equality passes immediately
+                // 2) otherwise require delegated session:
+                //    session.delegate == signer.key
+                //    session.authority == business-owner field
+                emitter.emit_opcode(LOAD_FIELD);
+                emitter.emit_u8(acc_idx);
+                emitter.emit_u32(offset);
+                emitter.emit_opcode(GET_KEY);
+                emitter.emit_u8(signer_idx);
+                emitter.emit_opcode(EQ);
+                emitter.emit_opcode(JUMP_IF);
+                let bypass_patch_pos = emitter.get_position();
+                emitter.emit_u16(0);
+
+                emitter.emit_opcode(LOAD_FIELD);
+                emitter.emit_u8(session_idx);
+                emitter.emit_u32(session_delegate_offset);
+                emitter.emit_opcode(GET_KEY);
+                emitter.emit_u8(signer_idx);
+                emitter.emit_opcode(EQ);
+                emitter.emit_opcode(REQUIRE);
+
+                emitter.emit_opcode(REQUIRE_EQ_PUBKEY);
+                emitter.emit_u8(session_idx);
+                emitter.emit_u32(session_authority_offset);
+                emitter.emit_u8(acc_idx);
+                emitter.emit_u32(offset);
+
+                let bypass_target = emitter.get_position();
+                emitter.patch_u16(bypass_patch_pos, bypass_target as u16);
+                return Ok(true);
+            }
+
             #[cfg(debug_assertions)]
             println!(
                 "FUSED_DEBUG: EMITTING REQUIRE_OWNER! acc={} signer={} offset={}",
@@ -1058,5 +1096,51 @@ impl ASTGenerator {
             }
         }
         None
+    }
+
+    fn resolve_session_owner_context(&self, signer_idx: u8) -> Option<(u8, u32, u32)> {
+        let params = self.current_function_parameters.as_ref()?;
+        let session_param = params
+            .iter()
+            .find(|param| param.name == session_support::IMPLICIT_SESSION_PARAM_NAME)?;
+        let session_attr = session_param
+            .attributes
+            .iter()
+            .find(|attr| attr.name == "session")?;
+
+        let authority_name = session_attr.args.iter().find_map(|arg| match arg {
+            AstNode::Assignment { target, value } if target == "authority" => {
+                if let AstNode::Identifier(name) = value.as_ref() {
+                    Some(name.as_str())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })?;
+
+        let authority_idx = self.resolve_account_param_by_name(authority_name)?;
+        if authority_idx != signer_idx {
+            return None;
+        }
+
+        let session_idx = self.resolve_account_param_by_name(&session_param.name)?;
+        let session_field_type = self.local_symbol_table.get(&session_param.name)?.field_type.clone();
+        let session_delegate_offset = self
+            .calculate_account_field_offset(
+                &session_field_type,
+                "delegate",
+                &session_param.name,
+            )
+            .ok()?;
+        let session_authority_offset = self
+            .calculate_account_field_offset(
+                &session_field_type,
+                "authority",
+                &session_param.name,
+            )
+            .ok()?;
+
+        Some((session_idx, session_delegate_offset, session_authority_offset))
     }
 }

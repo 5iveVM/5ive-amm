@@ -266,7 +266,6 @@ describe('FunctionBuilder', () => {
             parameters: [
               { name: 'match_state', type: 'Account', is_account: true, attributes: ['mut'] },
               { name: 'authority', type: 'Account', is_account: true, attributes: [] },
-              { name: 'delegate', type: 'Account', is_account: true, attributes: ['signer'] },
               { name: '__session', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: ['session'] },
               { name: 'cell_index', type: 'u64', is_account: false, attributes: [] },
             ],
@@ -298,7 +297,7 @@ describe('FunctionBuilder', () => {
       expect(instruction.keys.some((k) => k.pubkey === FROM_ACCOUNT)).toBe(true);
     });
 
-    it('falls back to owner for implicit __session/__delegate in direct mode', async () => {
+    it('falls back to owner for implicit __session in direct mode', async () => {
       const sessionAbi: ScriptABI = {
         name: 'BoardGames',
         functions: [
@@ -308,7 +307,6 @@ describe('FunctionBuilder', () => {
             parameters: [
               { name: 'match_state', type: 'Account', is_account: true, attributes: ['mut'] },
               { name: 'owner', type: 'Account', is_account: true, attributes: [] },
-              { name: '__delegate', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: [] },
               { name: '__session', type: 'Account', is_account: true, implicit: true, source: 'compiler', attributes: ['session'] },
               { name: 'cell_index', type: 'u64', is_account: false, attributes: [] },
             ],

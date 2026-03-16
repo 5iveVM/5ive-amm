@@ -5,37 +5,14 @@ use pinocchio::program_error::ProgramError;
 use pinocchio::pubkey::Pubkey;
 
 pub const SCRIPT_ACCOUNT_HEADER_LEN: usize = 64;
-pub const SERVICE_REGISTRY_SLOT_COUNT: usize = 2; // active + previous
-pub const SERVICE_REGISTRY_ENTRY_LEN: usize = 80;
-pub const VM_SERVICE_REGISTRY_OFFSET: usize = 56;
-pub const VM_STATE_TOTAL_LEN: usize =
-    VM_SERVICE_REGISTRY_OFFSET + (SERVICE_REGISTRY_SLOT_COUNT * SERVICE_REGISTRY_ENTRY_LEN);
+pub const VM_SESSION_SERVICE_OFFSET: usize = 56;
+pub const VM_STATE_TOTAL_LEN: usize = VM_SESSION_SERVICE_OFFSET + 32;
+pub const LEGACY_VM_STATE_TOTAL_LEN: usize = 216;
+pub const INTERMEDIATE_VM_STATE_TOTAL_LEN: usize = 152;
+pub const COMPACT_REGISTRY_VM_STATE_TOTAL_LEN: usize = 120;
 
 pub const SERVICE_KIND_NONE: u8 = 0;
 pub const SERVICE_KIND_SESSION_V1: u8 = 1;
-pub const SERVICE_STATUS_DISABLED: u8 = 0;
-pub const SERVICE_STATUS_ACTIVE: u8 = 1;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct CanonicalServiceEntry {
-    pub script_account: Pubkey,
-    pub code_hash: [u8; 32],
-    pub status: u8,
-    pub manager_version: u8,
-    pub epoch: u64,
-}
-
-impl Default for CanonicalServiceEntry {
-    fn default() -> Self {
-        Self {
-            script_account: Pubkey::default(),
-            code_hash: [0u8; 32],
-            status: SERVICE_STATUS_DISABLED,
-            manager_version: 0,
-            epoch: 0,
-        }
-    }
-}
 
 /// VM state account that tracks initialization and deployed scripts.
 #[repr(C)]
@@ -128,58 +105,38 @@ impl FIVEVMState {
         Ok(state)
     }
 
-    #[inline(always)]
-    pub fn service_registry_slot_offset(slot: usize) -> Option<usize> {
-        if slot >= SERVICE_REGISTRY_SLOT_COUNT {
-            return None;
+    pub fn read_session_service_key(data: &[u8]) -> Pubkey {
+        if data.len() < VM_SESSION_SERVICE_OFFSET + 32 {
+            return Pubkey::default();
         }
-        Some(VM_SERVICE_REGISTRY_OFFSET + (slot * SERVICE_REGISTRY_ENTRY_LEN))
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&data[VM_SESSION_SERVICE_OFFSET..VM_SESSION_SERVICE_OFFSET + 32]);
+        Pubkey::from(key)
     }
 
-    pub fn read_service_entry(data: &[u8], slot: usize) -> CanonicalServiceEntry {
-        let Some(offset) = Self::service_registry_slot_offset(slot) else {
-            return CanonicalServiceEntry::default();
-        };
-        if data.len() < offset + SERVICE_REGISTRY_ENTRY_LEN {
-            return CanonicalServiceEntry::default();
-        }
-
-        let mut script = [0u8; 32];
-        script.copy_from_slice(&data[offset..offset + 32]);
-        let mut hash = [0u8; 32];
-        hash.copy_from_slice(&data[offset + 32..offset + 64]);
-        let status = data[offset + 64];
-        let manager_version = data[offset + 65];
-        let mut epoch_bytes = [0u8; 8];
-        epoch_bytes.copy_from_slice(&data[offset + 72..offset + 80]);
-
-        CanonicalServiceEntry {
-            script_account: Pubkey::from(script),
-            code_hash: hash,
-            status,
-            manager_version,
-            epoch: u64::from_le_bytes(epoch_bytes),
-        }
-    }
-
-    pub fn write_service_entry(
-        data: &mut [u8],
-        slot: usize,
-        entry: &CanonicalServiceEntry,
-    ) -> Result<(), ProgramError> {
-        let Some(offset) = Self::service_registry_slot_offset(slot) else {
-            return Err(ProgramError::InvalidInstructionData);
-        };
-        if data.len() < offset + SERVICE_REGISTRY_ENTRY_LEN {
+    pub fn write_session_service_key(data: &mut [u8], key: &Pubkey) -> Result<(), ProgramError> {
+        if data.len() < VM_SESSION_SERVICE_OFFSET + 32 {
             return Err(ProgramError::AccountDataTooSmall);
         }
+        data[VM_SESSION_SERVICE_OFFSET..VM_SESSION_SERVICE_OFFSET + 32]
+            .copy_from_slice(key.as_ref());
+        Ok(())
+    }
 
-        data[offset..offset + 32].copy_from_slice(entry.script_account.as_ref());
-        data[offset + 32..offset + 64].copy_from_slice(&entry.code_hash);
-        data[offset + 64] = entry.status;
-        data[offset + 65] = entry.manager_version;
-        data[offset + 66..offset + 72].fill(0);
-        data[offset + 72..offset + 80].copy_from_slice(&entry.epoch.to_le_bytes());
+    pub fn extract_legacy_session_service_key(data: &[u8]) -> Pubkey {
+        if data.len() < VM_SESSION_SERVICE_OFFSET + 32 {
+            return Pubkey::default();
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&data[VM_SESSION_SERVICE_OFFSET..VM_SESSION_SERVICE_OFFSET + 32]);
+        Pubkey::from(key)
+    }
+
+    pub fn clear_session_service_key(data: &mut [u8]) -> Result<(), ProgramError> {
+        if data.len() < VM_SESSION_SERVICE_OFFSET + 32 {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        data[VM_SESSION_SERVICE_OFFSET..VM_SESSION_SERVICE_OFFSET + 32].fill(0);
         Ok(())
     }
 }
@@ -610,6 +567,18 @@ mod tests {
         let id2 = vm_state.create_script_id();
         assert_eq!(id2, 1);
         assert_eq!(vm_state.script_count, 2);
+    }
+
+    #[test]
+    fn test_extract_legacy_session_service_key() {
+        let expected = Pubkey::from([9u8; 32]);
+        let mut data = vec![0u8; LEGACY_VM_STATE_TOTAL_LEN];
+        data[VM_SESSION_SERVICE_OFFSET..VM_SESSION_SERVICE_OFFSET + 32]
+            .copy_from_slice(expected.as_ref());
+        assert_eq!(
+            FIVEVMState::extract_legacy_session_service_key(&data),
+            expected
+        );
     }
 
     #[test]

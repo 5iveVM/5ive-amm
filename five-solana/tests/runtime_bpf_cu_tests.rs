@@ -3314,7 +3314,8 @@ async fn scenario_high_cpi_density_bpf_compute_units() {
         );
         return;
     }
-    let anchor_total = run_fixture_bpf_compute_units(&repo_root, &anchor_fixture, Some(120_000)).await;
+    let anchor_total =
+        run_fixture_bpf_compute_units(&repo_root, &anchor_fixture, Some(120_000)).await;
     let combined = spl_total.saturating_add(anchor_total);
     print_scenario_line("high_cpi_density", combined, combined);
     assert_no_regression(

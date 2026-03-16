@@ -132,7 +132,28 @@ fn request_count_changes_hash_path() {
 
 #[test]
 fn downstream_vrng_contract_compiles() {
-    let source = std::fs::read_to_string("/Users/ivmidable/Development/5ive-vrng-2/src/main.v")
-        .expect("read downstream vrng source");
+    let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("workspace root")
+        .to_path_buf();
+    let default_path = workspace_root
+        .parent()
+        .map(|p| p.join("5ive-vrng-2/src/main.v"));
+    let configured_path = std::env::var("FIVE_DOWNSTREAM_VRNG_PATH")
+        .ok()
+        .map(std::path::PathBuf::from);
+    let source_path = configured_path
+        .or(default_path)
+        .unwrap_or_else(|| std::path::PathBuf::from("5ive-vrng-2/src/main.v"));
+
+    if !source_path.exists() {
+        eprintln!(
+            "Skipping downstream vrng compile check; missing {}",
+            source_path.display()
+        );
+        return;
+    }
+
+    let source = std::fs::read_to_string(&source_path).expect("read downstream vrng source");
     DslCompiler::compile_dsl(&source).expect("downstream vrng should compile");
 }

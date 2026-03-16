@@ -9,7 +9,7 @@ pub use deploy::{
     init_large_program_v2, initialize,
 };
 pub use execute::execute;
-pub use fees::{init_fee_vault, set_authority, set_fees, withdraw_script_fees};
+pub use fees::{init_fee_vault, migrate_vm_state, set_authority, set_fees, withdraw_script_fees};
 pub use verify::verify_bytecode_content;
 
 use pinocchio::{
@@ -98,6 +98,7 @@ pub enum FIVEInstruction<'a> {
     SetAuthority {
         new_authority: [u8; 32],
     },
+    MigrateVmState,
     Deploy {
         bytecode: &'a [u8],
         metadata: &'a [u8],
@@ -207,6 +208,12 @@ impl<'a> TryFrom<&'a [u8]> for FIVEInstruction<'a> {
                 let mut new_authority = [0u8; 32];
                 new_authority.copy_from_slice(&data[1..33]);
                 Ok(FIVEInstruction::SetAuthority { new_authority })
+            }
+            15 => {
+                if data.len() != 1 {
+                    return Err(ProgramError::InvalidInstructionData);
+                }
+                Ok(FIVEInstruction::MigrateVmState)
             }
             DEPLOY_INSTRUCTION => {
                 if data.len() < crate::instructions::deploy::MIN_DEPLOY_LEN {

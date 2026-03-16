@@ -315,11 +315,9 @@ mod deployment_tests {
         let non_admin_owner = key(42);
         let vm_key = canonical_vm_key(&program_id);
 
-        let (expected_service_pda, _) = five_vm_mito::utils::find_program_address_offchain(
-            &[b"session_v1"],
-            &program_id,
-        )
-        .expect("session_v1 service pda");
+        let (expected_service_pda, _) =
+            five_vm_mito::utils::find_program_address_offchain(&[b"session_v1"], &program_id)
+                .expect("session_v1 service pda");
 
         let mut vm_lamports = 0u64;
         let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];

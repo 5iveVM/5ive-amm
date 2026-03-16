@@ -1,7 +1,6 @@
 use crate::ast::{AstNode, Attribute, InstructionParameter, TypeNode};
 
 pub const IMPLICIT_SESSION_PARAM_NAME: &str = "__session";
-pub const IMPLICIT_DELEGATE_PARAM_NAME: &str = "__delegate";
 
 pub const SESSION_V1_FIELDS: [&str; 12] = [
     "authority",
@@ -65,16 +64,9 @@ fn session_arg<'a>(attribute: &'a Attribute, key: &str, pos: usize) -> Option<&'
 }
 
 pub fn inject_implicit_session_param(parameters: &[InstructionParameter]) -> Vec<InstructionParameter> {
-    let explicit_session_exists = parameters
-        .iter()
-        .any(|param| find_session_attribute(param).is_some() && is_session_type(param));
-    if explicit_session_exists {
-        return parameters.to_vec();
-    }
-
     let mut authority_param_name: Option<String> = None;
     let mut source_session_attr: Option<Attribute> = None;
-    let mut transformed: Vec<InstructionParameter> = Vec::with_capacity(parameters.len() + 2);
+    let mut transformed: Vec<InstructionParameter> = Vec::with_capacity(parameters.len() + 1);
 
     for param in parameters {
         let mut new_param = param.clone();
@@ -87,6 +79,15 @@ pub fn inject_implicit_session_param(parameters: &[InstructionParameter]) -> Vec
             }
             retained_attrs.push(attr.clone());
         }
+        // @session implies signer semantics on the authority/owner account.
+        if authority_param_name.as_deref() == Some(new_param.name.as_str())
+            && !retained_attrs.iter().any(|attr| attr.name == "signer")
+        {
+            retained_attrs.push(Attribute {
+                name: "signer".to_string(),
+                args: vec![],
+            });
+        }
         new_param.attributes = retained_attrs;
         transformed.push(new_param);
     }
@@ -95,45 +96,17 @@ pub fn inject_implicit_session_param(parameters: &[InstructionParameter]) -> Vec
         return parameters.to_vec();
     };
 
-    let mut delegate_name = match session_arg(&attribute, "delegate", 0) {
-        Some(AstNode::Identifier(name)) => Some(name.clone()),
-        _ => None,
-    };
-    if delegate_name.is_none()
-        && transformed.iter().any(|param| {
-            param.name == "delegate" && matches!(param.param_type, TypeNode::Account | TypeNode::Named(_))
-        })
-    {
-        delegate_name = Some("delegate".to_string());
-    }
-
-    if delegate_name.is_none() {
-        delegate_name = Some(IMPLICIT_DELEGATE_PARAM_NAME.to_string());
-        transformed.push(InstructionParameter {
-            name: IMPLICIT_DELEGATE_PARAM_NAME.to_string(),
-            param_type: TypeNode::Account,
-            is_optional: false,
-            default_value: None,
-            attributes: vec![],
-            is_init: false,
-            init_config: None,
-            serializer: None,
-            pda_config: None,
-        });
-    }
-
     let mut args: Vec<AstNode> = Vec::new();
     for (key, pos) in [
-        ("delegate", 0usize),
-        ("authority", 1usize),
-        ("target_program", 2usize),
-        ("scope_hash", 3usize),
-        ("bind_account", 4usize),
-        ("nonce_field", 5usize),
-        ("current_slot", 6usize),
-        ("manager_script_account", 7usize),
-        ("manager_code_hash", 8usize),
-        ("manager_version", 9usize),
+        ("authority", 0usize),
+        ("target_program", 1usize),
+        ("scope_hash", 2usize),
+        ("bind_account", 3usize),
+        ("nonce_field", 4usize),
+        ("current_slot", 5usize),
+        ("manager_script_account", 6usize),
+        ("manager_code_hash", 7usize),
+        ("manager_version", 8usize),
     ] {
         if let Some(value) = session_arg(&attribute, key, pos) {
             args.push(AstNode::Assignment {
@@ -141,12 +114,6 @@ pub fn inject_implicit_session_param(parameters: &[InstructionParameter]) -> Vec
                 value: Box::new(value.clone()),
             });
         }
-    }
-    if attr_value(&attribute, "delegate").is_none() {
-        args.push(AstNode::Assignment {
-            target: "delegate".to_string(),
-            value: Box::new(AstNode::Identifier(delegate_name.expect("delegate defaulted"))),
-        });
     }
     if attr_value(&attribute, "authority").is_none() {
         args.push(AstNode::Assignment {
@@ -220,7 +187,9 @@ mod tests {
         assert!(effective
             .iter()
             .any(|param| param.name == IMPLICIT_SESSION_PARAM_NAME));
+        assert!(!effective.iter().any(|param| param.name == "__delegate"));
         let authority = effective.iter().find(|param| param.name == "authority").unwrap();
         assert!(!authority.attributes.iter().any(|attr| attr.name == "session"));
+        assert!(authority.attributes.iter().any(|attr| attr.name == "signer"));
     }
 }

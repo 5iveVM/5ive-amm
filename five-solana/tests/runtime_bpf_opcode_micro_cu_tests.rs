@@ -728,8 +728,10 @@ async fn opcode_micro_session_auth_path_cold_single_bpf_cu() {
     let mut session_data = vec![0u8; 128];
     session_data[0..32].copy_from_slice(accounts["owner"].pubkey.as_ref());
     session_data[32..64].copy_from_slice(delegate.pubkey().as_ref());
-    session_data[status_offset as usize..(status_offset as usize + 8)].copy_from_slice(&1u64.to_le_bytes());
-    session_data[version_offset as usize..(version_offset as usize + 8)].copy_from_slice(&1u64.to_le_bytes());
+    session_data[status_offset as usize..(status_offset as usize + 8)]
+        .copy_from_slice(&1u64.to_le_bytes());
+    session_data[version_offset as usize..(version_offset as usize + 8)]
+        .copy_from_slice(&1u64.to_le_bytes());
     session_data[expires_offset as usize..(expires_offset as usize + 8)]
         .copy_from_slice(&10_000_000u64.to_le_bytes());
     session_data[target_program_offset as usize..(target_program_offset as usize + 32)]

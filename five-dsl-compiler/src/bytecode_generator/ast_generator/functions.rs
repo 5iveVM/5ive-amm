@@ -3,7 +3,7 @@
 use super::super::OpcodeEmitter;
 use super::assignments::{collect_byte_array_literal_bytes, fixed_u8_array_len};
 use super::types::ASTGenerator;
-use crate::ast::{AstNode, InstructionParameter, TypeNode};
+use crate::ast::{AstNode, Attribute, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
 use crate::type_checker::{InterfaceInfo, InterfaceMethod, InterfaceSerializer};
 use core::cmp::Ordering;
@@ -12,6 +12,91 @@ use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    fn synthetic_spl_token_interface(
+        method_name: &str,
+    ) -> Option<(InterfaceInfo, InterfaceMethod)> {
+        fn account_param(name: &str, is_authority: bool) -> InstructionParameter {
+            InstructionParameter {
+                name: name.to_string(),
+                param_type: TypeNode::Account,
+                is_optional: false,
+                default_value: None,
+                attributes: if is_authority {
+                    vec![Attribute {
+                        name: "authority".to_string(),
+                        args: vec![],
+                    }]
+                } else {
+                    vec![]
+                },
+                is_init: false,
+                init_config: None,
+                serializer: None,
+                pda_config: None,
+            }
+        }
+
+        fn u64_param(name: &str) -> InstructionParameter {
+            InstructionParameter {
+                name: name.to_string(),
+                param_type: TypeNode::Primitive("u64".to_string()),
+                is_optional: false,
+                default_value: None,
+                attributes: vec![],
+                is_init: false,
+                init_config: None,
+                serializer: None,
+                pda_config: None,
+            }
+        }
+
+        let (discriminator, parameters) = match method_name {
+            "transfer" => (
+                3u8,
+                vec![
+                    account_param("source", false),
+                    account_param("destination", false),
+                    account_param("authority", true),
+                    u64_param("amount"),
+                ],
+            ),
+            "mint_to" => (
+                7u8,
+                vec![
+                    account_param("mint", false),
+                    account_param("destination", false),
+                    account_param("authority", true),
+                    u64_param("amount"),
+                ],
+            ),
+            "burn" => (
+                8u8,
+                vec![
+                    account_param("source", false),
+                    account_param("mint", false),
+                    account_param("authority", true),
+                    u64_param("amount"),
+                ],
+            ),
+            _ => return None,
+        };
+
+        let interface_info = InterfaceInfo {
+            program_id: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+            serializer: InterfaceSerializer::Raw,
+            is_anchor: false,
+            methods: std::collections::HashMap::new(),
+        };
+        let method_info = InterfaceMethod {
+            discriminator,
+            discriminator_bytes: None,
+            is_anchor: false,
+            parameters,
+            return_type: None,
+        };
+        Some((interface_info, method_info))
+    }
+
     fn resolve_account_literal_offset(
         &self,
         account_arg: &AstNode,
@@ -335,6 +420,12 @@ impl ASTGenerator {
         args: &[AstNode],
     ) -> Result<(), VMError> {
         if let Some((qualifier, method_name)) = Self::parse_qualified_name(name) {
+            if qualifier.ends_with("::SPLToken") {
+                if let Some((info, method_info)) = Self::synthetic_spl_token_interface(method_name)
+                {
+                    return self.emit_interface_invoke(emitter, &info, &method_info, args);
+                }
+            }
             if let Some(interface_name) = self.resolve_qualified_interface_name(qualifier) {
                 if let Some(interface_info) = self.interface_registry.get(&interface_name) {
                     if let Some(interface_method) = interface_info.methods.get(method_name) {
@@ -700,7 +791,36 @@ impl ASTGenerator {
                 // Check for qualified function names like "math_lib::add"
                 // If the module is registered as external, emit CALL_EXTERNAL instead of CALL
                 if let Some((module_name, func_name)) = Self::parse_qualified_name(effective_name) {
-                    if let Some(ext_import) = self.external_imports.get(module_name) {
+                    let resolved_external_module = if self.external_imports.contains_key(module_name)
+                    {
+                        Some(module_name.to_string())
+                    } else {
+                        let module_root = module_name.split("::").next().unwrap_or(module_name);
+                        let mut candidates: Vec<String> = self
+                            .external_imports
+                            .keys()
+                            .filter(|key| {
+                                *key == module_name
+                                    || module_name.starts_with(&format!("{}::", key))
+                                    || key.ends_with(&format!("::{}", module_root))
+                                    || *key == module_root
+                            })
+                            .cloned()
+                            .collect();
+                        candidates.sort();
+                        candidates.dedup();
+                        if candidates.len() == 1 {
+                            Some(candidates.remove(0))
+                        } else {
+                            None
+                        }
+                    };
+
+                    if let Some(ext_module_key) = resolved_external_module {
+                        let ext_import = self
+                            .external_imports
+                            .get(&ext_module_key)
+                            .ok_or(VMError::InvalidScript)?;
                         let selector = if let Some(sel) = ext_import.functions.get(func_name) {
                             *sel
                         } else if ext_import.allow_any_function {
@@ -710,13 +830,24 @@ impl ASTGenerator {
                         };
 
                         let account_index = self.resolve_external_account_index(
-                            module_name,
+                            &ext_module_key,
                             ext_import.account_index,
                         )?;
 
                         // Found external import - emit CALL_EXTERNAL opcode.
                         // Keep selector as raw u16 for protocol/runtime compatibility.
                         // CALL_EXTERNAL format: opcode(1) + account_index(1) + selector(u16) + param_count(1)
+                        emitter.emit_opcode(CALL_EXTERNAL);
+                        emitter.emit_u8(account_index);
+                        emitter.emit_u16(selector);
+                        emitter.emit_u8(args.len() as u8);
+                        return Ok(());
+                    } else if module_name.ends_with("::SPLToken") {
+                        // Fallback for stdlib SPL interface calls when import-table registration
+                        // is unavailable in this compilation path.
+                        let selector = Self::external_selector(func_name);
+                        let module_root = module_name.split("::").next().unwrap_or(module_name);
+                        let account_index = self.resolve_external_account_index(module_root, 0)?;
                         emitter.emit_opcode(CALL_EXTERNAL);
                         emitter.emit_u8(account_index);
                         emitter.emit_u16(selector);
@@ -1156,7 +1287,8 @@ impl ASTGenerator {
 
         let mut account_ordinal: u8 = 0;
         for param in params.iter() {
-            let is_account = super::super::account_utils::is_account_parameter(
+            let is_account = param.serializer.is_some()
+                || super::super::account_utils::is_account_parameter(
                 &param.param_type,
                 &param.attributes,
                 registry,

@@ -55,6 +55,9 @@ mod tests {
         exec_data.extend_from_slice(&0u32.to_le_bytes());
         let exec_ix = FIVEInstruction::try_from(exec_data.as_slice()).unwrap();
         assert!(matches!(exec_ix, FIVEInstruction::Execute { .. }));
+
+        let migrate_ix = FIVEInstruction::try_from([15].as_slice()).unwrap();
+        assert!(matches!(migrate_ix, FIVEInstruction::MigrateVmState));
     }
 
     #[test]
@@ -69,6 +72,10 @@ mod tests {
         ));
         assert!(matches!(
             FIVEInstruction::try_from(&[DEPLOY_INSTRUCTION, 10, 0, 0][..]),
+            Err(ProgramError::InvalidInstructionData)
+        ));
+        assert!(matches!(
+            FIVEInstruction::try_from(&[15, 0][..]),
             Err(ProgramError::InvalidInstructionData)
         ));
     }

@@ -508,4 +508,72 @@ mod tests {
         assert_eq!(implicit.implicit, Some(true));
         assert_eq!(implicit.source.as_deref(), Some("compiler"));
     }
+
+    #[test]
+    fn test_session_constraint_does_not_emit_delegate_parameter() {
+        let mut generator = ABIGenerator::new();
+
+        let ast = AstNode::Program {
+            program_name: "session_test".to_string(),
+            field_definitions: vec![],
+            instruction_definitions: vec![AstNode::InstructionDefinition {
+                name: "play".to_string(),
+                visibility: crate::Visibility::Public,
+                is_public: true,
+                parameters: vec![
+                    InstructionParameter {
+                        name: "owner".to_string(),
+                        param_type: TypeNode::Account,
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![crate::ast::Attribute {
+                            name: "session".to_string(),
+                            args: vec![crate::ast::AstNode::Assignment {
+                                target: "nonce_field".to_string(),
+                                value: Box::new(crate::ast::AstNode::Identifier(
+                                    "nonce".to_string(),
+                                )),
+                            }],
+                        }],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                    InstructionParameter {
+                        name: "nonce".to_string(),
+                        param_type: TypeNode::Primitive("u64".to_string()),
+                        is_optional: false,
+                        default_value: None,
+                        attributes: vec![],
+                        is_init: false,
+                        init_config: None,
+                        serializer: None,
+                        pda_config: None,
+                    },
+                ],
+                return_type: None,
+                body: Box::new(AstNode::Block {
+                    statements: vec![],
+                    kind: BlockKind::Regular,
+                }),
+            }],
+            init_block: None,
+            constraints_block: None,
+            event_definitions: vec![],
+            account_definitions: vec![],
+            type_definitions: vec![],
+            interface_definitions: vec![],
+            import_statements: vec![],
+        };
+
+        let full_abi = generator.generate_five_abi(&ast).unwrap();
+        let play = full_abi
+            .functions
+            .iter()
+            .find(|func| func.name == "play")
+            .expect("play function exists");
+
+        assert!(!play.parameters.iter().any(|param| param.name == "__delegate"));
+    }
 }

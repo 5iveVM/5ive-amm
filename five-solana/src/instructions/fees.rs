@@ -10,13 +10,13 @@ use pinocchio::{
 
 use crate::{
     common::{
-        verify_hardcoded_fee_vault_account, verify_hardcoded_vm_state_account,
-        verify_program_owned, FEE_VAULT_SEED,
+        derive_canonical_vm_state_pda, verify_hardcoded_fee_vault_account,
+        verify_hardcoded_vm_state_account, verify_program_owned, FEE_VAULT_SEED,
     },
-    state::FIVEVMState,
+    state::{FIVEVMState, VM_STATE_TOTAL_LEN},
 };
 
-use super::{require_min_accounts, require_signer};
+use super::{require_min_accounts, require_signer, safe_realloc};
 
 pub const FEE_BYPASS_SHARD_INDEX: u8 = u8::MAX;
 
@@ -411,6 +411,63 @@ pub fn set_authority(
     Ok(())
 }
 
+/// Migrate VM state account to the latest layout and backfill required fields.
+/// Accounts: [vm_state, authority, payer]
+pub fn migrate_vm_state(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    require_min_accounts(accounts, 3)?;
+
+    let vm_state_account = &accounts[0];
+    let authority = &accounts[1];
+    let payer = &accounts[2];
+
+    verify_hardcoded_vm_state_account(vm_state_account, program_id)?;
+    verify_program_owned(vm_state_account, program_id)?;
+    require_signer(authority)?;
+    require_signer(payer)?;
+
+    {
+        // Validate authority against the invariant location at offset 0.
+        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+        if vm_state_data.len() < 32 {
+            return Err(ProgramError::AccountDataTooSmall);
+        }
+        let mut authority_bytes = [0u8; 32];
+        authority_bytes.copy_from_slice(&vm_state_data[..32]);
+        if authority_bytes != *authority.key() {
+            return Err(ProgramError::Custom(0)); // Unauthorized
+        }
+    }
+
+    let current_len = vm_state_account.data_len();
+    let preserved_session_service_key = {
+        let vm_state_data = unsafe { vm_state_account.borrow_data_unchecked() };
+        FIVEVMState::extract_legacy_session_service_key(&vm_state_data)
+    };
+
+    if current_len != VM_STATE_TOTAL_LEN {
+        safe_realloc(vm_state_account, payer, VM_STATE_TOTAL_LEN)?;
+    }
+
+    // SAFETY: The state account is program-owned and uniquely borrowed here.
+    let vm_state_data = unsafe { vm_state_account.borrow_mut_data_unchecked() };
+    let vm_state = FIVEVMState::from_account_data_mut(vm_state_data)?;
+
+    if !vm_state.is_initialized() {
+        return Err(ProgramError::Custom(7000));
+    }
+
+    let (_, canonical_bump) = derive_canonical_vm_state_pda(program_id)?;
+    vm_state.version = FIVEVMState::VERSION;
+    vm_state.vm_state_bump = canonical_bump;
+
+    if vm_state.fee_vault_shard_count == 0 {
+        vm_state.fee_vault_shard_count = FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT;
+    }
+    FIVEVMState::write_session_service_key(vm_state_data, &preserved_session_service_key)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -625,6 +682,171 @@ mod tests {
         assert_eq!(
             init_fee_vault(&program_id, &accounts, 0, fee_vault_bump),
             Err(ProgramError::InvalidArgument)
+        );
+    }
+
+    #[test]
+    fn migrate_vm_state_backfills_bump_and_default_shards() {
+        let program_id = Pubkey::from([41u8; 32]);
+        let (vm_key, canonical_bump) = crate::common::derive_canonical_vm_state_pda(&program_id)
+            .expect("canonical vm state pda");
+        let authority_key = Pubkey::from([42u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut authority_lamports = 1_000_000;
+        let mut payer_lamports = 1_000_000;
+        let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];
+        let mut authority_data = [];
+        let mut payer_data = [];
+
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice()).unwrap();
+            vm_state.initialize(authority_key, canonical_bump.wrapping_sub(1));
+            vm_state.fee_vault_shard_count = 0;
+        }
+
+        let vm_state_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            vm_data.as_mut_slice(),
+            &program_id,
+        );
+        let authority = create_account_info(
+            &authority_key,
+            true,
+            false,
+            &mut authority_lamports,
+            &mut authority_data,
+            &system_owner,
+        );
+        let payer = create_account_info(
+            &authority_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+
+        let accounts = [vm_state_account, authority, payer];
+        migrate_vm_state(&program_id, &accounts).expect("migration should succeed");
+
+        let data = accounts[0].try_borrow_data().unwrap();
+        let vm_state = FIVEVMState::from_account_data(&data).unwrap();
+        assert_eq!(vm_state.vm_state_bump, canonical_bump);
+        assert_eq!(
+            vm_state.fee_vault_shard_count,
+            FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT
+        );
+    }
+
+    #[test]
+    fn migrate_vm_state_rejects_wrong_authority() {
+        let program_id = Pubkey::from([51u8; 32]);
+        let (vm_key, canonical_bump) = crate::common::derive_canonical_vm_state_pda(&program_id)
+            .expect("canonical vm state pda");
+        let authority_key = Pubkey::from([52u8; 32]);
+        let wrong_authority_key = Pubkey::from([53u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut authority_lamports = 1_000_000;
+        let mut payer_lamports = 1_000_000;
+        let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];
+        let mut authority_data = [];
+        let mut payer_data = [];
+
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice()).unwrap();
+            vm_state.initialize(authority_key, canonical_bump);
+        }
+
+        let vm_state_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            vm_data.as_mut_slice(),
+            &program_id,
+        );
+        let authority = create_account_info(
+            &wrong_authority_key,
+            true,
+            false,
+            &mut authority_lamports,
+            &mut authority_data,
+            &system_owner,
+        );
+        let payer = create_account_info(
+            &wrong_authority_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+
+        let accounts = [vm_state_account, authority, payer];
+        assert_eq!(
+            migrate_vm_state(&program_id, &accounts),
+            Err(ProgramError::Custom(0))
+        );
+    }
+
+    #[test]
+    fn migrate_vm_state_rejects_uninitialized_state() {
+        let program_id = Pubkey::from([61u8; 32]);
+        let (vm_key, _canonical_bump) = crate::common::derive_canonical_vm_state_pda(&program_id)
+            .expect("canonical vm state pda");
+        let authority_key = Pubkey::from([62u8; 32]);
+        let system_owner = Pubkey::default();
+
+        let mut vm_lamports = 1_000_000;
+        let mut authority_lamports = 1_000_000;
+        let mut payer_lamports = 1_000_000;
+        let mut vm_data = vec![0u8; VM_STATE_TOTAL_LEN];
+        let mut authority_data = [];
+        let mut payer_data = [];
+
+        {
+            let vm_state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice()).unwrap();
+            vm_state.authority = authority_key;
+            vm_state.version = FIVEVMState::VERSION;
+            vm_state.is_initialized = 0;
+        }
+
+        let vm_state_account = create_account_info(
+            &vm_key,
+            false,
+            true,
+            &mut vm_lamports,
+            vm_data.as_mut_slice(),
+            &program_id,
+        );
+        let authority = create_account_info(
+            &authority_key,
+            true,
+            false,
+            &mut authority_lamports,
+            &mut authority_data,
+            &system_owner,
+        );
+        let payer = create_account_info(
+            &authority_key,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_owner,
+        );
+
+        let accounts = [vm_state_account, authority, payer];
+        assert_eq!(
+            migrate_vm_state(&program_id, &accounts),
+            Err(ProgramError::Custom(7000))
         );
     }
 }

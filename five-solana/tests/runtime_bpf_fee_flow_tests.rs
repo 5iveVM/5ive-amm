@@ -3,7 +3,7 @@ mod harness;
 use std::path::PathBuf;
 
 // Runtime behavior source-of-truth lives in ProgramTest (BPF), not RuntimeHarness.
-use five::state::{FIVEVMState, ScriptAccountHeader};
+use five::state::{FIVEVMState, ScriptAccountHeader, SERVICE_KIND_SESSION_V1, VM_STATE_TOTAL_LEN};
 use five_protocol::opcodes::HALT;
 use harness::addresses::{fee_vault_shard0_pda, vm_state_pda};
 use harness::fixtures::canonical_execute_payload;
@@ -544,5 +544,256 @@ async fn execute_fails_when_owner_cannot_pay_execute_fee() {
     assert_eq!(
         vault_after, vault_before,
         "fee vault must not receive partial fee"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn migrate_vm_state_reallocates_and_backfills_fields() {
+    let program_id = bpf_program_id();
+    let mut program_test = ProgramTest::new("five", program_id, None);
+
+    let authority = Keypair::new();
+    let migration_payer = Keypair::new();
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+
+    let mut vm_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice())
+            .expect("legacy vm_state layout");
+        state.initialize(authority.pubkey().to_bytes(), vm_bump.wrapping_sub(1));
+        state.fee_vault_shard_count = 0;
+    }
+
+    program_test.add_account(
+        authority.pubkey(),
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        migration_payer.pubkey(),
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        vm_state,
+        Account {
+            lamports: 10_000_000,
+            data: vm_data,
+            owner: program_id,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    let mut ctx = program_test.start_with_context().await;
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for migrate");
+
+    let migrate_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+            AccountMeta::new(migration_payer.pubkey(), true),
+        ],
+        data: vec![15], // MigrateVmState
+    };
+    let migrate_tx = Transaction::new_signed_with_payer(
+        &[migrate_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority, &migration_payer],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(migrate_tx)
+        .await
+        .expect("migrate vm_state must succeed");
+
+    let migrated = ctx
+        .banks_client
+        .get_account(vm_state)
+        .await
+        .expect("vm_state fetch should succeed")
+        .expect("vm_state should exist");
+
+    assert_eq!(
+        migrated.data.len(),
+        VM_STATE_TOTAL_LEN,
+        "migration should grow vm_state account to VM_STATE_TOTAL_LEN"
+    );
+    let state =
+        FIVEVMState::from_account_data(&migrated.data).expect("vm_state decode after migrate");
+    assert_eq!(
+        state.vm_state_bump, vm_bump,
+        "migration should backfill canonical vm_state bump"
+    );
+    assert_eq!(
+        state.fee_vault_shard_count,
+        FIVEVMState::DEFAULT_FEE_VAULT_SHARD_COUNT,
+        "migration should backfill shard count default"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn migrate_then_deploy_session_service_sets_session_key() {
+    let program_id = bpf_program_id();
+    let mut program_test = ProgramTest::new("five", program_id, None);
+
+    let authority = Keypair::new();
+    let migration_payer = Keypair::new();
+    let (vm_state, vm_bump) = vm_state_pda(&program_id);
+    let (fee_vault, _fee_vault_bump) = fee_vault_shard0_pda(&program_id);
+    let (session_script, _session_bump) =
+        Pubkey::find_program_address(&[b"session_v1"], &program_id);
+
+    let mut vm_data = vec![0u8; FIVEVMState::LEN];
+    {
+        let state = FIVEVMState::from_account_data_mut(vm_data.as_mut_slice())
+            .expect("legacy vm_state layout");
+        state.initialize(authority.pubkey().to_bytes(), vm_bump.wrapping_sub(1));
+    }
+
+    program_test.add_account(
+        authority.pubkey(),
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        migration_payer.pubkey(),
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        vm_state,
+        Account {
+            lamports: 10_000_000,
+            data: vm_data,
+            owner: program_id,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        fee_vault,
+        Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: program_id,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+    program_test.add_account(
+        session_script,
+        Account {
+            lamports: 0,
+            data: vec![],
+            owner: system_program::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    let mut ctx = program_test.start_with_context().await;
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for migrate");
+
+    let migrate_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+            AccountMeta::new(migration_payer.pubkey(), true),
+        ],
+        data: vec![15], // MigrateVmState
+    };
+    let migrate_tx = Transaction::new_signed_with_payer(
+        &[migrate_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority, &migration_payer],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(migrate_tx)
+        .await
+        .expect("migrate vm_state must succeed");
+
+    let bytecode = script_with_header(1, 1, &[HALT]);
+    let mut deploy_data = Vec::with_capacity(10 + bytecode.len() + 3);
+    deploy_data.push(five::instructions::DEPLOY_INSTRUCTION);
+    deploy_data.extend_from_slice(&(bytecode.len() as u32).to_le_bytes());
+    deploy_data.push(0); // permissions
+    deploy_data.extend_from_slice(&0u32.to_le_bytes()); // metadata len
+    deploy_data.extend_from_slice(&bytecode);
+    // trailer: shard_index + compat bump byte + service_kind
+    deploy_data.push(0);
+    deploy_data.push(0);
+    deploy_data.push(SERVICE_KIND_SESSION_V1);
+
+    ctx.last_blockhash = ctx
+        .banks_client
+        .get_latest_blockhash()
+        .await
+        .expect("latest blockhash for deploy");
+
+    let deploy_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(session_script, false),
+            AccountMeta::new(vm_state, false),
+            AccountMeta::new(authority.pubkey(), true),
+            AccountMeta::new(fee_vault, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: deploy_data,
+    };
+    let deploy_tx = Transaction::new_signed_with_payer(
+        &[deploy_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+    ctx.banks_client
+        .process_transaction(deploy_tx)
+        .await
+        .expect("session service deploy must succeed");
+
+    let vm_after = ctx
+        .banks_client
+        .get_account(vm_state)
+        .await
+        .expect("vm_state fetch should succeed")
+        .expect("vm_state should exist");
+    assert_eq!(vm_after.data.len(), VM_STATE_TOTAL_LEN);
+
+    assert_eq!(
+        FIVEVMState::read_session_service_key(&vm_after.data),
+        session_script.to_bytes()
     );
 }

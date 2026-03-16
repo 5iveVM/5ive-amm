@@ -169,6 +169,10 @@ fn process_administrative_instruction(
             debug_log!("Processing SetAuthority instruction");
             instructions::set_authority(program_id, accounts, Pubkey::from(new_authority))
         }
+        FIVEInstruction::MigrateVmState => {
+            debug_log!("Processing MigrateVmState instruction");
+            instructions::migrate_vm_state(program_id, accounts)
+        }
         FIVEInstruction::Deploy {
             bytecode,
             metadata,
