@@ -1054,12 +1054,55 @@ impl ASTGenerator {
         None
     }
 
+    fn resolve_account_field_type(&self, account_type: &str, field: &str) -> Option<String> {
+        let account_system = self.account_system.as_ref()?;
+        let registry = account_system.get_account_registry();
+
+        if let Some(info) = registry.account_types.get(account_type) {
+            if let Some(field_info) = info.fields.get(field) {
+                return Some(field_info.field_type.clone());
+            }
+        }
+
+        if account_type.contains("::") {
+            let qualified_suffix = format!("::{}", account_type);
+            if let Some((_, info)) = registry
+                .account_types
+                .iter()
+                .find(|(key, _)| key.ends_with(&qualified_suffix))
+            {
+                if let Some(field_info) = info.fields.get(field) {
+                    return Some(field_info.field_type.clone());
+                }
+            }
+        }
+
+        let tail = account_type.rsplit("::").next().unwrap_or(account_type);
+        let mut tail_matches = registry
+            .account_types
+            .iter()
+            .filter(|(key, _)| key.rsplit("::").next().unwrap_or(*key) == tail);
+        if let Some((_, info)) = tail_matches.next() {
+            if tail_matches.next().is_none() {
+                if let Some(field_info) = info.fields.get(field) {
+                    return Some(field_info.field_type.clone());
+                }
+            }
+        }
+
+        None
+    }
+
     /// Match a pubkey field access: account.owner, account.mint, account.delegate, etc.
     fn match_pubkey_field_access(&self, node: &AstNode) -> Option<(u8, u32)> {
         if let AstNode::FieldAccess { object, field } = node {
             if let AstNode::Identifier(account_name) = object.as_ref() {
                 if let Some(field_info) = self.local_symbol_table.get(account_name) {
                     let account_type = &field_info.field_type;
+                    let field_type = self.resolve_account_field_type(account_type, field)?;
+                    if field_type != "pubkey" {
+                        return None;
+                    }
                     if let Ok(offset) =
                         self.calculate_account_field_offset(account_type, field, account_name)
                     {

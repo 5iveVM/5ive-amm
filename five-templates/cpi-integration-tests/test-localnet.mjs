@@ -553,7 +553,9 @@ async function testSPLStateAccess(connection, payerKeypair) {
                         index: 0,
                         parameters: [
                             { name: 'mint', type: 'account', is_account: true, attributes: [] },
-                            { name: 'token', type: 'account', is_account: true, attributes: [] }
+                            { name: 'token', type: 'account', is_account: true, attributes: [] },
+                            { name: 'expected_supply', type: 'u64', is_account: false, attributes: [] },
+                            { name: 'expected_amount', type: 'u64', is_account: false, attributes: [] }
                         ]
                     }
                 ]
@@ -578,6 +580,10 @@ async function testSPLStateAccess(connection, payerKeypair) {
             .accounts({
                 mint: mint,
                 token: tokenAccountPubkey
+            })
+            .args({
+                expected_supply: Number(mintAmount),
+                expected_amount: Number(mintAmount)
             })
             .payer(payerKeypair.publicKey)
             .instruction();
