@@ -1949,6 +1949,12 @@ pub const fn is_valid_opcode(opcode: u8) -> bool {
     OPCODE_ARG_TYPE_TABLE[opcode as usize] != INVALID_ARG_TYPE_ID
 }
 
+/// Get opcode argument type from compact lookup table.
+#[inline]
+pub const fn opcode_arg_type(opcode: u8) -> Option<ArgType> {
+    decode_arg_type(OPCODE_ARG_TYPE_TABLE[opcode as usize])
+}
+
 /// Get opcode name for debugging (zero-allocation)
 #[inline]
 pub const fn opcode_name(opcode: u8) -> &'static str {

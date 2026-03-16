@@ -1,6 +1,6 @@
 //! Bytecode parser for the canonical v1 bytecode header and fixed-size immediates.
 
-use crate::opcodes::{get_opcode_info, operand_size, ArgType};
+use crate::opcodes::{opcode_arg_type, operand_size, ArgType};
 use crate::{ConstantPoolDescriptor, ScriptBytecodeHeaderV1};
 use crate::{FunctionNameEntry, FunctionNameMetadata};
 use alloc::format;
@@ -255,10 +255,9 @@ pub fn parse_instruction_with_features(
     }
 
     let opcode = bytecode[offset];
-    let Some(info) = get_opcode_info(opcode) else {
+    let Some(arg_type) = opcode_arg_type(opcode) else {
         return Err(ParseError::InvalidOpcode);
     };
-    let arg_type = info.arg_type;
     let pool_enabled = (features & crate::FEATURE_CONSTANT_POOL) != 0;
     let remaining = if offset + 1 <= bytecode.len() {
         &bytecode[offset + 1..]

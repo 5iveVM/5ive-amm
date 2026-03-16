@@ -604,7 +604,7 @@ pub fn verify_hardcoded_fee_vault_account_with_bump(
 #[allow(dead_code)]
 pub fn get_hardcoded_vm_state_pda() -> Pubkey {
     #[cfg(not(feature = "cluster-hardcoded-pdas"))]
-    unreachable!("hardcoded VM state PDA requires the cluster-hardcoded-pdas feature");
+    unreachable!();
     #[cfg(feature = "cluster-hardcoded-pdas")]
     Pubkey::from(HARDCODED_VM_STATE_PDA)
 }

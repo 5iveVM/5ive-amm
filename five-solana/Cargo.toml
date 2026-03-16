@@ -9,7 +9,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 pinocchio = { path = "../third_party/pinocchio" }

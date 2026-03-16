@@ -1,7 +1,7 @@
 use pinocchio::{program_error::ProgramError, ProgramResult};
 
 use five_protocol::{
-    opcodes::{self, get_opcode_info, operand_size},
+    opcodes::{self, is_valid_opcode, operand_size},
     parser::{parse_code_bounds, ParseError},
 };
 
@@ -53,7 +53,7 @@ pub fn verify_bytecode_content(bytecode: &[u8]) -> ProgramResult {
     // We only decode immediate operands for opcodes that need semantic target checks.
     while offset < code_end {
         let opcode = bytecode[offset];
-        if get_opcode_info(opcode).is_none() {
+        if !is_valid_opcode(opcode) {
             // Preserve existing compatibility behavior: return opcode as custom error.
             return Err(ProgramError::Custom(opcode as u32));
         }

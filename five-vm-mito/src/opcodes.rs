@@ -25,13 +25,11 @@ pub fn opcode_cu_cost(opcode: u8) -> u8 {
 /// Get argument type for an opcode (reads from protocol table)
 #[inline]
 pub fn opcode_arg_type(opcode: u8) -> ArgType {
-    match five_protocol::opcodes::get_opcode_info(opcode) {
-        Some(info) => info.arg_type,
-        None => ArgType::None,
-    }
+    five_protocol::opcodes::opcode_arg_type(opcode).unwrap_or(ArgType::None)
 }
 
 /// Enhanced instruction format documentation (kept for developer reference)
+#[cfg(any(test, feature = "debug-logs"))]
 pub const ENHANCED_INSTRUCTION_FORMATS: &str = r#"
 Enhanced MitoVM Instruction Formats:
 
