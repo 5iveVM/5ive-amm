@@ -5,8 +5,8 @@
     "/Users/amberjackson/Documents/Development/five-org/five-mono/five-templates/token/contract/token.v"
   ],
   "target": "vm",
-  "timestamp": "2026-03-16T03:15:05.472Z",
-  "hash": "8ca7f0dcbd35f51473e51e66c1766c434b2d91cba0444a897b423761bd009b5e",
+  "timestamp": "2026-03-16T08:42:38.903Z",
+  "hash": "35df2a563e5861c079f636674895d46bf7a39f673df8dbeba10005ffe96eb57d",
   "format": "five",
   "entry_point": "contract/token.v",
   "source_dir": "contract"

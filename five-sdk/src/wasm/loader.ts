@@ -15,18 +15,6 @@ export async function getWasmModule(): Promise<any> {
     return wasmModule;
   }
 
-  // Monorepo fallback for linked workspace resolution (five-sdk -> five-wasm).
-  try {
-    const directMono = await import('../../../five-wasm/pkg-bundler/five_vm_wasm.js');
-    const normalized = resolveEncoderModule(directMono);
-    if (normalized) {
-      wasmModule = normalized;
-      return wasmModule;
-    }
-  } catch {
-    // Fall through to candidate-based loader below.
-  }
-
   // Build candidate list from config and sensible defaults
   const cfg = await ConfigManager.getInstance().get();
   const prefer = cfg.wasm?.loader || 'auto';

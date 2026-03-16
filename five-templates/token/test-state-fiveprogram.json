@@ -1,16 +1,16 @@
 {
   "config": {
     "programId": "2DXiYbzfSMwkDSxc9aWEaW7XgJjkNzGdADfRN4FbxMNN",
-    "script": "EnDGZcNLYJGjPsLryn3fC1Qmox6yRUXfKrMDo2LPQjN5"
+    "script": "Hh5TMopFNsEwumg8s1fwN7amspKvc5At7GdWmLpWfku9"
   },
   "accounts": {
-    "mint": "45e7H7V3WZuaqxZJ9DbkXjRAJumEFrmQY4M9nURHdCqr",
-    "user1": "3M99ApFbxPyJ4tPPMyU5X9ePpwj2y54qAAY4sEcaeaia",
-    "user2": "6gJW9aysVdccb67uCqPQwnho45koSmQCdcRgQRAzN7Dm",
-    "user3": "HfJELikuQ66K4DDk2sxFw6aFewbxE185nSo5sR5kCj6t",
-    "user1Token": "8UUk1RzgDhDfH2k1Q2p8xLC3wsVnRNB8N8GRNVSH3q1x",
-    "user2Token": "7RZcCYpSRLomZyt1ciMEscf5M3fYHEuRFZZn3tERXGeb",
-    "user3Token": "HKiuUdE5a2XokjvufSRBG5GhoBavh3NPsGQtWSDoB8jX"
+    "mint": "DxMT8HTeozEacuYPih4qBzvoDahYoHzNGjSUfbFHf7qf",
+    "user1": "HZct3sbFMW6SPuwfhLPXMvxDBWaeAx8XSzWpriFaXAZQ",
+    "user2": "CTrDQyWVp9oxX219ov4dFnKqsXSUuxfYhdMpiUogycEu",
+    "user3": "RWiFWcN9CBcNBWXrEoTf2WwvAASGCKAAqKa1tYprt9d",
+    "user1Token": "EwJTYaXeCUuFGdG9eUYFkHD4T81fm6r4WM8ntjVMqCWL",
+    "user2Token": "9N3WdwZ2zt23wGmJ9vNnPTFK3JpLQ6uuMDxGtxHGadP7",
+    "user3Token": "EtN6eTyBiSdSJ7ydBkmbFgaTbrofg8Td9PAeRwUTYTse"
   },
   "results": {
     "initMint": true,

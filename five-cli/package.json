@@ -21,7 +21,7 @@
     "sync:local-sdk": "bash ../scripts/sync-local-sdk.sh",
     "verify:wasm": "bash ../scripts/verify-wasm-sync.sh",
     "verify:stdlib:packaging": "bash ../scripts/verify-stdlib-packaging.sh",
-    "build:js": "node ./node_modules/typescript/bin/tsc && npm run copy:wasm-assets",
+    "build:js": "node ./node_modules/typescript/bin/tsc && chmod +x dist/index.js && npm run copy:wasm-assets",
     "build:js:dev": "node ./node_modules/typescript/bin/tsc --watch",
     "copy:wasm-assets": "mkdir -p dist/assets/vm && COPYFILE_DISABLE=1 cp -r src/assets/vm/* dist/assets/vm/ && COPYFILE_DISABLE=1 cp src/assets/vm/five_vm_wasm.d.ts src/types/wasm.d.ts 2>/dev/null || true",
     "test": "jest",
@@ -74,7 +74,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@5ive-tech/sdk": "^1.1.15",
+    "@5ive-tech/sdk": "^1.1.16",
     "@iarna/toml": "^2.2.5",
     "@solana/web3.js": "^1.90.0",
     "bs58": "^5.0.0",
