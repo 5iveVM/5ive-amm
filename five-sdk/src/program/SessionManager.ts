@@ -17,9 +17,6 @@ export interface SessionCreateParams {
   bindAccount?: string;
   nonce?: string;
   payer?: string;
-  managerScriptAccount?: string;
-  managerCodeHash?: string;
-  managerVersion?: number;
 }
 
 export interface SessionRecord {
@@ -156,9 +153,6 @@ export class SessionManager {
         scope_hash: params.scopeHash,
         bind_account: params.bindAccount || '11111111111111111111111111111111',
         nonce: params.nonce || '0x00',
-        manager_script_account: params.managerScriptAccount || this.identity.scriptAccount,
-        manager_code_hash: params.managerCodeHash || this.identity.codeHash,
-        manager_version: params.managerVersion ?? this.identity.version,
       });
     if (params.payer) {
       builder.payer(params.payer);

@@ -6,7 +6,6 @@ use crate::ast::{AstNode, InstructionParameter, TypeNode};
 use crate::session_support;
 use five_vm_mito::error::VMError;
 use sha2::Digest;
-use five_protocol::Value;
 use std::collections::{HashMap, HashSet};
 
 impl TypeCheckerContext {
@@ -617,6 +616,24 @@ impl TypeCheckerContext {
                             // Bare @session on authority/owner is allowed; nonce and other
                             // provenance keys are optional and can be inferred/injected later.
                         }
+                        for arg in &attr.args {
+                            if let AstNode::Assignment { target, .. } = arg {
+                                if matches!(
+                                    target.as_str(),
+                                    "manager_script_account"
+                                        | "manager_script"
+                                        | "manager_code_hash"
+                                        | "manager_hash"
+                                        | "manager_version"
+                                ) {
+                                    eprintln!(
+                                        "unsupported @session key '{}': manager identity fields were removed",
+                                        target
+                                    );
+                                    return Err(VMError::InvalidInstruction);
+                                }
+                            }
+                        }
 
                         for (key, pos) in [
                             ("target_program", 1usize),
@@ -625,11 +642,6 @@ impl TypeCheckerContext {
                             ("nonce", 4usize),
                             ("nonce_field", 4usize),
                             ("current_slot", 5usize),
-                            ("manager_script_account", 6usize),
-                            ("manager_script", 6usize),
-                            ("manager_code_hash", 7usize),
-                            ("manager_hash", 7usize),
-                            ("manager_version", 8usize),
                         ] {
                             if let Some(arg) = Self::session_attr_value(attr, key, pos) {
                                 match arg {
@@ -638,8 +650,6 @@ impl TypeCheckerContext {
                                             return Err(VMError::InvalidScript);
                                         }
                                     }
-                                    AstNode::Literal(Value::U8(_)) if key == "manager_version" => {}
-                                    AstNode::Literal(Value::U64(_)) if key == "manager_version" => {}
                                     _ => {
                                         return Err(VMError::InvalidInstruction);
                                     }

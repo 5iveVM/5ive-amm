@@ -76,29 +76,27 @@ script SessionKeyed {
 }
 
 #[test]
-fn session_attribute_parses_provenance_arguments() {
+fn session_attribute_parses_target_and_scope_arguments() {
     let source = r#"
-script SessionProvenance {
+script SessionTargetScope {
     account Session {
         authority: pubkey;
         delegate: pubkey;
-        manager_script_account: pubkey;
-        manager_code_hash: pubkey;
-        manager_version: u8;
+        target_program: pubkey;
+        scope_hash: u64;
     }
 
     pub play(
         session: Session @session(
             delegate=delegate,
             authority=authority,
-            manager_script_account=manager_script,
-            manager_code_hash=manager_hash,
-            manager_version=1
+            target_program=target_program,
+            scope_hash=scope_hash
         ),
         delegate: account @signer,
         authority: account,
-        manager_script: account,
-        manager_hash: pubkey
+        target_program: pubkey,
+        scope_hash: u64
     ) { }
 }
 "#;
@@ -123,9 +121,8 @@ script SessionProvenance {
     for expected_key in [
         "delegate",
         "authority",
-        "manager_script_account",
-        "manager_code_hash",
-        "manager_version",
+        "target_program",
+        "scope_hash",
     ] {
         assert!(
             session_attr.args.iter().any(|arg| matches!(

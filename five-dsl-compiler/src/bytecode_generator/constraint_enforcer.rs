@@ -3,7 +3,6 @@ use crate::ast::{AstNode, Attribute, InstructionParameter, TypeNode};
 use crate::bytecode_generator::account_utils::account_index_from_param_index;
 use crate::bytecode_generator::types::AccountRegistry;
 use five_protocol::opcodes::*;
-use five_protocol::Value;
 use five_vm_mito::error::VMError;
 
 /// Enforce account constraints by emitting validation bytecode
@@ -400,85 +399,6 @@ fn emit_session_check<T: OpcodeEmitter>(
         }
     }
 
-    // manager_script_account field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_script_account", 6)
-        .or_else(|| session_arg(attribute, "manager_script", 6))
-    {
-        let (idx, target_param) = resolve_parameter(all_parameters, name)?;
-        if let Ok(offset) =
-            session_field_offset(session_param, account_registry, "manager_script_account")
-        {
-            emit_field_eq_param(
-                emitter,
-                session_account_idx,
-                offset,
-                idx,
-                target_param,
-                all_parameters,
-                account_registry,
-            )?;
-        }
-    }
-
-    // manager_code_hash field == param
-    if let Some(AstNode::Identifier(name)) = session_arg(attribute, "manager_code_hash", 7)
-        .or_else(|| session_arg(attribute, "manager_hash", 7))
-    {
-        let (idx, target_param) = resolve_parameter(all_parameters, name)?;
-        if let Ok(offset) = session_field_offset(session_param, account_registry, "manager_code_hash")
-        {
-            emit_field_eq_param(
-                emitter,
-                session_account_idx,
-                offset,
-                idx,
-                target_param,
-                all_parameters,
-                account_registry,
-            )?;
-        }
-    }
-
-    // manager_version field == param or numeric literal
-    if let Some(arg) = session_arg(attribute, "manager_version", 8) {
-        if let Ok(offset) = session_field_offset(session_param, account_registry, "manager_version") {
-            match arg {
-                AstNode::Identifier(name) => {
-                    let (idx, target_param) = resolve_parameter(all_parameters, name)?;
-                    emit_field_eq_param(
-                        emitter,
-                        session_account_idx,
-                        offset,
-                        idx,
-                        target_param,
-                        all_parameters,
-                        account_registry,
-                    )?;
-                }
-                AstNode::Literal(Value::U8(value)) => {
-                    emitter.emit_opcode(REQUIRE_BATCH);
-                    emitter.emit_u8(1); // 1 clause
-                    emitter.emit_u8(REQUIRE_BATCH_FIELD_EQ_IMM);
-                    emitter.emit_u8(session_account_idx);
-                    emitter.emit_u32(offset);
-                    emitter.emit_u8(*value);
-                }
-                AstNode::Literal(Value::U64(value)) => {
-                    if *value > u8::MAX as u64 {
-                        return Err(VMError::InvalidInstruction);
-                    }
-                    emitter.emit_opcode(REQUIRE_BATCH);
-                    emitter.emit_u8(1); // 1 clause
-                    emitter.emit_u8(REQUIRE_BATCH_FIELD_EQ_IMM);
-                    emitter.emit_u8(session_account_idx);
-                    emitter.emit_u32(offset);
-                    emitter.emit_u8(*value as u8);
-                }
-                _ => return Err(VMError::InvalidInstruction),
-            }
-        }
-    }
-
     // scope_hash field == param
     if let Some(AstNode::Identifier(name)) = session_arg(attribute, "scope_hash", 2) {
         let (idx, target_param) = resolve_parameter(all_parameters, name)?;
@@ -851,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    fn session_constraint_emits_manager_provenance_checks() {
+    fn session_constraint_emits_status_and_version_checks() {
         let mut registry = AccountRegistry::new();
         let mut fields = HashMap::new();
         fields.insert(
@@ -870,21 +790,9 @@ mod tests {
             "authority".to_string(),
             FieldInfo { offset: 34, field_type: "pubkey".to_string(), is_mutable: false, is_optional: false, is_parameter: false },
         );
-        fields.insert(
-            "manager_script_account".to_string(),
-            FieldInfo { offset: 66, field_type: "pubkey".to_string(), is_mutable: false, is_optional: false, is_parameter: false },
-        );
-        fields.insert(
-            "manager_code_hash".to_string(),
-            FieldInfo { offset: 98, field_type: "pubkey".to_string(), is_mutable: false, is_optional: false, is_parameter: false },
-        );
-        fields.insert(
-            "manager_version".to_string(),
-            FieldInfo { offset: 130, field_type: "u8".to_string(), is_mutable: false, is_optional: false, is_parameter: false },
-        );
         registry.account_types.insert(
             "Session".to_string(),
-            AccountTypeInfo { name: "Session".to_string(), fields, total_size: 160, serializer: None },
+            AccountTypeInfo { name: "Session".to_string(), fields, total_size: 96, serializer: None },
         );
 
         let params = vec![
@@ -902,49 +810,24 @@ mod tests {
                             target: "authority".to_string(),
                             value: Box::new(AstNode::Identifier("authority".to_string())),
                         },
-                        AstNode::Assignment {
-                            target: "manager_script_account".to_string(),
-                            value: Box::new(AstNode::Identifier("manager_script".to_string())),
-                        },
-                        AstNode::Assignment {
-                            target: "manager_code_hash".to_string(),
-                            value: Box::new(AstNode::Identifier("manager_hash".to_string())),
-                        },
-                        AstNode::Assignment {
-                            target: "manager_version".to_string(),
-                            value: Box::new(AstNode::Literal(Value::U8(1))),
-                        },
                     ],
                 }],
             ),
             mk_param("authority", TypeNode::Account, vec![]),
-            mk_param("manager_script", TypeNode::Account, vec![]),
-            mk_param("manager_hash", TypeNode::Account, vec![]),
         ];
 
         let mut emitter = TestEmitter::default();
         emit_constraint_checks(&mut emitter, &params, &registry).unwrap();
 
-        let require_owner_count = emitter
-            .bytes
-            .iter()
-            .filter(|b| **b == REQUIRE_OWNER)
-            .count();
-        assert!(
-            require_owner_count >= 3,
-            "expected manager provenance pubkey checks to emit REQUIRE_OWNER; got {}",
-            require_owner_count
-        );
-
-        // status + version + manager_version should each contribute a REQUIRE_BATCH opcode.
+        // status + version should each contribute a REQUIRE_BATCH opcode.
         let require_batch_count = emitter
             .bytes
             .iter()
             .filter(|b| **b == REQUIRE_BATCH)
             .count();
         assert!(
-            require_batch_count >= 3,
-            "expected status/version/manager_version batch checks; got {}",
+            require_batch_count >= 2,
+            "expected status/version batch checks; got {}",
             require_batch_count
         );
     }

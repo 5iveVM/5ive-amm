@@ -9,9 +9,6 @@ pub account Session {
     scope_hash: u64;
     nonce: u64;
     bind_account: pubkey;
-    manager_script_account: pubkey;
-    manager_code_hash: pubkey;
-    manager_version: u8;
     status: u8;
     version: u8;
 }

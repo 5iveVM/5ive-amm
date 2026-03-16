@@ -100,39 +100,9 @@ impl AccountSystem {
             },
         );
         fields.insert(
-            "manager_script_account".to_string(),
-            FieldInfo {
-                offset: 152,
-                field_type: "pubkey".to_string(),
-                is_mutable: false,
-                is_optional: false,
-                is_parameter: false,
-            },
-        );
-        fields.insert(
-            "manager_code_hash".to_string(),
-            FieldInfo {
-                offset: 184,
-                field_type: "pubkey".to_string(),
-                is_mutable: false,
-                is_optional: false,
-                is_parameter: false,
-            },
-        );
-        fields.insert(
-            "manager_version".to_string(),
-            FieldInfo {
-                offset: 216,
-                field_type: "u8".to_string(),
-                is_mutable: false,
-                is_optional: false,
-                is_parameter: false,
-            },
-        );
-        fields.insert(
             "status".to_string(),
             FieldInfo {
-                offset: 217,
+                offset: 152,
                 field_type: "u8".to_string(),
                 is_mutable: false,
                 is_optional: false,
@@ -142,7 +112,7 @@ impl AccountSystem {
         fields.insert(
             "version".to_string(),
             FieldInfo {
-                offset: 218,
+                offset: 153,
                 field_type: "u8".to_string(),
                 is_mutable: false,
                 is_optional: false,
@@ -155,7 +125,7 @@ impl AccountSystem {
             AccountTypeInfo {
                 name: "Session".to_string(),
                 fields,
-                total_size: 219,
+                total_size: 154,
                 serializer: None,
             },
         );

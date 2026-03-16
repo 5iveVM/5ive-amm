@@ -2,7 +2,7 @@ use crate::ast::{AstNode, Attribute, InstructionParameter, TypeNode};
 
 pub const IMPLICIT_SESSION_PARAM_NAME: &str = "__session";
 
-pub const SESSION_V1_FIELDS: [&str; 12] = [
+pub const SESSION_V1_FIELDS: [&str; 9] = [
     "authority",
     "delegate",
     "target_program",
@@ -10,9 +10,6 @@ pub const SESSION_V1_FIELDS: [&str; 12] = [
     "scope_hash",
     "nonce",
     "bind_account",
-    "manager_script_account",
-    "manager_code_hash",
-    "manager_version",
     "status",
     "version",
 ];
@@ -104,9 +101,6 @@ pub fn inject_implicit_session_param(parameters: &[InstructionParameter]) -> Vec
         ("bind_account", 3usize),
         ("nonce_field", 4usize),
         ("current_slot", 5usize),
-        ("manager_script_account", 6usize),
-        ("manager_code_hash", 7usize),
-        ("manager_version", 8usize),
     ] {
         if let Some(value) = session_arg(&attribute, key, pos) {
             args.push(AstNode::Assignment {

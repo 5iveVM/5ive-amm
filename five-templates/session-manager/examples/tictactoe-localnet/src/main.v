@@ -17,9 +17,6 @@ account Session {
     scope_hash: u64;
     nonce: u64;
     bind_account: pubkey;
-    manager_script_account: pubkey;
-    manager_code_hash: pubkey;
-    manager_version: u8;
     status: u8;
     version: u8;
 }
@@ -28,14 +25,11 @@ pub play_ttt(
     match_state: MatchState @mut,
     authority: account,
     delegate: account @signer,
-    session: Session @session(delegate, authority, target_program, scope_hash, match_state, session_nonce, current_slot, manager_script_account, manager_code_hash, manager_version),
+    session: Session @session(delegate, authority, target_program, scope_hash, match_state, session_nonce, current_slot),
     target_program: pubkey,
     scope_hash: u64,
     session_nonce: u64,
     current_slot: u64,
-    manager_script_account: pubkey,
-    manager_code_hash: pubkey,
-    manager_version: u8,
     cell_index: u64
 ) {
     require(session.status == 1);

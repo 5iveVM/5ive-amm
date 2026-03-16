@@ -9,9 +9,6 @@ account Session {
     scope_hash: u64;
     nonce: u64;
     bind_account: pubkey;
-    manager_script_account: pubkey;
-    manager_code_hash: pubkey;
-    manager_version: u8;
     status: u8;
     version: u8;
 }
@@ -24,10 +21,7 @@ pub create_session(
     expires_at_slot: u64,
     scope_hash: u64,
     bind_account: pubkey,
-    nonce: u64,
-    manager_script_account: pubkey,
-    manager_code_hash: pubkey,
-    manager_version: u8
+    nonce: u64
 ) {
     session.authority = authority.ctx.key;
     session.delegate = delegate.ctx.key;
@@ -36,9 +30,6 @@ pub create_session(
     session.scope_hash = scope_hash;
     session.bind_account = bind_account;
     session.nonce = nonce;
-    session.manager_script_account = manager_script_account;
-    session.manager_code_hash = manager_code_hash;
-    session.manager_version = manager_version;
     session.status = 1;
     session.version = 1;
 }
