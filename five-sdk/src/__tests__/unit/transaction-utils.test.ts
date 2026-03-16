@@ -12,43 +12,24 @@ describe("transaction utils reliability", () => {
   });
 
   it("pollForConfirmation should require explicit finalized for finalized target", async () => {
-    jest.useFakeTimers();
-
     const statuses = [
-      {
-        value: {
-          confirmationStatus: "confirmed",
-          confirmations: 10,
-          err: null,
-        },
-      },
-      {
-        value: {
-          confirmationStatus: "finalized",
-          confirmations: null,
-          err: null,
-        },
-      },
+      { confirmationStatus: "confirmed", confirmations: 10, err: null },
+      { confirmationStatus: "finalized", confirmations: null, err: null },
     ];
 
     const connection = {
-      getSignatureStatus: jest.fn(async () => statuses.shift()!),
+      getSignatureStatuses: jest.fn(async () => ({ value: [statuses.shift() || null] })),
     };
 
-    const pending = pollForConfirmation(connection, "sig", "finalized", 10_000, false);
-
-    await Promise.resolve();
-    await jest.advanceTimersByTimeAsync(1000);
-
-    const result = await pending;
+    const result = await pollForConfirmation(connection, "sig", "finalized", 3_000, false);
     expect(result.success).toBe(true);
-    expect(connection.getSignatureStatus).toHaveBeenCalledTimes(2);
+    expect(connection.getSignatureStatuses).toHaveBeenCalledTimes(2);
   });
 
   it("confirmTransactionRobust should return direct confirmation success", async () => {
     const connection = {
       confirmTransaction: jest.fn(async () => ({ value: { err: null } })),
-      getSignatureStatus: jest.fn(),
+      getSignatureStatuses: jest.fn(),
     };
 
     const result = await confirmTransactionRobust(connection, "sig", {
@@ -57,7 +38,7 @@ describe("transaction utils reliability", () => {
 
     expect(result.success).toBe(true);
     expect(connection.confirmTransaction).toHaveBeenCalledTimes(1);
-    expect(connection.getSignatureStatus).not.toHaveBeenCalled();
+    expect(connection.getSignatureStatuses).not.toHaveBeenCalled();
   });
 
   it("confirmTransactionRobust should fall back to polling when confirm throws", async () => {
@@ -65,12 +46,8 @@ describe("transaction utils reliability", () => {
       confirmTransaction: jest.fn(async () => {
         throw new Error("rpc timeout");
       }),
-      getSignatureStatus: jest.fn(async () => ({
-        value: {
-          confirmationStatus: "finalized",
-          confirmations: null,
-          err: null,
-        },
+      getSignatureStatuses: jest.fn(async () => ({
+        value: [{ confirmationStatus: "finalized", confirmations: null, err: null }],
       })),
     };
 
@@ -81,7 +58,7 @@ describe("transaction utils reliability", () => {
 
     expect(result.success).toBe(true);
     expect(connection.confirmTransaction).toHaveBeenCalledTimes(1);
-    expect(connection.getSignatureStatus).toHaveBeenCalledTimes(1);
+    expect(connection.getSignatureStatuses).toHaveBeenCalledTimes(1);
   });
 
   it("getAccountInfoWithRetry should retry null reads and return account", async () => {
@@ -105,4 +82,3 @@ describe("transaction utils reliability", () => {
     expect(connection.getAccountInfo).toHaveBeenNthCalledWith(1, "pubkey", "finalized");
   });
 });
-

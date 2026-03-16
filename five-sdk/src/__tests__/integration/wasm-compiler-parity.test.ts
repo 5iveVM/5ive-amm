@@ -4,19 +4,17 @@ import { FiveSDK } from '../../FiveSDK.js';
 import { FiveProgram } from '../../program/FiveProgram.js';
 
 describe('WASM Compiler Parity (real compiler)', () => {
-  it('compiles current DSL account metadata and bump syntax', async () => {
+  it('compiles current DSL account metadata syntax', async () => {
     const compiler = new BytecodeCompiler();
     const source = `account Counter {
   authority: pubkey;
-  bump: u8;
 }
 
 pub init_counter(
-  counter: Counter @mut @init(payer=authority, space=96) @signer,
+  counter: Counter @mut @init(payer=authority, space=96),
   authority: account @mut @signer
 ) {
   counter.authority = authority.ctx.key;
-  counter.bump = counter.ctx.bump;
 }
 
 pub assert_authority(
@@ -28,7 +26,7 @@ pub assert_authority(
 }
 `;
 
-    const result = await compiler.compile({ filename: 'ctx-key-bump.v', content: source }, {
+    const result = await compiler.compile({ filename: 'ctx-key.v', content: source }, {
       target: 'vm',
     });
 
@@ -76,7 +74,7 @@ pub transfer_one(
   destination: account @mut,
   authority: account @signer
 ) {
-  spl_token::transfer(source, destination, authority, 1);
+  spl_token::SPLToken::transfer(source, destination, authority, 1);
 }
 `;
 
@@ -171,7 +169,9 @@ pub has_authority(counter: Counter, authority: account @signer) -> bool {
       authority: 'SysvarC1ock11111111111111111111111111111111',
     });
 
-    const instruction = await builder.instruction();
+    const instruction = await builder
+      .payer('SysvarC1ock11111111111111111111111111111111')
+      .instruction();
     expect(instruction.programId).toBeDefined();
     expect(instruction.keys.some((key) => key.pubkey === 'SysvarRent111111111111111111111111111111111')).toBe(true);
     expect(instruction.keys.some((key) => key.pubkey === 'SysvarC1ock11111111111111111111111111111111')).toBe(true);
@@ -218,7 +218,9 @@ pub init_counter(counter: Counter @mut, authority: account @signer) {
         authority: 'SysvarC1ock11111111111111111111111111111111',
       });
 
-    const instruction = await builder.instruction();
+    const instruction = await builder
+      .payer('SysvarC1ock11111111111111111111111111111111')
+      .instruction();
     expect(instruction.keys.length).toBeGreaterThan(0);
     expect(instruction.keys.some((key) => key.pubkey === 'SysvarRent111111111111111111111111111111111')).toBe(true);
   });

@@ -247,6 +247,7 @@ describe('FunctionBuilder', () => {
         .accounts({
           match_state: TO_ACCOUNT,
           authority: FROM_ACCOUNT,
+          delegate: FROM_ACCOUNT,
         })
         .payer(FROM_ACCOUNT)
         .args({ cell_index: 4 })

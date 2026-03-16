@@ -19,6 +19,7 @@ jest.unstable_mockModule('../../modules/vm-state.js', () => ({
 jest.unstable_mockModule('../../crypto/index.js', () => ({
   RentCalculator: {
     calculateRentExemption: jest.fn(async () => 10_000),
+    calculateRentExemptionWithConnection: jest.fn(async () => 10_000),
     formatSOL: (value: number) => `${value}`,
   },
 }));

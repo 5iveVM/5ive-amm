@@ -22,13 +22,19 @@ jest.unstable_mockModule("fs/promises", () => ({
 let TestDiscovery: any;
 
 describe("TestDiscovery fixture compatibility", () => {
-  it("ignores fixture-shaped .test.json files without warning", async () => {
+  it("accepts fixture-shaped object tests without warning", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     ({ TestDiscovery } = await import("../../testing/TestDiscovery.js"));
 
     const discovered = await TestDiscovery.discoverTests("/tmp/main.test.json");
 
-    expect(discovered).toEqual([]);
+    expect(discovered).toHaveLength(1);
+    expect(discovered[0]).toMatchObject({
+      name: "test_add",
+      path: "/tmp/main.test.json",
+      type: "json-suite",
+      parameters: [1, 2],
+    });
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

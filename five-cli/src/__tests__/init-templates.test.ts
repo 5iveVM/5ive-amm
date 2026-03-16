@@ -1,10 +1,15 @@
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import path from 'path';
+
+const CLI_ROOT = existsSync(path.join(process.cwd(), 'templates'))
+  ? process.cwd()
+  : path.resolve(process.cwd(), 'five-cli');
 
 describe('init-generated templates', () => {
   it('keeps AGENTS self-contained for the public build and local test path', async () => {
     const agents = await readFile(
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS.md',
+      path.join(CLI_ROOT, 'templates', 'AGENTS.md'),
       'utf8',
     );
 
@@ -22,7 +27,7 @@ describe('init-generated templates', () => {
 
   it('keeps AGENTS reference aligned with the public CLI/SDK path', async () => {
     const reference = await readFile(
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS_REFERENCE.md',
+      path.join(CLI_ROOT, 'templates', 'AGENTS_REFERENCE.md'),
       'utf8',
     );
 
@@ -36,7 +41,7 @@ describe('init-generated templates', () => {
 
   it('keeps the AGENTS checklist anchored to the public CLI compiler path', async () => {
     const checklist = await readFile(
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/AGENTS_CHECKLIST.md',
+      path.join(CLI_ROOT, 'templates', 'AGENTS_CHECKLIST.md'),
       'utf8',
     );
 
@@ -47,7 +52,7 @@ describe('init-generated templates', () => {
 
   it('uses current account metadata syntax in the generated basic starter', async () => {
     const initSource = await readFile(
-      '/Users/ivmidable/Development/five-mono/five-cli/src/commands/init.ts',
+      path.join(CLI_ROOT, 'src', 'commands', 'init.ts'),
       'utf8',
     );
 
@@ -59,7 +64,7 @@ describe('init-generated templates', () => {
 
   it('keeps account testing guide examples on .ctx.key syntax', async () => {
     const guide = await readFile(
-      '/Users/ivmidable/Development/five-mono/five-cli/docs/ACCOUNT_TESTING_GUIDE.md',
+      path.join(CLI_ROOT, 'docs', 'ACCOUNT_TESTING_GUIDE.md'),
       'utf8',
     );
 
@@ -71,17 +76,17 @@ describe('init-generated templates', () => {
 
   it('does not ship dead pre-generated template ABI or bytecode artifacts', () => {
     const removedArtifacts = [
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/amm.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/counter.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/counter.five',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/escrow.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/hello_world.five',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/multisig.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/nft.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/spl-token.abi.json',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/spl-token.five',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/token.five',
-      '/Users/ivmidable/Development/five-mono/five-cli/templates/vault.abi.json',
+      path.join(CLI_ROOT, 'templates', 'amm.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'counter.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'counter.five'),
+      path.join(CLI_ROOT, 'templates', 'escrow.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'hello_world.five'),
+      path.join(CLI_ROOT, 'templates', 'multisig.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'nft.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'spl-token.abi.json'),
+      path.join(CLI_ROOT, 'templates', 'spl-token.five'),
+      path.join(CLI_ROOT, 'templates', 'token.five'),
+      path.join(CLI_ROOT, 'templates', 'vault.abi.json'),
     ];
 
     for (const artifact of removedArtifacts) {

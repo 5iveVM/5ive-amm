@@ -6,7 +6,6 @@ import {
   Connection,
   Keypair,
   PublicKey,
-  sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   TransactionInstruction,
@@ -65,6 +64,20 @@ function encodeWithdrawScriptFeesData(script: PublicKey, shardIndex: number, lam
 
 const enabled = process.env.RUN_LOCALNET_VALIDATOR_TESTS === "1";
 const maybeDescribe = enabled ? describe : describe.skip;
+
+async function sendAndConfirm(
+  connection: Connection,
+  tx: Transaction,
+  signers: Keypair[],
+  commitment: "processed" | "confirmed" | "finalized" = "confirmed",
+): Promise<string> {
+  const signature = await connection.sendTransaction(tx, signers, {
+    skipPreflight: false,
+    preflightCommitment: commitment,
+  });
+  await connection.confirmTransaction(signature, commitment);
+  return signature;
+}
 
 maybeDescribe("Localnet Fee Vault Routing", () => {
   let connection: Connection;
@@ -250,7 +263,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     const tx = new Transaction().add(ix);
 
     await expect(
-      sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+      sendAndConfirm(connection, tx, [payer], "confirmed"),
     ).rejects.toThrow();
   }, 120_000);
 
@@ -271,7 +284,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     const tx = new Transaction().add(ix);
 
     await expect(
-      sendAndConfirmTransaction(connection, tx, [payer], { commitment: "confirmed" }),
+      sendAndConfirm(connection, tx, [payer], "confirmed"),
     ).rejects.toThrow();
 
     const after = await connection.getBalance(feeVaultAddress, "confirmed");
@@ -297,7 +310,7 @@ maybeDescribe("Localnet Fee Vault Routing", () => {
     const tx = new Transaction().add(ix);
 
     await expect(
-      sendAndConfirmTransaction(connection, tx, [attacker], { commitment: "confirmed" }),
+      sendAndConfirm(connection, tx, [attacker], "confirmed"),
     ).rejects.toThrow();
 
     const after = await connection.getBalance(feeVaultAddress, "confirmed");

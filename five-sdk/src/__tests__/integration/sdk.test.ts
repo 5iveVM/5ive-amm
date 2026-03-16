@@ -281,6 +281,7 @@ describe('Five SDK Integration Tests', () => {
             ],
           },
           computeUnitLimit: 150_000,
+          payerAccount: TestConstants.TEST_USER_PUBKEY,
         },
       );
 
@@ -308,6 +309,7 @@ describe('Five SDK Integration Tests', () => {
         undefined,
         {
           abi: { functions: [{ name: 'known', index: 5, parameters: [] }] },
+          payerAccount: TestConstants.TEST_USER_PUBKEY,
         },
       );
 
@@ -329,6 +331,7 @@ describe('Five SDK Integration Tests', () => {
               { name: 'f', index: 20, parameters: [] },
             ],
           },
+          payerAccount: TestConstants.TEST_USER_PUBKEY,
         },
       );
 

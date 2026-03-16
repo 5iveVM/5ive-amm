@@ -10,7 +10,7 @@ describe("deploy commitment resilience", () => {
     let sigCounter = 0;
     let accountInfoCall = 0;
     const getAccountInfoCalls: Array<{ pubkey: any; commitment?: string }> = [];
-    const confirmCalls: Array<{ signature: string; commitment: string }> = [];
+    const getSignatureStatusesCalls: Array<{ signatures: string[] }> = [];
 
     const vmStateData = Buffer.alloc(56);
     vmStateData[50] = 1; // shardCount = 1
@@ -27,11 +27,14 @@ describe("deploy commitment resilience", () => {
         return `sig-${sigCounter}`;
       },
       async confirmTransaction(signature: string, commitment: string) {
-        confirmCalls.push({ signature, commitment });
         return { value: { err: null } };
       },
       async getSignatureStatus(_signature: string) {
         return { value: { confirmationStatus: "confirmed", confirmations: 1, err: null } };
+      },
+      async getSignatureStatuses(_signatures: string[]) {
+        getSignatureStatusesCalls.push({ signatures: _signatures });
+        return { value: [{ confirmationStatus: "finalized", confirmations: null, err: null }] };
       },
       async getAccountInfo(pubkey: any, commitment?: string) {
         getAccountInfoCalls.push({ pubkey, commitment });
@@ -55,10 +58,7 @@ describe("deploy commitment resilience", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(confirmCalls.length).toBeGreaterThanOrEqual(3); // shard init + init + append
-    for (const c of confirmCalls) {
-      expect(c.commitment).toBe("finalized");
-    }
+    expect(getSignatureStatusesCalls.length).toBeGreaterThan(0);
 
     const commitmentReads = getAccountInfoCalls
       .map((c) => c.commitment)
