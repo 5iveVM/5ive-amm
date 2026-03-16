@@ -162,9 +162,7 @@ impl ASTGenerator {
                             }
                         } else if let Some(field_info) = self.global_symbol_table.get(name) {
                             // Script fields use account_index=0 (the script account itself)
-                            emitter.emit_opcode(LOAD_FIELD);
-                            emitter.emit_u8(0);
-                            emitter.emit_u32(field_info.offset);
+                            self.emit_load_field(emitter, 0, field_info.offset);
                         } else if !self.interface_registry.contains_key(name)
                             && !self.external_imports.contains_key(name)
                         {
@@ -482,16 +480,13 @@ impl ASTGenerator {
                             self.calculate_account_field_offset(account_type, field, account_name)?;
 
                         // Generate zero-copy account field load operation using MitoVM
+                        let account_index =
+                            super::account_utils::account_index_from_param_offset(field_info.offset);
                         if is_pubkey {
-                            emitter.emit_opcode(LOAD_FIELD_PUBKEY); // Zero-copy pubkey read (32 bytes)
+                            self.emit_load_field_pubkey(emitter, account_index, field_offset);
                         } else {
-                            emitter.emit_opcode(LOAD_FIELD); // Zero-copy u64 read (8 bytes)
+                            self.emit_load_field(emitter, account_index, field_offset);
                         }
-
-                        emitter.emit_u8(super::account_utils::account_index_from_param_offset(
-                            field_info.offset,
-                        )); // Account index from symbol table
-                        emitter.emit_u32(field_offset); // Field offset (fixed format for consistency)
 
                         if is_optional {
                             emitter.emit_opcode(OPTIONAL_UNWRAP);

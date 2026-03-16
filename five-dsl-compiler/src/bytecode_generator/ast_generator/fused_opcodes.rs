@@ -78,9 +78,7 @@ impl ASTGenerator {
                 // 2) otherwise require delegated session:
                 //    session.delegate == signer.key
                 //    session.authority == business-owner field
-                emitter.emit_opcode(LOAD_FIELD);
-                emitter.emit_u8(acc_idx);
-                emitter.emit_u32(offset);
+                self.emit_load_field(emitter, acc_idx, offset);
                 emitter.emit_opcode(GET_KEY);
                 emitter.emit_u8(signer_idx);
                 emitter.emit_opcode(EQ);
@@ -88,9 +86,7 @@ impl ASTGenerator {
                 let bypass_patch_pos = emitter.get_position();
                 emitter.emit_u16(0);
 
-                emitter.emit_opcode(LOAD_FIELD);
-                emitter.emit_u8(session_idx);
-                emitter.emit_u32(session_delegate_offset);
+                self.emit_load_field(emitter, session_idx, session_delegate_offset);
                 emitter.emit_opcode(GET_KEY);
                 emitter.emit_u8(signer_idx);
                 emitter.emit_opcode(EQ);
@@ -879,9 +875,7 @@ impl ASTGenerator {
                 "FUSED_DEBUG: EMITTING STORE_FIELD_ZERO! acc={} offset={}",
                 target_acc_idx, target_offset
             );
-            emitter.emit_opcode(STORE_FIELD_ZERO);
-            emitter.emit_u8(target_acc_idx);
-            emitter.emit_u32(target_offset);
+            self.emit_store_field_zero(emitter, target_acc_idx, target_offset);
             return Ok(true);
         }
 

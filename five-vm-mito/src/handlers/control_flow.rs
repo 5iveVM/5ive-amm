@@ -61,6 +61,11 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             let offset = ctx.fetch_u16()? as usize;
             validate_and_jump(ctx, offset)?;
         }
+        JUMP_S8 => {
+            let rel = ctx.fetch_byte()? as i8;
+            let new_ip = (ctx.ip() as i32 + rel as i32) as usize;
+            validate_and_jump(ctx, new_ip)?;
+        }
         JUMP_IF => {
             let offset = ctx.fetch_u16()? as usize;
             let condition = ctx.pop()?;
@@ -73,6 +78,14 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             let condition = ctx.pop()?;
             if !condition.is_truthy() {
                 validate_and_jump(ctx, offset)?;
+            }
+        }
+        JUMP_IF_NOT_S8 => {
+            let rel = ctx.fetch_byte()? as i8;
+            let condition = ctx.pop()?;
+            if !condition.is_truthy() {
+                let new_ip = (ctx.ip() as i32 + rel as i32) as usize;
+                validate_and_jump(ctx, new_ip)?;
             }
         }
         REQUIRE => {
@@ -308,6 +321,29 @@ pub fn handle_control_flow(opcode: u8, ctx: &mut ExecutionManager) -> CompactRes
             } else {
                 debug_log!("MitoVM: BR_EQ_U8 not taken");
                 debug_log!("Compare value: {}", compare_value as u32);
+            }
+        }
+        BR_EQ_U8_S8 => {
+            let compare_value = ctx.fetch_byte()?;
+            let rel = ctx.fetch_byte()? as i8;
+            let stack_value = ctx.pop()?;
+
+            let is_equal = match stack_value {
+                five_protocol::ValueRef::U8(val) => val == compare_value,
+                five_protocol::ValueRef::U16(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::U32(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::U64(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I8(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I16(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I32(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::I64(val) => val as u8 == compare_value,
+                five_protocol::ValueRef::Bool(val) => (val as u8) == compare_value,
+                _ => false,
+            };
+
+            if is_equal {
+                let new_ip = (ctx.ip() as i32 + rel as i32) as usize;
+                validate_and_jump(ctx, new_ip)?;
             }
         }
         CMP_EQ_JUMP => {

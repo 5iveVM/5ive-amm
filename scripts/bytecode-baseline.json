@@ -1,0 +1,283 @@
+[
+  {
+    "project": "5ive-amm",
+    "bytecodeBytes": 1551,
+    "abiBytes": 11762,
+    "functionCount": 13,
+    "exported": [
+      "init_pool",
+      "bootstrap_liquidity",
+      "add_liquidity",
+      "swap",
+      "remove_liquidity",
+      "collect_protocol_fees",
+      "update_fees",
+      "set_authority",
+      "set_paused",
+      "get_reserves",
+      "get_reserve_b",
+      "get_lp_supply",
+      "get_protocol_fees_a"
+    ]
+  },
+  {
+    "project": "5ive-blackjack",
+    "bytecodeBytes": 2028,
+    "abiBytes": 4283,
+    "functionCount": 8,
+    "exported": [
+      "init_table",
+      "init_player",
+      "start_round",
+      "hit",
+      "stand_and_settle",
+      "get_player_chips",
+      "get_round_status",
+      "get_last_outcome"
+    ]
+  },
+  {
+    "project": "5ive-boardgames",
+    "bytecodeBytes": 5289,
+    "abiBytes": 5882,
+    "functionCount": 13,
+    "exported": [
+      "init_config",
+      "init_profile",
+      "create_open_match",
+      "create_invite_match",
+      "join_match",
+      "play_ttt",
+      "play_c4",
+      "claim_timeout",
+      "resign",
+      "cancel_waiting_match",
+      "get_match_status",
+      "get_match_turn",
+      "get_match_winner"
+    ]
+  },
+  {
+    "project": "5ive-cfd",
+    "bytecodeBytes": 2295,
+    "abiBytes": 11059,
+    "functionCount": 22,
+    "exported": [
+      "init_contract",
+      "open_position",
+      "accrue_funding",
+      "close_position",
+      "liquidate_position",
+      "calc_unrealized_pnl",
+      "check_liquidation",
+      "check_stop_loss",
+      "check_take_profit",
+      "update_fee",
+      "update_leverage",
+      "update_margins",
+      "update_funding_rate",
+      "pause_cfd",
+      "unpause_cfd",
+      "set_position_cap",
+      "get_positions",
+      "get_volume",
+      "get_pnl",
+      "get_collateral",
+      "get_open_interest",
+      "get_insurance_fund"
+    ]
+  },
+  {
+    "project": "5ive-connect4",
+    "bytecodeBytes": 3588,
+    "abiBytes": 5423,
+    "functionCount": 12,
+    "exported": [
+      "init_connect4_config",
+      "init_connect4_profile",
+      "create_open_connect4_match",
+      "create_invite_connect4_match",
+      "join_connect4_match",
+      "play_connect4",
+      "claim_connect4_timeout",
+      "resign_connect4_match",
+      "cancel_waiting_connect4_match",
+      "get_connect4_match_status",
+      "get_connect4_match_turn",
+      "get_connect4_match_winner"
+    ]
+  },
+  {
+    "project": "5ive-escrow",
+    "bytecodeBytes": 436,
+    "abiBytes": 3612,
+    "functionCount": 4,
+    "exported": [
+      "make",
+      "take",
+      "refund",
+      "get_status"
+    ]
+  },
+  {
+    "project": "5ive-lending",
+    "bytecodeBytes": 2323,
+    "abiBytes": 17446,
+    "functionCount": 19,
+    "exported": [
+      "init_market",
+      "set_market_pause",
+      "transfer_market_admin",
+      "init_reserve",
+      "set_reserve_config",
+      "init_obligation",
+      "init_oracle",
+      "set_oracle",
+      "refresh_reserve",
+      "refresh_obligation",
+      "refresh_obligation_with_oracle",
+      "deposit_reserve_liquidity",
+      "withdraw_reserve_liquidity",
+      "borrow_obligation_liquidity",
+      "repay_obligation_liquidity",
+      "liquidate_obligation",
+      "collect_protocol_fees",
+      "get_utilization",
+      "get_borrow_rate"
+    ]
+  },
+  {
+    "project": "5ive-minesweeper",
+    "bytecodeBytes": 7465,
+    "abiBytes": 2991,
+    "functionCount": 5,
+    "exported": [
+      "init_config",
+      "start_run",
+      "toggle_flag",
+      "reveal_cell",
+      "cell_view"
+    ]
+  },
+  {
+    "project": "5ive-morra",
+    "bytecodeBytes": 1617,
+    "abiBytes": 8449,
+    "functionCount": 12,
+    "exported": [
+      "initialize",
+      "create_game",
+      "start_round",
+      "buy_ticket",
+      "reveal_ticket",
+      "finalize_round",
+      "claim",
+      "get_round_status",
+      "test_compute_payout",
+      "test_compute_rollover",
+      "test_in_guess_range",
+      "test_digits_in_range"
+    ]
+  },
+  {
+    "project": "5ive-payment-channel",
+    "bytecodeBytes": 117,
+    "abiBytes": 1000,
+    "functionCount": 3,
+    "exported": [
+      "init_counter",
+      "increment",
+      "get_value"
+    ]
+  },
+  {
+    "project": "5ive-single-pool",
+    "bytecodeBytes": 2200,
+    "abiBytes": 16699,
+    "functionCount": 22,
+    "exported": [
+      "account_type_uninitialized",
+      "account_type_pool",
+      "mint_decimals",
+      "stake_authorize_staker",
+      "stake_authorize_withdrawer",
+      "derive_pool",
+      "derive_pool_stake",
+      "derive_pool_mint",
+      "derive_pool_stake_authority",
+      "derive_pool_mint_authority",
+      "derive_pool_mpl_authority",
+      "quote_deposit_pool_tokens",
+      "quote_withdraw_stake",
+      "initialize_pool",
+      "reactivate_pool_stake",
+      "deposit_stake",
+      "deposit_stake_quote_only",
+      "withdraw_stake_quote_only",
+      "withdraw_stake",
+      "withdraw_excess_lamports",
+      "create_token_metadata",
+      "update_token_metadata"
+    ]
+  },
+  {
+    "project": "5ive-texas-holdem",
+    "bytecodeBytes": 10400,
+    "abiBytes": 16677,
+    "functionCount": 12,
+    "exported": [
+      "create_table",
+      "join_table",
+      "withdraw_seat",
+      "start_hand",
+      "post_blinds",
+      "deal_hand_test_rng",
+      "player_action",
+      "force_timeout_action",
+      "advance_street",
+      "showdown_and_settle",
+      "close_table",
+      "commit_vrng_entropy"
+    ]
+  },
+  {
+    "project": "5ive-tictactoe",
+    "bytecodeBytes": 1520,
+    "abiBytes": 6378,
+    "functionCount": 15,
+    "exported": [
+      "init_config",
+      "init_profile",
+      "create_open_match",
+      "create_invite_match",
+      "join_match",
+      "start_single_player",
+      "play_ttt",
+      "play_ttt_single",
+      "play_cpu_random",
+      "claim_timeout",
+      "resign",
+      "cancel_waiting_match",
+      "get_match_status",
+      "get_match_turn",
+      "get_match_winner"
+    ]
+  },
+  {
+    "project": "5ive-token",
+    "bytecodeBytes": 770,
+    "abiBytes": 5194,
+    "functionCount": 9,
+    "exported": [
+      "initialize_mint",
+      "initialize_account",
+      "mint_to",
+      "transfer",
+      "burn",
+      "approve",
+      "revoke",
+      "freeze_account",
+      "thaw_account"
+    ]
+  }
+]

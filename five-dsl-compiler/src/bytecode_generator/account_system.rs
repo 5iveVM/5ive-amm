@@ -9,6 +9,32 @@ use std::collections::HashMap;
 
 const DEFAULT_ACCOUNT_VEC_CAPACITY: u32 = 16;
 
+#[inline]
+fn emit_load_field<T: OpcodeEmitter>(emitter: &mut T, account_index: u8, field_offset: u32) {
+    if field_offset <= u8::MAX as u32 {
+        emitter.emit_opcode(LOAD_FIELD_S);
+        emitter.emit_u8(account_index);
+        emitter.emit_u8(field_offset as u8);
+    } else {
+        emitter.emit_opcode(LOAD_FIELD);
+        emitter.emit_u8(account_index);
+        emitter.emit_u32(field_offset);
+    }
+}
+
+#[inline]
+fn emit_store_field<T: OpcodeEmitter>(emitter: &mut T, account_index: u8, field_offset: u32) {
+    if field_offset <= u8::MAX as u32 {
+        emitter.emit_opcode(STORE_FIELD_S);
+        emitter.emit_u8(account_index);
+        emitter.emit_u8(field_offset as u8);
+    } else {
+        emitter.emit_opcode(STORE_FIELD);
+        emitter.emit_u8(account_index);
+        emitter.emit_u32(field_offset);
+    }
+}
+
 /// Account System for managing account definitions and operations
 #[derive(Clone)]
 pub struct AccountSystem {
@@ -303,17 +329,13 @@ impl AccountSystem {
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
                     // Fall back to standard access until zerocopy is implemented.
-                    emitter.emit_opcode(LOAD_FIELD);
-                    emitter.emit_u8(account_index);
-                    emitter.emit_u32(field_info.offset);
+                    emit_load_field(emitter, account_index, field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
                 } else {
                     // Standard account field access
-                    emitter.emit_opcode(LOAD_FIELD);
-                    emitter.emit_u8(account_index);
-                    emitter.emit_u32(field_info.offset);
+                    emit_load_field(emitter, account_index, field_info.offset);
                     if field_info.is_optional {
                         emitter.emit_opcode(OPTIONAL_UNWRAP);
                     }
@@ -362,14 +384,10 @@ impl AccountSystem {
                 if self.should_use_zerocopy_optimization(account_param) {
                     // Use zerocopy optimization for better performance
                     // Fall back to standard access until zerocopy is implemented.
-                    emitter.emit_opcode(STORE_FIELD);
-                    emitter.emit_u8(account_index);
-                    emitter.emit_u32(field_info.offset);
+                    emit_store_field(emitter, account_index, field_info.offset);
                 } else {
                     // Standard account field storage
-                    emitter.emit_opcode(STORE_FIELD);
-                    emitter.emit_u8(account_index);
-                    emitter.emit_u32(field_info.offset);
+                    emit_store_field(emitter, account_index, field_info.offset);
                 }
 
                 if field_info.is_optional {
@@ -461,9 +479,7 @@ impl AccountSystem {
             "data" => {
                 // Data can be modified if account is mutable
                 // Data modification uses generic store field with account index
-                emitter.emit_opcode(STORE_FIELD);
-                emitter.emit_u8(account_index); // Use resolved account index
-                emitter.emit_u32(0); // Data field offset
+                emit_store_field(emitter, account_index, 0);
             }
             "owner" | "key" => {
                 // These are typically read-only

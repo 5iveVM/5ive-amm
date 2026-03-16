@@ -491,6 +491,17 @@ pub fn parse_instruction_with_features(
                 arg2 = val as u64; // field_offset
                 total_size += 4;
             }
+            ArgType::AccountFieldS8 => {
+                // acc(u8) + offset(u8)
+                if offset + total_size + 1 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let acc = bytecode[offset + total_size] as u64;
+                let field_offset = bytecode[offset + total_size + 1] as u64;
+                arg1 = acc;
+                arg2 = field_offset;
+                total_size += 2;
+            }
             ArgType::AccountFieldParam => {
                 // acc(u8) + offset(u32) + param(u8)
                 if offset + total_size >= bytecode.len() {
@@ -658,6 +669,16 @@ pub fn parse_instruction_with_features(
                 arg2 = rel;
                 total_size += 3;
             }
+            ArgType::CompareU8Offset8 => {
+                if offset + total_size + 1 >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let compare = bytecode[offset + total_size] as u64;
+                let rel = bytecode[offset + total_size + 1] as i8 as i64 as u64;
+                arg1 = compare;
+                arg2 = rel;
+                total_size += 2;
+            }
             ArgType::CompareU8Target16 => {
                 if offset + total_size + 2 >= bytecode.len() {
                     return Err(ParseError::InstructionOutOfBounds);
@@ -694,6 +715,14 @@ pub fn parse_instruction_with_features(
                 arg1 = local_index;
                 arg2 = target;
                 total_size += 3;
+            }
+            ArgType::TargetI8 => {
+                if offset + total_size >= bytecode.len() {
+                    return Err(ParseError::InstructionOutOfBounds);
+                }
+                let rel = bytecode[offset + total_size] as i8 as i64 as u64;
+                arg1 = rel;
+                total_size += 1;
             }
         }
     }

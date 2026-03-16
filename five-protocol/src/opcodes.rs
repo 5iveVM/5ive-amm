@@ -74,6 +74,9 @@ pub const BR_EQ_U8: u8 = 0x09; // Fused compare-and-branch: compare with u8, jum
 pub const CMP_EQ_JUMP: u8 = 0x0A; // Compare stack top with u8 immediate and jump to absolute u16 target if equal
 pub const DEC_JUMP_NZ: u8 = 0x0B; // Decrement stack top and jump to absolute u16 target when result != 0
 pub const DEC_LOCAL_JUMP_NZ: u8 = 0x0C; // Decrement local[u8] and jump to absolute u16 target when result != 0
+pub const JUMP_S8: u8 = 0x0D; // Relative signed i8 jump
+pub const JUMP_IF_NOT_S8: u8 = 0x0E; // Relative signed i8 conditional jump
+pub const BR_EQ_U8_S8: u8 = 0x0F; // Fused compare-and-branch with signed i8 relative offset
 
 // ===== ALL STACK OPERATIONS (0x10-0x1F) =====
 // 🎯 LOGICAL GROUPING: All stack manipulation + ALL PUSH operations consolidated
@@ -164,6 +167,10 @@ pub const LOAD_GLOBAL: u8 = 0x46;
 pub const LOAD_EXTERNAL_FIELD: u8 = 0x47; // LOAD_EXTERNAL_FIELD (stack: account_pubkey, field_name) -> value
                                           // Note: No STORE_EXTERNAL_FIELD - external state is read-only for security
 pub const LOAD_FIELD_PUBKEY: u8 = 0x48; // LOAD_FIELD_PUBKEY account_index_u8, offset_u32 -> PubkeyRef
+pub const LOAD_FIELD_S: u8 = 0x49; // LOAD_FIELD_S account_index_u8, offset_u8
+pub const STORE_FIELD_S: u8 = 0x4A; // STORE_FIELD_S account_index_u8, offset_u8
+pub const LOAD_FIELD_PUBKEY_S: u8 = 0x4B; // LOAD_FIELD_PUBKEY_S account_index_u8, offset_u8
+pub const STORE_FIELD_ZERO_S: u8 = 0x4C; // STORE_FIELD_ZERO_S account_index_u8, offset_u8
 
 // ===== ACCOUNT OPERATIONS (0x50-0x5F) =====
 pub const CREATE_ACCOUNT: u8 = 0x50;
@@ -438,6 +445,7 @@ pub enum ArgType {
     CallExternal,      // account_index (u8) + function_offset (u16) + param_count (u8)
     CallInternal,      // param_count (u8) + function_address (u16)
     AccountField,      // account_index (u8) + field_offset (u32)
+    AccountFieldS8,    // account_index (u8) + field_offset (u8)
     AccountFieldParam, // account_index (u8) + field_offset (u32) + param_index (u8)
     FusedAccAcc,       // acc1(u8) + offset1(u32) + acc2(u8) + offset2(u32)
     U16Fixed,          // Fixed 2-byte u16 (for patching)
@@ -449,6 +457,8 @@ pub enum ArgType {
     CompareU8Target16, // compare(u8) + abs_target(u16)
     TargetU16,         // abs_target(u16)
     LocalTarget16,     // local_index(u8) + abs_target(u16)
+    TargetI8,          // rel_target(i8)
+    CompareU8Offset8,  // compare(u8) + rel_offset(i8)
 }
 
 /// Opcode metadata for efficient VM implementation
@@ -481,15 +491,18 @@ const fn encode_arg_type(arg_type: ArgType) -> u8 {
         ArgType::CallInternal => 11,
         ArgType::FunctionIndex => 12,
         ArgType::AccountField => 13,
-        ArgType::AccountFieldParam => 14,
-        ArgType::FusedAccAcc => 15,
-        ArgType::FusedSubAdd => 16,
-        ArgType::ParamImm => 17,
-        ArgType::FieldImm => 18,
-        ArgType::CompareU8Offset16 => 19,
-        ArgType::CompareU8Target16 => 20,
-        ArgType::TargetU16 => 21,
-        ArgType::LocalTarget16 => 22,
+        ArgType::AccountFieldS8 => 14,
+        ArgType::AccountFieldParam => 15,
+        ArgType::FusedAccAcc => 16,
+        ArgType::FusedSubAdd => 17,
+        ArgType::ParamImm => 18,
+        ArgType::FieldImm => 19,
+        ArgType::CompareU8Offset16 => 20,
+        ArgType::CompareU8Target16 => 21,
+        ArgType::TargetU16 => 22,
+        ArgType::LocalTarget16 => 23,
+        ArgType::TargetI8 => 24,
+        ArgType::CompareU8Offset8 => 25,
     }
 }
 
@@ -510,15 +523,18 @@ const fn decode_arg_type(id: u8) -> Option<ArgType> {
         11 => Some(ArgType::CallInternal),
         12 => Some(ArgType::FunctionIndex),
         13 => Some(ArgType::AccountField),
-        14 => Some(ArgType::AccountFieldParam),
-        15 => Some(ArgType::FusedAccAcc),
-        16 => Some(ArgType::FusedSubAdd),
-        17 => Some(ArgType::ParamImm),
-        18 => Some(ArgType::FieldImm),
-        19 => Some(ArgType::CompareU8Offset16),
-        20 => Some(ArgType::CompareU8Target16),
-        21 => Some(ArgType::TargetU16),
-        22 => Some(ArgType::LocalTarget16),
+        14 => Some(ArgType::AccountFieldS8),
+        15 => Some(ArgType::AccountFieldParam),
+        16 => Some(ArgType::FusedAccAcc),
+        17 => Some(ArgType::FusedSubAdd),
+        18 => Some(ArgType::ParamImm),
+        19 => Some(ArgType::FieldImm),
+        20 => Some(ArgType::CompareU8Offset16),
+        21 => Some(ArgType::CompareU8Target16),
+        22 => Some(ArgType::TargetU16),
+        23 => Some(ArgType::LocalTarget16),
+        24 => Some(ArgType::TargetI8),
+        25 => Some(ArgType::CompareU8Offset8),
         _ => None,
     }
 }
@@ -640,6 +656,27 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::LocalTarget16,
         stack_effect: 0,
         compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: JUMP_S8,
+        name: "JUMP_S8",
+        arg_type: ArgType::TargetI8,
+        stack_effect: 0,
+        compute_cost: 2,
+    },
+    OpcodeInfo {
+        opcode: JUMP_IF_NOT_S8,
+        name: "JUMP_IF_NOT_S8",
+        arg_type: ArgType::TargetI8,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: BR_EQ_U8_S8,
+        name: "BR_EQ_U8_S8",
+        arg_type: ArgType::CompareU8Offset8,
+        stack_effect: -1,
+        compute_cost: 3,
     },
     // Stack operations
     OpcodeInfo {
@@ -1186,6 +1223,34 @@ pub const OPCODE_TABLE: &[OpcodeInfo] = &[
         arg_type: ArgType::AccountField,
         stack_effect: 1,
         compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LOAD_FIELD_S,
+        name: "LOAD_FIELD_S",
+        arg_type: ArgType::AccountFieldS8,
+        stack_effect: 1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: STORE_FIELD_S,
+        name: "STORE_FIELD_S",
+        arg_type: ArgType::AccountFieldS8,
+        stack_effect: -1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: LOAD_FIELD_PUBKEY_S,
+        name: "LOAD_FIELD_PUBKEY_S",
+        arg_type: ArgType::AccountFieldS8,
+        stack_effect: 1,
+        compute_cost: 3,
+    },
+    OpcodeInfo {
+        opcode: STORE_FIELD_ZERO_S,
+        name: "STORE_FIELD_ZERO_S",
+        arg_type: ArgType::AccountFieldS8,
+        stack_effect: 0,
+        compute_cost: 2,
     },
     // Byte manipulation operations
     OpcodeInfo {
@@ -2043,15 +2108,18 @@ pub fn operand_size(opcode: u8, remaining: &[u8], pool_enabled: bool) -> Option<
         ArgType::CallExternal => 4,
         ArgType::CallInternal => 3,
         ArgType::AccountField => 5,
+        ArgType::AccountFieldS8 => 2,
         ArgType::AccountFieldParam => 6,
         ArgType::FusedAccAcc => 10,
         ArgType::FusedSubAdd => 11,
         ArgType::ParamImm => 2,
         ArgType::FieldImm => 6,
         ArgType::CompareU8Offset16 => 3,
+        ArgType::CompareU8Offset8 => 2,
         ArgType::CompareU8Target16 => 3,
         ArgType::TargetU16 => 2,
         ArgType::LocalTarget16 => 3,
+        ArgType::TargetI8 => 1,
     })
 }
 

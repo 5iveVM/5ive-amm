@@ -6,6 +6,78 @@ use super::types::ASTGenerator;
 use five_protocol::opcodes::*;
 
 impl ASTGenerator {
+    /// Emit field-load opcode, selecting compact encoding when the offset fits in u8.
+    pub(super) fn emit_load_field<T: OpcodeEmitter>(
+        &self,
+        emitter: &mut T,
+        account_index: u8,
+        field_offset: u32,
+    ) {
+        if field_offset <= u8::MAX as u32 {
+            emitter.emit_opcode(LOAD_FIELD_S);
+            emitter.emit_u8(account_index);
+            emitter.emit_u8(field_offset as u8);
+        } else {
+            emitter.emit_opcode(LOAD_FIELD);
+            emitter.emit_u8(account_index);
+            emitter.emit_u32(field_offset);
+        }
+    }
+
+    /// Emit field-store opcode, selecting compact encoding when the offset fits in u8.
+    pub(super) fn emit_store_field<T: OpcodeEmitter>(
+        &self,
+        emitter: &mut T,
+        account_index: u8,
+        field_offset: u32,
+    ) {
+        if field_offset <= u8::MAX as u32 {
+            emitter.emit_opcode(STORE_FIELD_S);
+            emitter.emit_u8(account_index);
+            emitter.emit_u8(field_offset as u8);
+        } else {
+            emitter.emit_opcode(STORE_FIELD);
+            emitter.emit_u8(account_index);
+            emitter.emit_u32(field_offset);
+        }
+    }
+
+    /// Emit pubkey field-load opcode with compact immediate encoding when possible.
+    pub(super) fn emit_load_field_pubkey<T: OpcodeEmitter>(
+        &self,
+        emitter: &mut T,
+        account_index: u8,
+        field_offset: u32,
+    ) {
+        if field_offset <= u8::MAX as u32 {
+            emitter.emit_opcode(LOAD_FIELD_PUBKEY_S);
+            emitter.emit_u8(account_index);
+            emitter.emit_u8(field_offset as u8);
+        } else {
+            emitter.emit_opcode(LOAD_FIELD_PUBKEY);
+            emitter.emit_u8(account_index);
+            emitter.emit_u32(field_offset);
+        }
+    }
+
+    /// Emit fused zero-store opcode with compact immediate encoding when possible.
+    pub(super) fn emit_store_field_zero<T: OpcodeEmitter>(
+        &self,
+        emitter: &mut T,
+        account_index: u8,
+        field_offset: u32,
+    ) {
+        if field_offset <= u8::MAX as u32 {
+            emitter.emit_opcode(STORE_FIELD_ZERO_S);
+            emitter.emit_u8(account_index);
+            emitter.emit_u8(field_offset as u8);
+        } else {
+            emitter.emit_opcode(STORE_FIELD_ZERO);
+            emitter.emit_u8(account_index);
+            emitter.emit_u32(field_offset);
+        }
+    }
+
     /// Emit optimized SET_LOCAL when the index fits.
     pub(super) fn emit_set_local<T: OpcodeEmitter>(
         &self,
@@ -13,8 +85,16 @@ impl ASTGenerator {
         index: u32,
         context: &str,
     ) {
-        emitter.emit_opcode(SET_LOCAL);
-        emitter.emit_u8(index as u8);
+        match index {
+            0 => emitter.emit_opcode(SET_LOCAL_0),
+            1 => emitter.emit_opcode(SET_LOCAL_1),
+            2 => emitter.emit_opcode(SET_LOCAL_2),
+            3 => emitter.emit_opcode(SET_LOCAL_3),
+            _ => {
+                emitter.emit_opcode(SET_LOCAL);
+                emitter.emit_u8(index as u8);
+            }
+        }
         #[cfg(debug_assertions)]
         println!(
             "DEBUG: Generated SET_LOCAL {} (V1 mode) for {}",
@@ -32,8 +112,16 @@ impl ASTGenerator {
         index: u32,
         context: &str,
     ) {
-        emitter.emit_opcode(GET_LOCAL);
-        emitter.emit_u8(index as u8);
+        match index {
+            0 => emitter.emit_opcode(GET_LOCAL_0),
+            1 => emitter.emit_opcode(GET_LOCAL_1),
+            2 => emitter.emit_opcode(GET_LOCAL_2),
+            3 => emitter.emit_opcode(GET_LOCAL_3),
+            _ => {
+                emitter.emit_opcode(GET_LOCAL);
+                emitter.emit_u8(index as u8);
+            }
+        }
         #[cfg(debug_assertions)]
         println!(
             "DEBUG: Generated GET_LOCAL {} (V1 mode) for {}",

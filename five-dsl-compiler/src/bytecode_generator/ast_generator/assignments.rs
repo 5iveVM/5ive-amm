@@ -322,9 +322,7 @@ impl ASTGenerator {
 
             // Protocol V3: STORE_FIELD account_index_u8, offset_u32
             // Script fields use account_index=0 (the script account itself)
-            emitter.emit_opcode(STORE_FIELD);
-            emitter.emit_u8(0); // Script account is always index 0
-            emitter.emit_u32(field_offset);
+            self.emit_store_field(emitter, 0, field_offset);
         } else {
             // Create new local variable (original fallback when no dispatcher)
             let field_info = FieldInfo {
@@ -400,13 +398,13 @@ impl ASTGenerator {
                                 field,
                                 account_name,
                             )?; // Pass account_type string
-                            emitter.emit_opcode(STORE_FIELD); // Use STORE_FIELD for now, assuming it handles account fields
-                            emitter.emit_u8(
+                            self.emit_store_field(
+                                emitter,
                                 super::super::account_utils::account_index_from_param_offset(
                                     field_info.offset,
                                 ),
+                                field_offset,
                             );
-                            emitter.emit_u32(field_offset);
                         } else {
                             return Err(VMError::InvalidScript); // Undefined account
                         }
@@ -587,9 +585,7 @@ impl ASTGenerator {
                     account_name, account_offset, field_offset);
 
                 // Generate account field store operation using zero-copy account field store
-                emitter.emit_opcode(STORE_FIELD); // MitoVM zero-copy account field store
-                emitter.emit_u8(account_offset); // Account index from symbol table
-                emitter.emit_u32(field_offset); // Field offset (fixed format for consistency)
+                self.emit_store_field(emitter, account_offset, field_offset);
             } else {
                 // ENHANCED ERROR HANDLING: Check if this might be a script field assignment
                 #[cfg(debug_assertions)]
@@ -629,9 +625,7 @@ impl ASTGenerator {
                     // Get script field info from global symbol table
                     if let Some(script_field_info) = self.global_symbol_table.get(account_name) {
                         // Protocol V3: STORE_FIELD account_index_u8, offset_u32
-                        emitter.emit_opcode(STORE_FIELD);
-                        emitter.emit_u8(0); // Script account is always index 0
-                        emitter.emit_u32(script_field_info.offset);
+                        self.emit_store_field(emitter, 0, script_field_info.offset);
 
                         #[cfg(debug_assertions)]
                         println!(

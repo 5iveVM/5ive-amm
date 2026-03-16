@@ -76,6 +76,7 @@ pub const FEATURE_PUBLIC_ENTRY_TABLE: u32 = 1 << 12; // Compact public entry off
 pub const FEATURE_FAST_DISPATCH_TABLE: u32 = 1 << 13; // Dispatcher uses direct compact entry table path
 pub const FEATURE_FUSED_BRANCH_OPS: u32 = 1 << 14; // Fused branch/control-flow opcodes are present
 pub const FEATURE_COUNTED_LOOPS: u32 = 1 << 15; // Counted loop opcodes are present
+pub const FEATURE_COMPACT_IMMEDIATES: u32 = 1 << 16; // Compact short-immediate opcodes are present
 
 // Address constants
 pub const MAX_U16_ADDRESS: usize = u16::MAX as usize;

@@ -5,6 +5,19 @@ use crate::bytecode_generator::types::AccountRegistry;
 use five_protocol::opcodes::*;
 use five_vm_mito::error::VMError;
 
+#[inline]
+fn emit_load_field<T: OpcodeEmitter>(emitter: &mut T, account_idx: u8, field_offset: u32) {
+    if field_offset <= u8::MAX as u32 {
+        emitter.emit_opcode(LOAD_FIELD_S);
+        emitter.emit_u8(account_idx);
+        emitter.emit_u8(field_offset as u8);
+    } else {
+        emitter.emit_opcode(LOAD_FIELD);
+        emitter.emit_u8(account_idx);
+        emitter.emit_u32(field_offset);
+    }
+}
+
 /// Enforce account constraints by emitting validation bytecode
 pub fn emit_constraint_checks<T: OpcodeEmitter>(
     emitter: &mut T,
@@ -189,9 +202,7 @@ fn emit_has_check<T: OpcodeEmitter>(
         // 3. Emit Verification Bytecode
 
         // A. Load Account Field -> Stack
-        emitter.emit_opcode(LOAD_FIELD);
-        emitter.emit_u8(account_idx);
-        emitter.emit_u32(field_offset);
+        emit_load_field(emitter, account_idx, field_offset);
 
         // B. Load Target Argument -> Stack
         // If target is an Account, we compare KEYS.
@@ -288,9 +299,7 @@ fn emit_field_eq_param<T: OpcodeEmitter>(
         return Ok(());
     }
 
-    emitter.emit_opcode(LOAD_FIELD);
-    emitter.emit_u8(session_account_idx);
-    emitter.emit_u32(field_offset);
+    emit_load_field(emitter, session_account_idx, field_offset);
     emitter.emit_opcode(GET_LOCAL);
     emitter.emit_u8(target_idx as u8);
     emitter.emit_opcode(EQ);

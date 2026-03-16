@@ -26,6 +26,13 @@ pub struct ABIGenerator {
 }
 
 impl ABIGenerator {
+    #[inline]
+    fn is_exported_entry(name: &str, visibility: crate::Visibility) -> bool {
+        // Only top-level `pub` instructions are externally exported.
+        // Namespaced functions originate from merged/imported modules and remain internal.
+        visibility.is_on_chain_callable() && !name.contains("::")
+    }
+
     /// Create a new ABI generator
     pub fn new() -> Self {
         Self {
@@ -151,30 +158,16 @@ impl ABIGenerator {
                     self.process_field_definition(field_def)?;
                 }
 
-                // Process instruction definitions (functions) with visibility-based ordering
-                // Phase 2: Separate public and private functions for proper visibility enforcement
-                let mut public_functions = Vec::new();
-                let mut private_functions = Vec::new();
-
-                // Separate functions by visibility
+                // Export only top-level public instruction definitions in declaration order.
                 for instruction_def in instruction_definitions {
-                    if let AstNode::InstructionDefinition { visibility, .. } = instruction_def {
-                        if visibility.is_on_chain_callable() {
-                            public_functions.push(instruction_def);
-                        } else {
-                            private_functions.push(instruction_def);
+                    if let AstNode::InstructionDefinition {
+                        name, visibility, ..
+                    } = instruction_def
+                    {
+                        if Self::is_exported_entry(name, *visibility) {
+                            self.process_instruction_definition(instruction_def)?;
                         }
                     }
-                }
-
-                // Process public functions first (get indices 0, 1, 2... - externally callable)
-                for public_function in public_functions {
-                    self.process_instruction_definition(public_function)?;
-                }
-
-                // Process private functions after (get higher indices - internal only)
-                for private_function in private_functions {
-                    self.process_instruction_definition(private_function)?;
                 }
 
                 Ok(())
@@ -575,5 +568,62 @@ mod tests {
             .expect("play function exists");
 
         assert!(!play.parameters.iter().any(|param| param.name == "__delegate"));
+    }
+
+    #[test]
+    fn test_abi_excludes_non_pub_and_namespaced_functions() {
+        let mut generator = ABIGenerator::new();
+
+        let ast = AstNode::Program {
+            program_name: "surface".to_string(),
+            field_definitions: vec![],
+            instruction_definitions: vec![
+                AstNode::InstructionDefinition {
+                    name: "entry".to_string(),
+                    visibility: crate::Visibility::Public,
+                    is_public: true,
+                    parameters: vec![],
+                    return_type: None,
+                    body: Box::new(AstNode::Block {
+                        statements: vec![],
+                        kind: BlockKind::Regular,
+                    }),
+                },
+                AstNode::InstructionDefinition {
+                    name: "helper_internal".to_string(),
+                    visibility: crate::Visibility::Private,
+                    is_public: false,
+                    parameters: vec![],
+                    return_type: None,
+                    body: Box::new(AstNode::Block {
+                        statements: vec![],
+                        kind: BlockKind::Regular,
+                    }),
+                },
+                AstNode::InstructionDefinition {
+                    name: "module::helper".to_string(),
+                    visibility: crate::Visibility::Public,
+                    is_public: true,
+                    parameters: vec![],
+                    return_type: None,
+                    body: Box::new(AstNode::Block {
+                        statements: vec![],
+                        kind: BlockKind::Regular,
+                    }),
+                },
+            ],
+            init_block: None,
+            constraints_block: None,
+            event_definitions: vec![],
+            account_definitions: vec![],
+            type_definitions: vec![],
+            interface_definitions: vec![],
+            import_statements: vec![],
+        };
+
+        let full_abi = generator.generate_five_abi(&ast).unwrap();
+        assert_eq!(full_abi.functions.len(), 1);
+        assert_eq!(full_abi.functions[0].name, "entry");
+        assert_eq!(full_abi.functions[0].index, 0);
     }
 }

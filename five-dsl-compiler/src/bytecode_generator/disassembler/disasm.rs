@@ -280,6 +280,16 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::JUMP_S8 => {
+                if pc + 2 <= bytes.len() {
+                    let offset = bytes[pc + 1] as i8;
+                    lines.push(format!("{:04X}: JUMP_S8 offset={}", pc, offset));
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: JUMP_S8 <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::JUMP_IF => {
                 if pc + 3 <= bytes.len() {
                     let offset = u16::from_le_bytes([bytes[pc + 1], bytes[pc + 2]]);
@@ -300,6 +310,16 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     break;
                 }
             }
+            opcodes::JUMP_IF_NOT_S8 => {
+                if pc + 2 <= bytes.len() {
+                    let offset = bytes[pc + 1] as i8;
+                    lines.push(format!("{:04X}: JUMP_IF_NOT_S8 offset={}", pc, offset));
+                    pc += 2;
+                } else {
+                    lines.push(format!("{:04X}: JUMP_IF_NOT_S8 <truncated>", pc));
+                    break;
+                }
+            }
             opcodes::BR_EQ_U8 => {
                 if pc + 4 <= bytes.len() {
                     let val = bytes[pc + 1];
@@ -311,6 +331,17 @@ pub fn disassemble(bytes: &[u8]) -> Vec<String> {
                     pc += 4;
                 } else {
                     lines.push(format!("{:04X}: BR_EQ_U8 <truncated>", pc));
+                    break;
+                }
+            }
+            opcodes::BR_EQ_U8_S8 => {
+                if pc + 3 <= bytes.len() {
+                    let val = bytes[pc + 1];
+                    let offset = bytes[pc + 2] as i8;
+                    lines.push(format!("{:04X}: BR_EQ_U8_S8 val={} offset={}", pc, val, offset));
+                    pc += 3;
+                } else {
+                    lines.push(format!("{:04X}: BR_EQ_U8_S8 <truncated>", pc));
                     break;
                 }
             }

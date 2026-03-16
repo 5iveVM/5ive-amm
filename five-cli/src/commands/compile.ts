@@ -280,10 +280,13 @@ async function compileProject(
 
   await mkdir(dirname(outputFile), { recursive: true });
 
+  const projectOptimizations = projectContext.config.optimizations;
   const compilationOptions: any = {
     optimize: parseOptimizationLevel(options.optimize),
     debug: Boolean(options.debug),
-    optimizationLevel: 'production',
+    optimizationLevel: projectOptimizations.optimizationLevel || 'production',
+    enableCompression: projectOptimizations.enableCompression,
+    enable_constraint_cache: projectOptimizations.enableConstraintOptimization,
     includeMetrics: Boolean(options.metricsOutput),
     metricsFormat: options.metricsFormat || 'json',
     errorFormat: options.errorFormat || 'terminal',
@@ -501,7 +504,12 @@ async function compileSingleFile(
     target: options.target || projectContext?.config.target || 'vm',
     optimize: parseOptimizationLevel(options.optimize),
     debug: Boolean(options.debug),
-    optimizationLevel: 'production',
+    optimizationLevel:
+      projectContext?.config.optimizations.optimizationLevel || 'production',
+    enableCompression:
+      projectContext?.config.optimizations.enableCompression,
+    enable_constraint_cache:
+      projectContext?.config.optimizations.enableConstraintOptimization,
     includeMetrics: Boolean(options.metricsOutput),
     metricsFormat: options.metricsFormat || 'json',
     errorFormat: options.errorFormat || 'terminal',

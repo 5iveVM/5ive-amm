@@ -1,0 +1,3196 @@
+{
+  "projects": [
+    {
+      "project": "5ive-amm",
+      "artifact": "5ive-amm/build/main.five",
+      "bytecode_bytes": 1551,
+      "instruction_count": 521,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 234,
+          "count": 39
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 108,
+          "count": 54
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 98,
+          "count": 14
+        },
+        {
+          "name": "LOAD_FIELD_PUBKEY",
+          "bytes": 90,
+          "count": 15
+        },
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 68,
+          "count": 5
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 66,
+          "count": 11
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 58,
+          "count": 29
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 56,
+          "count": 28
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 52,
+          "count": 13
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "FIELD_SUB_PARAM",
+          "bytes": 35,
+          "count": 5
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 34,
+          "count": 34
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 108,
+          "count": 54
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 234,
+          "count": 39
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 34,
+          "count": 34
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 58,
+          "count": 29
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 56,
+          "count": 28
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 19,
+          "count": 19
+        },
+        {
+          "name": "EQ",
+          "bytes": 16,
+          "count": 16
+        },
+        {
+          "name": "GET_KEY",
+          "bytes": 30,
+          "count": 15
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "LOAD_FIELD_PUBKEY",
+          "bytes": 90,
+          "count": 15
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 98,
+          "count": 14
+        },
+        {
+          "name": "ARRAY_CONCAT",
+          "bytes": 13,
+          "count": 13
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 234,
+          "count": 39
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 108,
+          "count": 54
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 66,
+          "count": 11
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 52,
+          "count": 13
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "PUSH_BYTES",
+          "bytes": 26,
+          "count": 13
+        },
+        {
+          "name": "PUSH_PUBKEY",
+          "bytes": 26,
+          "count": 13
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 8,
+          "count": 8
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 6,
+          "count": 2
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 6,
+          "count": 3
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 2,
+          "count": 1
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 13,
+      "total_function_count": 13
+    },
+    {
+      "project": "5ive-blackjack",
+      "artifact": "5ive-blackjack/build/5ive-blackjack.five",
+      "bytecode_bytes": 2028,
+      "instruction_count": 631,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 468,
+          "count": 78
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 336,
+          "count": 56
+        },
+        {
+          "name": "CALL",
+          "bytes": 116,
+          "count": 29
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 102,
+          "count": 51
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 90,
+          "count": 30
+        },
+        {
+          "name": "JUMP",
+          "bytes": 81,
+          "count": 27
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 66,
+          "count": 11
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 56,
+          "count": 28
+        },
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 51,
+          "count": 5
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 42,
+          "count": 6
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 38,
+          "count": 19
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 37,
+          "count": 37
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 468,
+          "count": 78
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 336,
+          "count": 56
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 102,
+          "count": 51
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 37,
+          "count": 37
+        },
+        {
+          "name": "ADD",
+          "bytes": 36,
+          "count": 36
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 90,
+          "count": 30
+        },
+        {
+          "name": "CALL",
+          "bytes": 116,
+          "count": 29
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 56,
+          "count": 28
+        },
+        {
+          "name": "JUMP",
+          "bytes": 81,
+          "count": 27
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 38,
+          "count": 19
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 17,
+          "count": 17
+        },
+        {
+          "name": "EQ",
+          "bytes": 16,
+          "count": 16
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 468,
+          "count": 78
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 336,
+          "count": 56
+        },
+        {
+          "name": "CALL",
+          "bytes": 116,
+          "count": 29
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 90,
+          "count": 30
+        },
+        {
+          "name": "JUMP",
+          "bytes": 81,
+          "count": 27
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 56,
+          "count": 28
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 37,
+          "count": 37
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 32,
+          "count": 8
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "JUMP_IF",
+          "bytes": 12,
+          "count": 4
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 11,
+          "count": 11
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 6,
+          "count": 3
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 8,
+      "total_function_count": 18
+    },
+    {
+      "project": "5ive-boardgames",
+      "artifact": "5ive-boardgames/build/5ive-boardgames.five",
+      "bytecode_bytes": 5289,
+      "instruction_count": 1961,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "CALL",
+          "bytes": 752,
+          "count": 188
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 600,
+          "count": 200
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 562,
+          "count": 281
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 330,
+          "count": 55
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 318,
+          "count": 53
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 264,
+          "count": 44
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 256,
+          "count": 128
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "JUMP",
+          "bytes": 117,
+          "count": 39
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 116,
+          "count": 58
+        },
+        {
+          "name": "EQ",
+          "bytes": 111,
+          "count": 111
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 107,
+          "count": 107
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "GET_LOCAL",
+          "bytes": 562,
+          "count": 281
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 600,
+          "count": 200
+        },
+        {
+          "name": "CALL",
+          "bytes": 752,
+          "count": 188
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 256,
+          "count": 128
+        },
+        {
+          "name": "EQ",
+          "bytes": 111,
+          "count": 111
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 107,
+          "count": 107
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 84,
+          "count": 84
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 59,
+          "count": 59
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 116,
+          "count": 58
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 330,
+          "count": 55
+        },
+        {
+          "name": "ADD",
+          "bytes": 54,
+          "count": 54
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "CALL",
+          "bytes": 752,
+          "count": 188
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 600,
+          "count": 200
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 318,
+          "count": 53
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 264,
+          "count": 44
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "JUMP",
+          "bytes": 117,
+          "count": 39
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 116,
+          "count": 58
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 59,
+          "count": 59
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 52,
+          "count": 13
+        },
+        {
+          "name": "PUSH_3",
+          "bytes": 35,
+          "count": 35
+        },
+        {
+          "name": "PUSH_U32",
+          "bytes": 32,
+          "count": 16
+        },
+        {
+          "name": "DEC_LOCAL_JUMP_NZ",
+          "bytes": 28,
+          "count": 7
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 13,
+      "total_function_count": 42
+    },
+    {
+      "project": "5ive-cfd",
+      "artifact": "5ive-cfd/build/main.five",
+      "bytecode_bytes": 2295,
+      "instruction_count": 749,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 534,
+          "count": 89
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 198,
+          "count": 33
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 136,
+          "count": 68
+        },
+        {
+          "name": "JUMP",
+          "bytes": 126,
+          "count": 42
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 105,
+          "count": 15
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 88,
+          "count": 22
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 78,
+          "count": 39
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 75,
+          "count": 25
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 72,
+          "count": 12
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "REQUIRE_OWNER",
+          "bytes": 42,
+          "count": 6
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 534,
+          "count": 89
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 136,
+          "count": 68
+        },
+        {
+          "name": "JUMP",
+          "bytes": 126,
+          "count": 42
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 78,
+          "count": 39
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 198,
+          "count": 33
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 75,
+          "count": 25
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 88,
+          "count": 22
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 22,
+          "count": 22
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 22,
+          "count": 22
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 22,
+          "count": 22
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 534,
+          "count": 89
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 198,
+          "count": 33
+        },
+        {
+          "name": "JUMP",
+          "bytes": 126,
+          "count": 42
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 88,
+          "count": 22
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 75,
+          "count": 25
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 28,
+          "count": 14
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 22,
+          "count": 22
+        },
+        {
+          "name": "PUSH_U16",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "PUSH_BYTES",
+          "bytes": 6,
+          "count": 3
+        },
+        {
+          "name": "PUSH_PUBKEY",
+          "bytes": 6,
+          "count": 3
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 22,
+      "total_function_count": 22
+    },
+    {
+      "project": "5ive-connect4",
+      "artifact": "5ive-connect4/build/5ive-connect4.five",
+      "bytecode_bytes": 3588,
+      "instruction_count": 1244,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "CALL",
+          "bytes": 348,
+          "count": 87
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 300,
+          "count": 100
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 242,
+          "count": 121
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 228,
+          "count": 38
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 216,
+          "count": 36
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 216,
+          "count": 36
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 182,
+          "count": 91
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 142,
+          "count": 71
+        },
+        {
+          "name": "JUMP",
+          "bytes": 99,
+          "count": 33
+        },
+        {
+          "name": "EQ",
+          "bytes": 80,
+          "count": 80
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 71,
+          "count": 71
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 69,
+          "count": 69
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "GET_LOCAL",
+          "bytes": 242,
+          "count": 121
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 300,
+          "count": 100
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 182,
+          "count": 91
+        },
+        {
+          "name": "CALL",
+          "bytes": 348,
+          "count": 87
+        },
+        {
+          "name": "EQ",
+          "bytes": 80,
+          "count": 80
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 142,
+          "count": 71
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 71,
+          "count": 71
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 69,
+          "count": 69
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 41,
+          "count": 41
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 228,
+          "count": 38
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 216,
+          "count": 36
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 216,
+          "count": 36
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "CALL",
+          "bytes": 348,
+          "count": 87
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 300,
+          "count": 100
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 228,
+          "count": 38
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 216,
+          "count": 36
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 142,
+          "count": 71
+        },
+        {
+          "name": "JUMP",
+          "bytes": 99,
+          "count": 33
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 68,
+          "count": 34
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 48,
+          "count": 12
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 41,
+          "count": 41
+        },
+        {
+          "name": "PUSH_U32",
+          "bytes": 32,
+          "count": 16
+        },
+        {
+          "name": "DEC_LOCAL_JUMP_NZ",
+          "bytes": 28,
+          "count": 7
+        },
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 24,
+          "count": 6
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 12,
+      "total_function_count": 32
+    },
+    {
+      "project": "5ive-escrow",
+      "artifact": "5ive-escrow/build/5ive-escrow.five",
+      "bytecode_bytes": 436,
+      "instruction_count": 112,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD_PUBKEY",
+          "bytes": 36,
+          "count": 6
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 32,
+          "count": 16
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 28,
+          "count": 4
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 24,
+          "count": 4
+        },
+        {
+          "name": "STORE_KEY_TO_FIELD",
+          "bytes": 21,
+          "count": 3
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 16,
+          "count": 4
+        },
+        {
+          "name": "GET_KEY",
+          "bytes": 14,
+          "count": 7
+        },
+        {
+          "name": "JUMP",
+          "bytes": 12,
+          "count": 4
+        },
+        {
+          "name": "REQUIRE_NOT_BOOL",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "CHECK_SIGNER_WRITABLE",
+          "bytes": 10,
+          "count": 5
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 32,
+          "count": 16
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "GET_KEY",
+          "bytes": 14,
+          "count": 7
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 7,
+          "count": 7
+        },
+        {
+          "name": "EQ",
+          "bytes": 6,
+          "count": 6
+        },
+        {
+          "name": "LOAD_FIELD_PUBKEY",
+          "bytes": 36,
+          "count": 6
+        },
+        {
+          "name": "CHECK_SIGNER_WRITABLE",
+          "bytes": 10,
+          "count": 5
+        },
+        {
+          "name": "ARRAY_CONCAT",
+          "bytes": 4,
+          "count": 4
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 16,
+          "count": 4
+        },
+        {
+          "name": "INVOKE",
+          "bytes": 4,
+          "count": 4
+        },
+        {
+          "name": "JUMP",
+          "bytes": 12,
+          "count": 4
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 24,
+          "count": 4
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 32,
+          "count": 16
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 24,
+          "count": 4
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 16,
+          "count": 4
+        },
+        {
+          "name": "JUMP",
+          "bytes": 12,
+          "count": 4
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "PUSH_BYTES",
+          "bytes": 8,
+          "count": 4
+        },
+        {
+          "name": "PUSH_PUBKEY",
+          "bytes": 8,
+          "count": 4
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 1,
+          "count": 1
+        },
+        {
+          "name": "PUSH_2",
+          "bytes": 1,
+          "count": 1
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 4,
+      "total_function_count": 4
+    },
+    {
+      "project": "5ive-lending",
+      "artifact": "5ive-lending/build/main.five",
+      "bytecode_bytes": 2323,
+      "instruction_count": 749,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 360,
+          "count": 60
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 161,
+          "count": 11
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 148,
+          "count": 74
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 120,
+          "count": 60
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 105,
+          "count": 15
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 80,
+          "count": 40
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 76,
+          "count": 19
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 76,
+          "count": 38
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 72,
+          "count": 12
+        },
+        {
+          "name": "JUMP",
+          "bytes": 66,
+          "count": 22
+        },
+        {
+          "name": "STORE_KEY_TO_FIELD",
+          "bytes": 63,
+          "count": 9
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 148,
+          "count": 74
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 120,
+          "count": 60
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 360,
+          "count": 60
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 80,
+          "count": 40
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 76,
+          "count": 38
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "CHECK_SIGNER",
+          "bytes": 48,
+          "count": 24
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "JUMP",
+          "bytes": 66,
+          "count": 22
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 76,
+          "count": 19
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 19,
+          "count": 19
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 19,
+          "count": 19
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 360,
+          "count": 60
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 148,
+          "count": 74
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 76,
+          "count": 19
+        },
+        {
+          "name": "JUMP",
+          "bytes": 66,
+          "count": 22
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 46,
+          "count": 23
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 36,
+          "count": 12
+        },
+        {
+          "name": "PUSH_BYTES",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "PUSH_PUBKEY",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "CALL",
+          "bytes": 16,
+          "count": 4
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 13,
+          "count": 13
+        },
+        {
+          "name": "PUSH_U32",
+          "bytes": 4,
+          "count": 2
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 19,
+      "total_function_count": 21
+    },
+    {
+      "project": "5ive-minesweeper",
+      "artifact": "5ive-minesweeper/build/5ive-minesweeper.five",
+      "bytecode_bytes": 7465,
+      "instruction_count": 4060,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 992,
+          "count": 248
+        },
+        {
+          "name": "JUMP",
+          "bytes": 780,
+          "count": 260
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 760,
+          "count": 380
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 556,
+          "count": 556
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 519,
+          "count": 173
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 397,
+          "count": 397
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 328,
+          "count": 164
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 288,
+          "count": 48
+        },
+        {
+          "name": "LOAD_PARAM",
+          "bytes": 258,
+          "count": 129
+        },
+        {
+          "name": "SHIFT_LEFT",
+          "bytes": 252,
+          "count": 252
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 218,
+          "count": 218
+        },
+        {
+          "name": "LOAD_PARAM_2",
+          "bytes": 217,
+          "count": 217
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_1",
+          "bytes": 556,
+          "count": 556
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 397,
+          "count": 397
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 760,
+          "count": 380
+        },
+        {
+          "name": "JUMP",
+          "bytes": 780,
+          "count": 260
+        },
+        {
+          "name": "SHIFT_LEFT",
+          "bytes": 252,
+          "count": 252
+        },
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 992,
+          "count": 248
+        },
+        {
+          "name": "LOAD_PARAM_1",
+          "bytes": 218,
+          "count": 218
+        },
+        {
+          "name": "LOAD_PARAM_2",
+          "bytes": 217,
+          "count": 217
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 519,
+          "count": 173
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 328,
+          "count": 164
+        },
+        {
+          "name": "ADD",
+          "bytes": 151,
+          "count": 151
+        },
+        {
+          "name": "EQ",
+          "bytes": 141,
+          "count": 141
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 992,
+          "count": 248
+        },
+        {
+          "name": "JUMP",
+          "bytes": 780,
+          "count": 260
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 760,
+          "count": 380
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 556,
+          "count": 556
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 519,
+          "count": 173
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 288,
+          "count": 48
+        },
+        {
+          "name": "CALL",
+          "bytes": 148,
+          "count": 37
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 66,
+          "count": 11
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 20,
+          "count": 5
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 14,
+          "count": 14
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 14,
+          "count": 7
+        },
+        {
+          "name": "PUSH_2",
+          "bytes": 8,
+          "count": 8
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 5,
+      "total_function_count": 11
+    },
+    {
+      "project": "5ive-morra",
+      "artifact": "5ive-morra/build/5ive-morra.five",
+      "bytecode_bytes": 1617,
+      "instruction_count": 450,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 390,
+          "count": 65
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 168,
+          "count": 28
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 108,
+          "count": 18
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 70,
+          "count": 10
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 48,
+          "count": 12
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "REQUIRE_EQ_PUBKEY",
+          "bytes": 44,
+          "count": 4
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 39,
+          "count": 13
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 38,
+          "count": 19
+        },
+        {
+          "name": "CALL",
+          "bytes": 36,
+          "count": 9
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 34,
+          "count": 17
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 30,
+          "count": 15
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 390,
+          "count": 65
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 168,
+          "count": 28
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 27,
+          "count": 27
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 38,
+          "count": 19
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 108,
+          "count": 18
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 34,
+          "count": 17
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 16,
+          "count": 16
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 30,
+          "count": 15
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 39,
+          "count": 13
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 48,
+          "count": 12
+        },
+        {
+          "name": "EQ",
+          "bytes": 12,
+          "count": 12
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 390,
+          "count": 65
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 168,
+          "count": 28
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 48,
+          "count": 12
+        },
+        {
+          "name": "JUMP",
+          "bytes": 45,
+          "count": 15
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 39,
+          "count": 13
+        },
+        {
+          "name": "CALL",
+          "bytes": 36,
+          "count": 9
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 34,
+          "count": 17
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "PUSH_U16",
+          "bytes": 14,
+          "count": 7
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 14,
+          "count": 7
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 6,
+          "count": 6
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 5,
+          "count": 5
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 12,
+      "total_function_count": 16
+    },
+    {
+      "project": "5ive-payment-channel",
+      "artifact": "5ive-payment-channel/build/5ive-payment-channel.five",
+      "bytecode_bytes": 117,
+      "instruction_count": 26,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 12,
+          "count": 3
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "JUMP",
+          "bytes": 9,
+          "count": 3
+        },
+        {
+          "name": "REQUIRE_OWNER",
+          "bytes": 7,
+          "count": 1
+        },
+        {
+          "name": "STORE_KEY_TO_FIELD",
+          "bytes": 7,
+          "count": 1
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 6,
+          "count": 1
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 6,
+          "count": 1
+        },
+        {
+          "name": "CHECK_SIGNER",
+          "bytes": 4,
+          "count": 2
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 4,
+          "count": 2
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 3,
+          "count": 3
+        },
+        {
+          "name": "HALT",
+          "bytes": 2,
+          "count": 2
+        },
+        {
+          "name": "RETURN",
+          "bytes": 2,
+          "count": 2
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 12,
+          "count": 3
+        },
+        {
+          "name": "JUMP",
+          "bytes": 9,
+          "count": 3
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 3,
+          "count": 3
+        },
+        {
+          "name": "CHECK_SIGNER",
+          "bytes": 4,
+          "count": 2
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 4,
+          "count": 2
+        },
+        {
+          "name": "HALT",
+          "bytes": 2,
+          "count": 2
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "RETURN",
+          "bytes": 2,
+          "count": 2
+        },
+        {
+          "name": "ADD",
+          "bytes": 1,
+          "count": 1
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 1,
+          "count": 1
+        },
+        {
+          "name": "REQUIRE_OWNER",
+          "bytes": 7,
+          "count": 1
+        },
+        {
+          "name": "RETURN_VALUE",
+          "bytes": 1,
+          "count": 1
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 12,
+          "count": 3
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 12,
+          "count": 2
+        },
+        {
+          "name": "JUMP",
+          "bytes": 9,
+          "count": 3
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 6,
+          "count": 1
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 1,
+          "count": 1
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 3,
+      "total_function_count": 3
+    },
+    {
+      "project": "5ive-single-pool",
+      "artifact": "5ive-single-pool/build/main.five",
+      "bytecode_bytes": 2200,
+      "instruction_count": 834,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 192,
+          "count": 6
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 114,
+          "count": 19
+        },
+        {
+          "name": "PUSH_STRING",
+          "bytes": 92,
+          "count": 46
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 88,
+          "count": 22
+        },
+        {
+          "name": "JUMP",
+          "bytes": 69,
+          "count": 23
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 66,
+          "count": 33
+        },
+        {
+          "name": "CALL",
+          "bytes": 64,
+          "count": 16
+        },
+        {
+          "name": "GET_KEY",
+          "bytes": 58,
+          "count": 29
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 50,
+          "count": 25
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 49,
+          "count": 49
+        },
+        {
+          "name": "GET_ACCOUNT",
+          "bytes": 48,
+          "count": 24
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 49,
+          "count": 49
+        },
+        {
+          "name": "PUSH_STRING",
+          "bytes": 92,
+          "count": 46
+        },
+        {
+          "name": "EQ",
+          "bytes": 39,
+          "count": 39
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 34,
+          "count": 34
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 66,
+          "count": 33
+        },
+        {
+          "name": "FIND_PDA",
+          "bytes": 30,
+          "count": 30
+        },
+        {
+          "name": "GET_KEY",
+          "bytes": 58,
+          "count": 29
+        },
+        {
+          "name": "DUP",
+          "bytes": 25,
+          "count": 25
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 50,
+          "count": 25
+        },
+        {
+          "name": "DROP",
+          "bytes": 24,
+          "count": 24
+        },
+        {
+          "name": "GET_ACCOUNT",
+          "bytes": 48,
+          "count": 24
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "PUSH_U8",
+          "bytes": 180,
+          "count": 90
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 114,
+          "count": 19
+        },
+        {
+          "name": "PUSH_STRING",
+          "bytes": 92,
+          "count": 46
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 88,
+          "count": 22
+        },
+        {
+          "name": "JUMP",
+          "bytes": 69,
+          "count": 23
+        },
+        {
+          "name": "CALL",
+          "bytes": 64,
+          "count": 16
+        },
+        {
+          "name": "PUSH_ARRAY_LITERAL",
+          "bytes": 40,
+          "count": 20
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 34,
+          "count": 34
+        },
+        {
+          "name": "PUSH_PUBKEY",
+          "bytes": 34,
+          "count": 17
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 28,
+          "count": 14
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 24,
+          "count": 4
+        },
+        {
+          "name": "PUSH_BYTES",
+          "bytes": 22,
+          "count": 11
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 22,
+      "total_function_count": 22
+    },
+    {
+      "project": "5ive-texas-holdem",
+      "artifact": "5ive-texas-holdem/build/5ive-texas-holdem.five",
+      "bytecode_bytes": 10400,
+      "instruction_count": 3696,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 2970,
+          "count": 495
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 1428,
+          "count": 238
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 879,
+          "count": 293
+        },
+        {
+          "name": "JUMP",
+          "bytes": 738,
+          "count": 246
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 432,
+          "count": 216
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 396,
+          "count": 66
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 310,
+          "count": 155
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 306,
+          "count": 153
+        },
+        {
+          "name": "SET_LOCAL",
+          "bytes": 288,
+          "count": 144
+        },
+        {
+          "name": "EQ",
+          "bytes": 205,
+          "count": 205
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 196,
+          "count": 196
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 185,
+          "count": 185
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 2970,
+          "count": 495
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 879,
+          "count": 293
+        },
+        {
+          "name": "JUMP",
+          "bytes": 738,
+          "count": 246
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 1428,
+          "count": 238
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 432,
+          "count": 216
+        },
+        {
+          "name": "EQ",
+          "bytes": 205,
+          "count": 205
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 196,
+          "count": 196
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 185,
+          "count": 185
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 310,
+          "count": 155
+        },
+        {
+          "name": "DUP",
+          "bytes": 154,
+          "count": 154
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 306,
+          "count": 153
+        },
+        {
+          "name": "POP",
+          "bytes": 145,
+          "count": 145
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 2970,
+          "count": 495
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 1428,
+          "count": 238
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 879,
+          "count": 293
+        },
+        {
+          "name": "JUMP",
+          "bytes": 738,
+          "count": 246
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 310,
+          "count": 155
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 196,
+          "count": 196
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 185,
+          "count": 185
+        },
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 152,
+          "count": 38
+        },
+        {
+          "name": "CALL",
+          "bytes": 124,
+          "count": 31
+        },
+        {
+          "name": "PUSH_STRING",
+          "bytes": 62,
+          "count": 31
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 54,
+          "count": 27
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 48,
+          "count": 12
+        }
+      ],
+      "features": 31759,
+      "public_function_count": 12,
+      "total_function_count": 27
+    },
+    {
+      "project": "5ive-tictactoe",
+      "artifact": "5ive-tictactoe/build/5ive-tictactoe.five",
+      "bytecode_bytes": 1520,
+      "instruction_count": 443,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "STORE_FIELD",
+          "bytes": 306,
+          "count": 51
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 168,
+          "count": 28
+        },
+        {
+          "name": "JUMP",
+          "bytes": 78,
+          "count": 26
+        },
+        {
+          "name": "STORE_KEY_TO_FIELD",
+          "bytes": 70,
+          "count": 10
+        },
+        {
+          "name": "CALL",
+          "bytes": 68,
+          "count": 17
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 60,
+          "count": 15
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 36,
+          "count": 18
+        },
+        {
+          "name": "LOAD_FIELD_PUBKEY",
+          "bytes": 36,
+          "count": 6
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 29,
+          "count": 29
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 28,
+          "count": 14
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 28,
+          "count": 14
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "STORE_FIELD",
+          "bytes": 306,
+          "count": 51
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 29,
+          "count": 29
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 168,
+          "count": 28
+        },
+        {
+          "name": "JUMP",
+          "bytes": 78,
+          "count": 26
+        },
+        {
+          "name": "EQ",
+          "bytes": 19,
+          "count": 19
+        },
+        {
+          "name": "GET_LOCAL",
+          "bytes": 36,
+          "count": 18
+        },
+        {
+          "name": "CALL",
+          "bytes": 68,
+          "count": 17
+        },
+        {
+          "name": "RETURN",
+          "bytes": 16,
+          "count": 16
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 60,
+          "count": 15
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 15,
+          "count": 15
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 15,
+          "count": 15
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "STORE_FIELD",
+          "bytes": 306,
+          "count": 51
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 192,
+          "count": 32
+        },
+        {
+          "name": "JUMP",
+          "bytes": 78,
+          "count": 26
+        },
+        {
+          "name": "CALL",
+          "bytes": 68,
+          "count": 17
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 60,
+          "count": 15
+        },
+        {
+          "name": "PUSH_1",
+          "bytes": 29,
+          "count": 29
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 28,
+          "count": 14
+        },
+        {
+          "name": "BR_EQ_U8",
+          "bytes": 24,
+          "count": 6
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 24,
+          "count": 8
+        },
+        {
+          "name": "JUMP_IF",
+          "bytes": 12,
+          "count": 4
+        },
+        {
+          "name": "PUSH_2",
+          "bytes": 11,
+          "count": 11
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 4,
+          "count": 2
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 15,
+      "total_function_count": 17
+    },
+    {
+      "project": "5ive-token",
+      "artifact": "5ive-token/build/main.five",
+      "bytecode_bytes": 770,
+      "instruction_count": 183,
+      "parse_errors": 0,
+      "top_opcodes_by_bytes": [
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 145,
+          "count": 9
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 72,
+          "count": 12
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 36,
+          "count": 9
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 36,
+          "count": 18
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 36,
+          "count": 6
+        },
+        {
+          "name": "STORE_PARAM_TO_FIELD",
+          "bytes": 35,
+          "count": 5
+        },
+        {
+          "name": "JUMP",
+          "bytes": 33,
+          "count": 11
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 30,
+          "count": 5
+        },
+        {
+          "name": "FIELD_SUB_PARAM",
+          "bytes": 28,
+          "count": 4
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 20,
+          "count": 10
+        },
+        {
+          "name": "CHECK_SIGNER",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "FIELD_ADD_PARAM",
+          "bytes": 14,
+          "count": 2
+        }
+      ],
+      "top_opcodes_by_count": [
+        {
+          "name": "PUSH_U64",
+          "bytes": 36,
+          "count": 18
+        },
+        {
+          "name": "BITWISE_AND",
+          "bytes": 12,
+          "count": 12
+        },
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 72,
+          "count": 12
+        },
+        {
+          "name": "REQUIRE",
+          "bytes": 12,
+          "count": 12
+        },
+        {
+          "name": "JUMP",
+          "bytes": 33,
+          "count": 11
+        },
+        {
+          "name": "CHECK_WRITABLE",
+          "bytes": 20,
+          "count": 10
+        },
+        {
+          "name": "CHECK_SIGNER",
+          "bytes": 18,
+          "count": 9
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 36,
+          "count": 9
+        },
+        {
+          "name": "LOAD_PARAM_0",
+          "bytes": 9,
+          "count": 9
+        },
+        {
+          "name": "REQUIRE_BATCH",
+          "bytes": 145,
+          "count": 9
+        },
+        {
+          "name": "RETURN",
+          "bytes": 9,
+          "count": 9
+        },
+        {
+          "name": "STORE_FIELD_ZERO",
+          "bytes": 36,
+          "count": 6
+        }
+      ],
+      "top_immediates_by_bytes": [
+        {
+          "name": "LOAD_FIELD",
+          "bytes": 72,
+          "count": 12
+        },
+        {
+          "name": "CMP_EQ_JUMP",
+          "bytes": 36,
+          "count": 9
+        },
+        {
+          "name": "PUSH_U64",
+          "bytes": 36,
+          "count": 18
+        },
+        {
+          "name": "JUMP",
+          "bytes": 33,
+          "count": 11
+        },
+        {
+          "name": "STORE_FIELD",
+          "bytes": 30,
+          "count": 5
+        },
+        {
+          "name": "PUSH_BOOL",
+          "bytes": 10,
+          "count": 5
+        },
+        {
+          "name": "PUSH_U8",
+          "bytes": 8,
+          "count": 4
+        },
+        {
+          "name": "JUMP_IF_NOT",
+          "bytes": 6,
+          "count": 2
+        },
+        {
+          "name": "PUSH_0",
+          "bytes": 2,
+          "count": 2
+        }
+      ],
+      "features": 29711,
+      "public_function_count": 9,
+      "total_function_count": 9
+    }
+  ],
+  "global": {
+    "top_opcodes_by_bytes": [
+      {
+        "name": "LOAD_FIELD",
+        "bytes": 6192,
+        "count": 1032
+      },
+      {
+        "name": "STORE_FIELD",
+        "bytes": 3324,
+        "count": 554
+      },
+      {
+        "name": "JUMP_IF_NOT",
+        "bytes": 2583,
+        "count": 861
+      },
+      {
+        "name": "JUMP",
+        "bytes": 2298,
+        "count": 766
+      },
+      {
+        "name": "GET_LOCAL",
+        "bytes": 2094,
+        "count": 1047
+      },
+      {
+        "name": "PUSH_U8",
+        "bytes": 2016,
+        "count": 1008
+      },
+      {
+        "name": "CALL",
+        "bytes": 1676,
+        "count": 419
+      },
+      {
+        "name": "STORE_FIELD_ZERO",
+        "bytes": 1554,
+        "count": 259
+      },
+      {
+        "name": "BR_EQ_U8",
+        "bytes": 1216,
+        "count": 304
+      },
+      {
+        "name": "SET_LOCAL",
+        "bytes": 1098,
+        "count": 549
+      },
+      {
+        "name": "PUSH_1",
+        "bytes": 932,
+        "count": 932
+      },
+      {
+        "name": "REQUIRE_BATCH",
+        "bytes": 750,
+        "count": 46
+      },
+      {
+        "name": "CHECK_WRITABLE",
+        "bytes": 714,
+        "count": 357
+      },
+      {
+        "name": "STORE_PARAM_TO_FIELD",
+        "bytes": 693,
+        "count": 99
+      },
+      {
+        "name": "CMP_EQ_JUMP",
+        "bytes": 676,
+        "count": 169
+      },
+      {
+        "name": "RETURN_VALUE",
+        "bytes": 668,
+        "count": 668
+      },
+      {
+        "name": "EQ",
+        "bytes": 659,
+        "count": 659
+      },
+      {
+        "name": "LOAD_PARAM_1",
+        "bytes": 506,
+        "count": 506
+      },
+      {
+        "name": "STORE_KEY_TO_FIELD",
+        "bytes": 462,
+        "count": 66
+      },
+      {
+        "name": "ADD",
+        "bytes": 436,
+        "count": 436
+      },
+      {
+        "name": "PUSH_0",
+        "bytes": 338,
+        "count": 338
+      },
+      {
+        "name": "LOAD_PARAM",
+        "bytes": 310,
+        "count": 155
+      },
+      {
+        "name": "LOAD_PARAM_2",
+        "bytes": 300,
+        "count": 300
+      },
+      {
+        "name": "PUSH_U64",
+        "bytes": 296,
+        "count": 148
+      },
+      {
+        "name": "LOAD_FIELD_PUBKEY",
+        "bytes": 294,
+        "count": 49
+      },
+      {
+        "name": "PUSH_BOOL",
+        "bytes": 292,
+        "count": 146
+      },
+      {
+        "name": "REQUIRE",
+        "bytes": 280,
+        "count": 280
+      },
+      {
+        "name": "SUB",
+        "bytes": 263,
+        "count": 263
+      },
+      {
+        "name": "SHIFT_LEFT",
+        "bytes": 252,
+        "count": 252
+      },
+      {
+        "name": "CHECK_SIGNER",
+        "bytes": 246,
+        "count": 123
+      },
+      {
+        "name": "GET_KEY",
+        "bytes": 238,
+        "count": 119
+      },
+      {
+        "name": "REQUIRE_OWNER",
+        "bytes": 210,
+        "count": 30
+      },
+      {
+        "name": "DUP",
+        "bytes": 200,
+        "count": 200
+      },
+      {
+        "name": "BITWISE_AND",
+        "bytes": 192,
+        "count": 192
+      },
+      {
+        "name": "LOAD_PARAM_3",
+        "bytes": 183,
+        "count": 183
+      },
+      {
+        "name": "LOAD_PARAM_0",
+        "bytes": 169,
+        "count": 169
+      },
+      {
+        "name": "POP",
+        "bytes": 167,
+        "count": 167
+      },
+      {
+        "name": "PUSH_STRING",
+        "bytes": 156,
+        "count": 78
+      },
+      {
+        "name": "RETURN",
+        "bytes": 152,
+        "count": 152
+      },
+      {
+        "name": "GT",
+        "bytes": 130,
+        "count": 130
+      }
+    ],
+    "top_opcodes_by_count": [
+      {
+        "name": "GET_LOCAL",
+        "bytes": 2094,
+        "count": 1047
+      },
+      {
+        "name": "LOAD_FIELD",
+        "bytes": 6192,
+        "count": 1032
+      },
+      {
+        "name": "PUSH_U8",
+        "bytes": 2016,
+        "count": 1008
+      },
+      {
+        "name": "PUSH_1",
+        "bytes": 932,
+        "count": 932
+      },
+      {
+        "name": "JUMP_IF_NOT",
+        "bytes": 2583,
+        "count": 861
+      },
+      {
+        "name": "JUMP",
+        "bytes": 2298,
+        "count": 766
+      },
+      {
+        "name": "RETURN_VALUE",
+        "bytes": 668,
+        "count": 668
+      },
+      {
+        "name": "EQ",
+        "bytes": 659,
+        "count": 659
+      },
+      {
+        "name": "STORE_FIELD",
+        "bytes": 3324,
+        "count": 554
+      },
+      {
+        "name": "SET_LOCAL",
+        "bytes": 1098,
+        "count": 549
+      },
+      {
+        "name": "LOAD_PARAM_1",
+        "bytes": 506,
+        "count": 506
+      },
+      {
+        "name": "ADD",
+        "bytes": 436,
+        "count": 436
+      },
+      {
+        "name": "CALL",
+        "bytes": 1676,
+        "count": 419
+      },
+      {
+        "name": "CHECK_WRITABLE",
+        "bytes": 714,
+        "count": 357
+      },
+      {
+        "name": "PUSH_0",
+        "bytes": 338,
+        "count": 338
+      },
+      {
+        "name": "BR_EQ_U8",
+        "bytes": 1216,
+        "count": 304
+      },
+      {
+        "name": "LOAD_PARAM_2",
+        "bytes": 300,
+        "count": 300
+      },
+      {
+        "name": "REQUIRE",
+        "bytes": 280,
+        "count": 280
+      },
+      {
+        "name": "SUB",
+        "bytes": 263,
+        "count": 263
+      },
+      {
+        "name": "STORE_FIELD_ZERO",
+        "bytes": 1554,
+        "count": 259
+      },
+      {
+        "name": "SHIFT_LEFT",
+        "bytes": 252,
+        "count": 252
+      },
+      {
+        "name": "DUP",
+        "bytes": 200,
+        "count": 200
+      },
+      {
+        "name": "BITWISE_AND",
+        "bytes": 192,
+        "count": 192
+      },
+      {
+        "name": "LOAD_PARAM_3",
+        "bytes": 183,
+        "count": 183
+      },
+      {
+        "name": "CMP_EQ_JUMP",
+        "bytes": 676,
+        "count": 169
+      },
+      {
+        "name": "LOAD_PARAM_0",
+        "bytes": 169,
+        "count": 169
+      },
+      {
+        "name": "POP",
+        "bytes": 167,
+        "count": 167
+      },
+      {
+        "name": "LOAD_PARAM",
+        "bytes": 310,
+        "count": 155
+      },
+      {
+        "name": "RETURN",
+        "bytes": 152,
+        "count": 152
+      },
+      {
+        "name": "PUSH_U64",
+        "bytes": 296,
+        "count": 148
+      },
+      {
+        "name": "PUSH_BOOL",
+        "bytes": 292,
+        "count": 146
+      },
+      {
+        "name": "GT",
+        "bytes": 130,
+        "count": 130
+      },
+      {
+        "name": "SHIFT_RIGHT",
+        "bytes": 127,
+        "count": 127
+      },
+      {
+        "name": "CHECK_SIGNER",
+        "bytes": 246,
+        "count": 123
+      },
+      {
+        "name": "GET_KEY",
+        "bytes": 238,
+        "count": 119
+      },
+      {
+        "name": "STORE_PARAM_TO_FIELD",
+        "bytes": 693,
+        "count": 99
+      },
+      {
+        "name": "LT",
+        "bytes": 96,
+        "count": 96
+      },
+      {
+        "name": "PUSH_3",
+        "bytes": 82,
+        "count": 82
+      },
+      {
+        "name": "PUSH_STRING",
+        "bytes": 156,
+        "count": 78
+      },
+      {
+        "name": "GTE",
+        "bytes": 70,
+        "count": 70
+      }
+    ],
+    "top_immediates_by_bytes": [
+      {
+        "name": "LOAD_FIELD",
+        "bytes": 6192,
+        "count": 1032
+      },
+      {
+        "name": "STORE_FIELD",
+        "bytes": 3324,
+        "count": 554
+      },
+      {
+        "name": "JUMP_IF_NOT",
+        "bytes": 2583,
+        "count": 861
+      },
+      {
+        "name": "JUMP",
+        "bytes": 2298,
+        "count": 766
+      },
+      {
+        "name": "PUSH_U8",
+        "bytes": 2016,
+        "count": 1008
+      },
+      {
+        "name": "CALL",
+        "bytes": 1676,
+        "count": 419
+      },
+      {
+        "name": "BR_EQ_U8",
+        "bytes": 1216,
+        "count": 304
+      },
+      {
+        "name": "PUSH_1",
+        "bytes": 932,
+        "count": 932
+      },
+      {
+        "name": "CMP_EQ_JUMP",
+        "bytes": 676,
+        "count": 169
+      },
+      {
+        "name": "PUSH_0",
+        "bytes": 338,
+        "count": 338
+      },
+      {
+        "name": "PUSH_U64",
+        "bytes": 296,
+        "count": 148
+      },
+      {
+        "name": "PUSH_BOOL",
+        "bytes": 292,
+        "count": 146
+      },
+      {
+        "name": "PUSH_STRING",
+        "bytes": 156,
+        "count": 78
+      },
+      {
+        "name": "PUSH_PUBKEY",
+        "bytes": 96,
+        "count": 48
+      },
+      {
+        "name": "PUSH_BYTES",
+        "bytes": 84,
+        "count": 42
+      },
+      {
+        "name": "PUSH_3",
+        "bytes": 82,
+        "count": 82
+      },
+      {
+        "name": "PUSH_U32",
+        "bytes": 76,
+        "count": 38
+      },
+      {
+        "name": "PUSH_U16",
+        "bytes": 64,
+        "count": 32
+      },
+      {
+        "name": "PUSH_2",
+        "bytes": 61,
+        "count": 61
+      },
+      {
+        "name": "JUMP_IF",
+        "bytes": 57,
+        "count": 19
+      },
+      {
+        "name": "DEC_LOCAL_JUMP_NZ",
+        "bytes": 56,
+        "count": 14
+      },
+      {
+        "name": "PUSH_ARRAY_LITERAL",
+        "bytes": 40,
+        "count": 20
+      }
+    ]
+  }
+}

@@ -11,7 +11,7 @@ use crate::config::workspace::{ExportMetadata, LockFile};
 use crate::session_support;
 
 use five_vm_mito::error::VMError;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Collects function metadata without JUMP_TABLE dispatch.
 pub struct FunctionDispatcher {
@@ -48,6 +48,12 @@ pub struct FunctionDispatcher {
 }
 
 impl FunctionDispatcher {
+    #[inline]
+    fn is_exported_entry(name: &str, visibility: crate::Visibility) -> bool {
+        // External dispatch should only expose top-level `pub` instructions.
+        visibility.is_on_chain_callable() && !name.contains("::")
+    }
+
     fn external_selector(name: &str) -> u16 {
         const OFFSET: u32 = 0x811C9DC5;
         const PRIME: u32 = 0x01000193;
@@ -144,6 +150,313 @@ impl FunctionDispatcher {
         }
     }
 
+    fn collect_called_function_names(node: &AstNode, called: &mut Vec<String>) {
+        match node {
+            AstNode::FunctionCall { name, args } => {
+                called.push(name.clone());
+                for arg in args {
+                    Self::collect_called_function_names(arg, called);
+                }
+            }
+            AstNode::Program {
+                field_definitions,
+                instruction_definitions,
+                event_definitions,
+                account_definitions,
+                type_definitions,
+                interface_definitions,
+                import_statements,
+                init_block,
+                constraints_block,
+                ..
+            } => {
+                for n in field_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in instruction_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in event_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in account_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in type_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in interface_definitions {
+                    Self::collect_called_function_names(n, called);
+                }
+                for n in import_statements {
+                    Self::collect_called_function_names(n, called);
+                }
+                if let Some(node) = init_block.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+                if let Some(node) = constraints_block.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+            }
+            AstNode::Block { statements, .. } => {
+                for n in statements {
+                    Self::collect_called_function_names(n, called);
+                }
+            }
+            AstNode::Assignment { value, .. }
+            | AstNode::LetStatement { value, .. }
+            | AstNode::TupleDestructuring { value, .. }
+            | AstNode::Cast { value, .. }
+            | AstNode::ErrorPropagation { expression: value } => {
+                Self::collect_called_function_names(value, called);
+            }
+            AstNode::FieldAssignment { object, value, .. } => {
+                Self::collect_called_function_names(object, called);
+                Self::collect_called_function_names(value, called);
+            }
+            AstNode::RequireStatement { condition } => {
+                Self::collect_called_function_names(condition, called);
+            }
+            AstNode::MethodCall { object, args, .. } => {
+                Self::collect_called_function_names(object, called);
+                for arg in args {
+                    Self::collect_called_function_names(arg, called);
+                }
+            }
+            AstNode::TupleAssignment { targets, value } => {
+                for target in targets {
+                    Self::collect_called_function_names(target, called);
+                }
+                Self::collect_called_function_names(value, called);
+            }
+            AstNode::InstructionDefinition { body, .. }
+            | AstNode::ArrowFunction { body, .. }
+            | AstNode::TestFunction { body, .. }
+            | AstNode::TestModule { body, .. } => {
+                Self::collect_called_function_names(body, called);
+            }
+            AstNode::EmitStatement { fields, .. } => {
+                for field in fields {
+                    Self::collect_called_function_names(&field.value, called);
+                }
+            }
+            AstNode::IfStatement {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                Self::collect_called_function_names(condition, called);
+                Self::collect_called_function_names(then_branch, called);
+                if let Some(node) = else_branch.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+            }
+            AstNode::MatchExpression { expression, arms } => {
+                Self::collect_called_function_names(expression, called);
+                for arm in arms {
+                    Self::collect_called_function_names(&arm.pattern, called);
+                    if let Some(guard) = arm.guard.as_ref() {
+                        Self::collect_called_function_names(guard, called);
+                    }
+                    Self::collect_called_function_names(&arm.body, called);
+                }
+            }
+            AstNode::ReturnStatement { value } => {
+                if let Some(node) = value.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+            }
+            AstNode::StructLiteral { fields } => {
+                for field in fields {
+                    Self::collect_called_function_names(&field.value, called);
+                }
+            }
+            AstNode::ArrayLiteral { elements } | AstNode::TupleLiteral { elements } => {
+                for n in elements {
+                    Self::collect_called_function_names(n, called);
+                }
+            }
+            AstNode::FieldAccess { object, .. } | AstNode::TupleAccess { object, .. } => {
+                Self::collect_called_function_names(object, called);
+            }
+            AstNode::ArrayAccess { array, index } => {
+                Self::collect_called_function_names(array, called);
+                Self::collect_called_function_names(index, called);
+            }
+            AstNode::TemplateLiteral { parts } => {
+                for n in parts {
+                    Self::collect_called_function_names(n, called);
+                }
+            }
+            AstNode::UnaryExpression { operand, .. } => {
+                Self::collect_called_function_names(operand, called);
+            }
+            AstNode::BinaryExpression { left, right, .. } => {
+                Self::collect_called_function_names(left, called);
+                Self::collect_called_function_names(right, called);
+            }
+            AstNode::ForLoop {
+                init,
+                condition,
+                update,
+                body,
+            } => {
+                if let Some(node) = init.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+                if let Some(node) = condition.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+                if let Some(node) = update.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+                Self::collect_called_function_names(body, called);
+            }
+            AstNode::ForInLoop { iterable, body, .. } | AstNode::ForOfLoop { iterable, body, .. } => {
+                Self::collect_called_function_names(iterable, called);
+                Self::collect_called_function_names(body, called);
+            }
+            AstNode::WhileLoop { condition, body } | AstNode::DoWhileLoop { body, condition } => {
+                Self::collect_called_function_names(condition, called);
+                Self::collect_called_function_names(body, called);
+            }
+            AstNode::SwitchStatement {
+                discriminant,
+                cases,
+                default_case,
+            } => {
+                Self::collect_called_function_names(discriminant, called);
+                for case in cases {
+                    Self::collect_called_function_names(&case.pattern, called);
+                    for n in &case.body {
+                        Self::collect_called_function_names(n, called);
+                    }
+                }
+                if let Some(node) = default_case.as_ref() {
+                    Self::collect_called_function_names(node, called);
+                }
+            }
+            AstNode::AssertStatement { args, .. } => {
+                for arg in args {
+                    Self::collect_called_function_names(arg, called);
+                }
+            }
+            AstNode::InterfaceDefinition { functions, .. } => {
+                for n in functions {
+                    Self::collect_called_function_names(n, called);
+                }
+            }
+            AstNode::EnumVariantAccess { .. }
+            | AstNode::InterfaceFunction { .. }
+            | AstNode::ImportStatement { .. }
+            | AstNode::Identifier(_)
+            | AstNode::Literal(_)
+            | AstNode::StringLiteral { .. }
+            | AstNode::BreakStatement { .. }
+            | AstNode::ContinueStatement { .. }
+            | AstNode::ErrorTypeDefinition { .. }
+            | AstNode::AccountDefinition { .. }
+            | AstNode::TypeDefinition { .. }
+            | AstNode::FieldDefinition { .. }
+            | AstNode::EventDefinition { .. } => {}
+        }
+    }
+
+    fn resolve_local_call_targets(callee: &str, local_names: &HashSet<String>) -> Vec<String> {
+        if local_names.contains(callee) {
+            return vec![callee.to_string()];
+        }
+
+        let mut matches = Vec::new();
+        let suffix = format!("::{}", callee);
+        for candidate in local_names {
+            if candidate.ends_with(&suffix) {
+                matches.push(candidate.clone());
+            }
+        }
+        matches
+    }
+
+    fn compute_reachable_internal_functions(ast: &AstNode) -> HashSet<String> {
+        let AstNode::Program {
+            instruction_definitions,
+            init_block,
+            constraints_block,
+            ..
+        } = ast
+        else {
+            return HashSet::new();
+        };
+
+        let mut local_names = HashSet::new();
+        let mut body_by_name: HashMap<String, &AstNode> = HashMap::new();
+        let mut roots: Vec<String> = Vec::new();
+
+        for definition in instruction_definitions {
+            let AstNode::InstructionDefinition {
+                name,
+                visibility,
+                body,
+                ..
+            } = definition
+            else {
+                continue;
+            };
+
+            local_names.insert(name.clone());
+            body_by_name.insert(name.clone(), body.as_ref());
+            if Self::is_exported_entry(name, *visibility) {
+                roots.push(name.clone());
+            }
+        }
+
+        // Internal-only modules do not have an external root set. Keep all functions
+        // to avoid changing library/module-only compilation behavior.
+        if roots.is_empty() {
+            return local_names;
+        }
+
+        let mut reachable = HashSet::new();
+        let mut worklist: VecDeque<String> = VecDeque::new();
+
+        for root in roots {
+            if reachable.insert(root.clone()) {
+                worklist.push_back(root);
+            }
+        }
+
+        for node in [init_block.as_ref(), constraints_block.as_ref()]
+            .into_iter()
+            .flatten()
+        {
+            let mut called = Vec::new();
+            Self::collect_called_function_names(node, &mut called);
+            for callee in called {
+                for target in Self::resolve_local_call_targets(&callee, &local_names) {
+                    if reachable.insert(target.clone()) {
+                        worklist.push_back(target);
+                    }
+                }
+            }
+        }
+
+        while let Some(function_name) = worklist.pop_front() {
+            if let Some(body) = body_by_name.get(&function_name) {
+                let mut called = Vec::new();
+                Self::collect_called_function_names(body, &mut called);
+                for callee in called {
+                    for target in Self::resolve_local_call_targets(&callee, &local_names) {
+                        if reachable.insert(target.clone()) {
+                            worklist.push_back(target);
+                        }
+                    }
+                }
+            }
+        }
+
+        reachable
+    }
+
     /// Create a new function dispatcher
     pub fn new() -> Self {
         Self {
@@ -180,9 +493,13 @@ impl FunctionDispatcher {
                     init_block.is_some()
                 );
 
-                // Check for ANY functions (public or private) since we need function dispatch
-                // even for scripts with only private functions
-                let has_any_functions = !instruction_definitions.is_empty();
+                let has_public_exports = instruction_definitions.iter().any(|def| {
+                    matches!(
+                        def,
+                        AstNode::InstructionDefinition { name, visibility, .. }
+                            if Self::is_exported_entry(name, *visibility)
+                    )
+                });
                 for (i, def) in instruction_definitions.iter().enumerate() {
                     if let AstNode::InstructionDefinition {
                         visibility, name, ..
@@ -197,10 +514,14 @@ impl FunctionDispatcher {
                     }
                 }
 
-                // Return true if we have any functions OR an init block
-                let result = has_any_functions || init_block.is_some();
-                println!("DEBUG: has_callable_functions returning {} (has_functions: {}, init_block: {})",
-                    result, has_any_functions, init_block.is_some());
+                // Return true if we have public exported functions OR an init block.
+                let result = has_public_exports || init_block.is_some();
+                println!(
+                    "DEBUG: has_callable_functions returning {} (public_exports: {}, init_block: {})",
+                    result,
+                    has_public_exports,
+                    init_block.is_some()
+                );
                 result
             }
             _ => {
@@ -324,12 +645,15 @@ impl FunctionDispatcher {
             let mut private_functions = Vec::new();
 
             // Separate functions by visibility
-            for instruction_def in instruction_definitions {
-                if let AstNode::InstructionDefinition { visibility, .. } = instruction_def {
-                    if visibility.is_on_chain_callable() {
-                        public_functions.push(instruction_def);
-                    } else {
-                        private_functions.push(instruction_def);
+                for instruction_def in instruction_definitions {
+                    if let AstNode::InstructionDefinition {
+                        name, visibility, ..
+                    } = instruction_def
+                    {
+                        if Self::is_exported_entry(name, *visibility) {
+                            public_functions.push(instruction_def);
+                        } else {
+                            private_functions.push(instruction_def);
                     }
                 }
             }
@@ -355,7 +679,7 @@ impl FunctionDispatcher {
                         name: name.clone(),
                         offset: 0, // Will be patched later
                         parameter_count: effective_parameters.len() as u8,
-                        is_public: visibility.is_on_chain_callable(), // Capture visibility from AST
+                        is_public: Self::is_exported_entry(name, *visibility), // Capture external exportability
                         has_return_type: return_type.is_some(), // Check if function has return type
                     });
 
@@ -390,7 +714,7 @@ impl FunctionDispatcher {
                         name: name.clone(),
                         offset: 0, // Will be patched later
                         parameter_count: effective_parameters.len() as u8,
-                        is_public: visibility.is_on_chain_callable(), // Capture visibility from AST
+                        is_public: Self::is_exported_entry(name, *visibility), // Internal/non-export entries remain false
                         has_return_type: return_type.is_some(), // Check if function has return type
                     });
 
@@ -624,7 +948,7 @@ impl FunctionDispatcher {
         // to point to the Call Blocks we'll generate next.
         let mut jump_patch_locations: Vec<(usize, String, usize)> = Vec::new();
 
-        for (i, function) in self.functions.iter().enumerate() {
+        for (i, function) in self.functions.iter().enumerate().filter(|(_, f)| f.is_public) {
             // Load function index from parameter 0 using nibble immediate to avoid LOAD_PARAM 0 rejection
             emitter.emit_opcode(five_protocol::opcodes::LOAD_PARAM_0);
 
@@ -981,6 +1305,17 @@ impl FunctionDispatcher {
             // Sort functions: public functions first, then private functions
             // Phase 2: Visibility-based ordering for proper function dispatch
             let mut sorted_functions: Vec<&AstNode> = instruction_definitions.iter().collect();
+            let reachable_functions = Self::compute_reachable_internal_functions(ast);
+            sorted_functions.retain(|node| {
+                if let AstNode::InstructionDefinition {
+                    name, visibility, ..
+                } = node
+                {
+                    Self::is_exported_entry(name, *visibility) || reachable_functions.contains(name)
+                } else {
+                    true
+                }
+            });
             sorted_functions.sort_by(|a, b| {
                 let (a_is_public, a_params) = if let AstNode::InstructionDefinition {
                     visibility,
@@ -1480,6 +1815,24 @@ mod tests {
     use crate::ast::{AstNode, BlockKind, InstructionParameter, TypeNode};
     use crate::config::workspace::{ExportMetadata, InterfaceExport};
 
+    fn make_instruction(
+        name: &str,
+        visibility: crate::Visibility,
+        body_statements: Vec<AstNode>,
+    ) -> AstNode {
+        AstNode::InstructionDefinition {
+            name: name.to_string(),
+            visibility,
+            is_public: visibility.is_on_chain_callable(),
+            parameters: vec![],
+            return_type: None,
+            body: Box::new(AstNode::Block {
+                statements: body_statements,
+                kind: BlockKind::Regular,
+            }),
+        }
+    }
+
     #[test]
     fn test_function_dispatcher_creation() {
         let dispatcher = FunctionDispatcher::new();
@@ -1636,6 +1989,77 @@ mod tests {
         assert!(dispatcher.is_account_parameter("signer"));
         assert!(!dispatcher.is_account_parameter("amount"));
         assert_eq!(dispatcher.get_account_type("signer"), Some("Account"));
+    }
+
+    #[test]
+    fn test_reachable_internal_functions_prunes_unreachable_private_functions() {
+        let ast = AstNode::Program {
+            program_name: "test".to_string(),
+            field_definitions: vec![],
+            instruction_definitions: vec![
+                make_instruction(
+                    "entry",
+                    crate::Visibility::Public,
+                    vec![AstNode::FunctionCall {
+                        name: "used_helper".to_string(),
+                        args: vec![],
+                    }],
+                ),
+                make_instruction("used_helper", crate::Visibility::Internal, vec![]),
+                make_instruction("dead_helper", crate::Visibility::Internal, vec![]),
+            ],
+            init_block: None,
+            constraints_block: None,
+            event_definitions: vec![],
+            account_definitions: vec![],
+            type_definitions: vec![],
+            interface_definitions: vec![],
+            import_statements: vec![],
+        };
+
+        let reachable = FunctionDispatcher::compute_reachable_internal_functions(&ast);
+        assert!(reachable.contains("entry"));
+        assert!(reachable.contains("used_helper"));
+        assert!(!reachable.contains("dead_helper"));
+    }
+
+    #[test]
+    fn test_reachable_internal_functions_keeps_transitive_internal_call_chain() {
+        let ast = AstNode::Program {
+            program_name: "test".to_string(),
+            field_definitions: vec![],
+            instruction_definitions: vec![
+                make_instruction(
+                    "entry",
+                    crate::Visibility::Public,
+                    vec![AstNode::FunctionCall {
+                        name: "helper_a".to_string(),
+                        args: vec![],
+                    }],
+                ),
+                make_instruction(
+                    "helper_a",
+                    crate::Visibility::Internal,
+                    vec![AstNode::FunctionCall {
+                        name: "helper_b".to_string(),
+                        args: vec![],
+                    }],
+                ),
+                make_instruction("helper_b", crate::Visibility::Internal, vec![]),
+            ],
+            init_block: None,
+            constraints_block: None,
+            event_definitions: vec![],
+            account_definitions: vec![],
+            type_definitions: vec![],
+            interface_definitions: vec![],
+            import_statements: vec![],
+        };
+
+        let reachable = FunctionDispatcher::compute_reachable_internal_functions(&ast);
+        assert!(reachable.contains("entry"));
+        assert!(reachable.contains("helper_a"));
+        assert!(reachable.contains("helper_b"));
     }
 
     /// Test import_table is initialized and populated correctly

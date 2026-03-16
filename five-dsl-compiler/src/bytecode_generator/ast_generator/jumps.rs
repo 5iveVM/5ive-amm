@@ -6,6 +6,17 @@ use super::types::{ASTGenerator, FunctionPatch, JumpPatch};
 use five_vm_mito::error::VMError;
 
 impl ASTGenerator {
+    pub(super) fn short_branches_enabled() -> bool {
+        !matches!(
+            std::env::var("FIVE_DISABLE_SHORT_BRANCHES")
+                .ok()
+                .as_deref()
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("1") | Some("true") | Some("yes") | Some("on")
+        )
+    }
+
     /// Helper to patch jump offsets in bytecode
     pub(super) fn patch_jump_offset<T: OpcodeEmitter>(
         &self,
@@ -106,6 +117,29 @@ impl ASTGenerator {
         opcode: u8,
         target_label: String,
     ) {
+        // If target label is already known (typically backward loop edges), we can
+        // emit compact signed-relative forms directly when in range.
+        if Self::short_branches_enabled() {
+            if let Some(&target_pos) = self.label_positions.get(&target_label) {
+                let instruction_start = emitter.get_position();
+                let short_opcode = match opcode {
+                    five_protocol::opcodes::JUMP => Some(five_protocol::opcodes::JUMP_S8),
+                    five_protocol::opcodes::JUMP_IF_NOT => {
+                        Some(five_protocol::opcodes::JUMP_IF_NOT_S8)
+                    }
+                    _ => None,
+                };
+                if let Some(short_opcode) = short_opcode {
+                    let rel = target_pos as i32 - (instruction_start as i32 + 2);
+                    if (i8::MIN as i32..=i8::MAX as i32).contains(&rel) {
+                        emitter.emit_opcode(short_opcode);
+                        emitter.emit_u8(rel as i8 as u8);
+                        return;
+                    }
+                }
+            }
+        }
+
         emitter.emit_opcode(opcode);
         let patch_position = emitter.get_position();
         emitter.emit_u16(0); // Placeholder offset (u16 for protocol consistency)

@@ -56,8 +56,9 @@ pub use performance::*;
 pub use scope_analyzer::*;
 pub use types::*;
 
-use crate::ast::AstNode;
+use crate::ast::{AstNode, BlockKind, InstructionParameter, Visibility};
 use crate::compiler::CompilationMode;
+use std::collections::{HashMap, HashSet};
 use five_vm_mito::error::VMError;
 
 /// Main bytecode generator.
@@ -367,6 +368,9 @@ impl DslBytecodeGenerator {
 
     /// Internal generation logic extracted from generate() to reduce complexity
     fn generate_internal(&mut self, ast: &AstNode) -> Result<Vec<u8>, VMError> {
+        let optimized_ast = self.inline_private_helpers(ast);
+        let ast = &optimized_ast;
+
         // Check if we need function dispatch to determine header format
         let mut dispatcher = FunctionDispatcher::new();
         let has_functions = dispatcher.has_callable_functions(ast);
@@ -530,6 +534,7 @@ impl DslBytecodeGenerator {
 
         // Patch all jumps and function calls with their correct offsets (absolute)
         ast_generator.patch_with_base(self, code_offset)?;
+        self.optimize_bytecode_post_lowering(code_offset)?;
 
         let string_blob = self.constant_pool.string_blob();
         let string_blob_offset = code_offset + self.bytecode.len();
@@ -539,6 +544,21 @@ impl DslBytecodeGenerator {
         self.header_features |= five_protocol::FEATURE_CONSTANT_POOL;
         if string_blob_len > 0 {
             self.header_features |= five_protocol::FEATURE_CONSTANT_POOL_STRINGS;
+        }
+        let has_compact_immediates = self.bytecode.iter().any(|opcode| {
+            matches!(
+                *opcode,
+                five_protocol::opcodes::LOAD_FIELD_S
+                    | five_protocol::opcodes::STORE_FIELD_S
+                    | five_protocol::opcodes::LOAD_FIELD_PUBKEY_S
+                    | five_protocol::opcodes::STORE_FIELD_ZERO_S
+                    | five_protocol::opcodes::JUMP_S8
+                    | five_protocol::opcodes::JUMP_IF_NOT_S8
+                    | five_protocol::opcodes::BR_EQ_U8_S8
+            )
+        });
+        if has_compact_immediates {
+            self.header_features |= five_protocol::FEATURE_COMPACT_IMMEDIATES;
         }
         let feature_bytes = self.header_features.to_le_bytes();
         if self.header_bytes.len() >= 8 {
@@ -614,6 +634,1042 @@ impl DslBytecodeGenerator {
         }
 
         Ok(self.bytecode.clone())
+    }
+
+    fn inline_private_helpers(&self, ast: &AstNode) -> AstNode {
+        if matches!(
+            std::env::var("FIVE_DISABLE_INLINE_OPT")
+                .ok()
+                .as_deref()
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("1") | Some("true") | Some("yes") | Some("on")
+        ) {
+            return ast.clone();
+        }
+
+        #[derive(Clone)]
+        struct InlineCandidate {
+            parameters: Vec<InstructionParameter>,
+            body: AstNode,
+        }
+
+        fn ast_weight(node: &AstNode) -> usize {
+            match node {
+                AstNode::Block { statements, .. } => {
+                    1 + statements.iter().map(ast_weight).sum::<usize>()
+                }
+                AstNode::IfStatement {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    1 + ast_weight(condition)
+                        + ast_weight(then_branch)
+                        + else_branch.as_ref().map(|n| ast_weight(n)).unwrap_or(0)
+                }
+                AstNode::FunctionCall { args, .. } => {
+                    1 + args.iter().map(ast_weight).sum::<usize>()
+                }
+                AstNode::Assignment { value, .. } => 1 + ast_weight(value),
+                AstNode::LetStatement { value, .. } => 1 + ast_weight(value),
+                AstNode::RequireStatement { condition } => 1 + ast_weight(condition),
+                AstNode::FieldAssignment { object, value, .. } => {
+                    1 + ast_weight(object) + ast_weight(value)
+                }
+                AstNode::ReturnStatement { value } => {
+                    1 + value.as_ref().map(|v| ast_weight(v)).unwrap_or(0)
+                }
+                AstNode::WhileLoop { condition, body } => 1 + ast_weight(condition) + ast_weight(body),
+                AstNode::DoWhileLoop { body, condition } => 1 + ast_weight(body) + ast_weight(condition),
+                AstNode::ForLoop {
+                    init,
+                    condition,
+                    update,
+                    body,
+                } => {
+                    1 + init.as_ref().map(|n| ast_weight(n)).unwrap_or(0)
+                        + condition.as_ref().map(|n| ast_weight(n)).unwrap_or(0)
+                        + update.as_ref().map(|n| ast_weight(n)).unwrap_or(0)
+                        + ast_weight(body)
+                }
+                AstNode::ForInLoop { iterable, body, .. }
+                | AstNode::ForOfLoop { iterable, body, .. } => 1 + ast_weight(iterable) + ast_weight(body),
+                _ => 1,
+            }
+        }
+
+        fn body_is_safe_inline_candidate(node: &AstNode) -> bool {
+            fn has_disallowed(n: &AstNode) -> bool {
+                match n {
+                    AstNode::FunctionCall { .. }
+                    | AstNode::IfStatement { .. }
+                    | AstNode::MatchExpression { .. }
+                    | AstNode::WhileLoop { .. }
+                    | AstNode::DoWhileLoop { .. }
+                    | AstNode::ForLoop { .. }
+                    | AstNode::ForInLoop { .. }
+                    | AstNode::ForOfLoop { .. }
+                    | AstNode::SwitchStatement { .. }
+                    | AstNode::BreakStatement { .. }
+                    | AstNode::ContinueStatement { .. }
+                    | AstNode::ReturnStatement { .. } => true,
+                    AstNode::Block { statements, .. } => statements.iter().any(has_disallowed),
+                    AstNode::Assignment { value, .. } => has_disallowed(value),
+                    AstNode::FieldAssignment { object, value, .. } => {
+                        has_disallowed(object) || has_disallowed(value)
+                    }
+                    AstNode::RequireStatement { condition } => has_disallowed(condition),
+                    AstNode::MethodCall { object, args, .. } => {
+                        has_disallowed(object) || args.iter().any(has_disallowed)
+                    }
+                    AstNode::LetStatement { value, .. } => has_disallowed(value),
+                    AstNode::TupleDestructuring { value, .. } => has_disallowed(value),
+                    AstNode::TupleAssignment { targets, value } => {
+                        targets.iter().any(has_disallowed) || has_disallowed(value)
+                    }
+                    AstNode::FieldAccess { object, .. } => has_disallowed(object),
+                    AstNode::BinaryExpression { left, right, .. } => {
+                        has_disallowed(left) || has_disallowed(right)
+                    }
+                    AstNode::UnaryExpression { operand, .. } => has_disallowed(operand),
+                    AstNode::ArrayLiteral { elements } | AstNode::TupleLiteral { elements } => {
+                        elements.iter().any(has_disallowed)
+                    }
+                    AstNode::ArrayAccess { array, index } => {
+                        has_disallowed(array) || has_disallowed(index)
+                    }
+                    AstNode::Cast { value, target_type } => {
+                        has_disallowed(value) || has_disallowed(target_type)
+                    }
+                    AstNode::ErrorPropagation { expression } => has_disallowed(expression),
+                    AstNode::TemplateLiteral { parts } => parts.iter().any(has_disallowed),
+                    AstNode::StructLiteral { fields } => {
+                        fields.iter().any(|f| has_disallowed(&f.value))
+                    }
+                    AstNode::EmitStatement { fields, .. } => {
+                        fields.iter().any(|f| has_disallowed(&f.value))
+                    }
+                    _ => false,
+                }
+            }
+
+            let stmt_count_ok = match node {
+                AstNode::Block { statements, .. } => statements.len() <= 8,
+                _ => false,
+            };
+            stmt_count_ok && ast_weight(node) <= 64 && !has_disallowed(node)
+        }
+
+        fn count_calls(node: &AstNode, private_names: &HashSet<String>, counts: &mut HashMap<String, usize>) {
+            match node {
+                AstNode::FunctionCall { name, args } => {
+                    if private_names.contains(name) {
+                        *counts.entry(name.clone()).or_insert(0) += 1;
+                    }
+                    for arg in args {
+                        count_calls(arg, private_names, counts);
+                    }
+                }
+                AstNode::Block { statements, .. } => {
+                    for stmt in statements {
+                        count_calls(stmt, private_names, counts);
+                    }
+                }
+                AstNode::Assignment { value, .. } => count_calls(value, private_names, counts),
+                AstNode::FieldAssignment { object, value, .. } => {
+                    count_calls(object, private_names, counts);
+                    count_calls(value, private_names, counts);
+                }
+                AstNode::RequireStatement { condition } => {
+                    count_calls(condition, private_names, counts)
+                }
+                AstNode::MethodCall { object, args, .. } => {
+                    count_calls(object, private_names, counts);
+                    for arg in args {
+                        count_calls(arg, private_names, counts);
+                    }
+                }
+                AstNode::LetStatement { value, .. } => count_calls(value, private_names, counts),
+                AstNode::TupleDestructuring { value, .. } => count_calls(value, private_names, counts),
+                AstNode::TupleAssignment { targets, value } => {
+                    for target in targets {
+                        count_calls(target, private_names, counts);
+                    }
+                    count_calls(value, private_names, counts);
+                }
+                AstNode::IfStatement {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    count_calls(condition, private_names, counts);
+                    count_calls(then_branch, private_names, counts);
+                    if let Some(else_branch) = else_branch {
+                        count_calls(else_branch, private_names, counts);
+                    }
+                }
+                AstNode::MatchExpression { expression, arms } => {
+                    count_calls(expression, private_names, counts);
+                    for arm in arms {
+                        count_calls(&arm.pattern, private_names, counts);
+                        if let Some(guard) = &arm.guard {
+                            count_calls(guard, private_names, counts);
+                        }
+                        count_calls(&arm.body, private_names, counts);
+                    }
+                }
+                AstNode::ReturnStatement { value } => {
+                    if let Some(value) = value {
+                        count_calls(value, private_names, counts);
+                    }
+                }
+                AstNode::ForLoop {
+                    init,
+                    condition,
+                    update,
+                    body,
+                } => {
+                    if let Some(init) = init {
+                        count_calls(init, private_names, counts);
+                    }
+                    if let Some(condition) = condition {
+                        count_calls(condition, private_names, counts);
+                    }
+                    if let Some(update) = update {
+                        count_calls(update, private_names, counts);
+                    }
+                    count_calls(body, private_names, counts);
+                }
+                AstNode::ForInLoop { iterable, body, .. }
+                | AstNode::ForOfLoop { iterable, body, .. } => {
+                    count_calls(iterable, private_names, counts);
+                    count_calls(body, private_names, counts);
+                }
+                AstNode::WhileLoop { condition, body } => {
+                    count_calls(condition, private_names, counts);
+                    count_calls(body, private_names, counts);
+                }
+                AstNode::DoWhileLoop { body, condition } => {
+                    count_calls(body, private_names, counts);
+                    count_calls(condition, private_names, counts);
+                }
+                AstNode::SwitchStatement {
+                    discriminant,
+                    cases,
+                    default_case,
+                } => {
+                    count_calls(discriminant, private_names, counts);
+                    for case in cases {
+                        count_calls(&case.pattern, private_names, counts);
+                        for stmt in &case.body {
+                            count_calls(stmt, private_names, counts);
+                        }
+                    }
+                    if let Some(default_case) = default_case {
+                        count_calls(default_case, private_names, counts);
+                    }
+                }
+                AstNode::ArrowFunction { body, .. } => count_calls(body, private_names, counts),
+                AstNode::StructLiteral { fields } => {
+                    for field in fields {
+                        count_calls(&field.value, private_names, counts);
+                    }
+                }
+                AstNode::ArrayLiteral { elements } | AstNode::TupleLiteral { elements } => {
+                    for element in elements {
+                        count_calls(element, private_names, counts);
+                    }
+                }
+                AstNode::FieldAccess { object, .. } => count_calls(object, private_names, counts),
+                AstNode::Cast { value, target_type } => {
+                    count_calls(value, private_names, counts);
+                    count_calls(target_type, private_names, counts);
+                }
+                AstNode::TupleAccess { object, .. } => count_calls(object, private_names, counts),
+                AstNode::ArrayAccess { array, index } => {
+                    count_calls(array, private_names, counts);
+                    count_calls(index, private_names, counts);
+                }
+                AstNode::ErrorPropagation { expression } => {
+                    count_calls(expression, private_names, counts)
+                }
+                AstNode::TemplateLiteral { parts } => {
+                    for part in parts {
+                        count_calls(part, private_names, counts);
+                    }
+                }
+                AstNode::UnaryExpression { operand, .. } => {
+                    count_calls(operand, private_names, counts)
+                }
+                AstNode::BinaryExpression { left, right, .. } => {
+                    count_calls(left, private_names, counts);
+                    count_calls(right, private_names, counts);
+                }
+                _ => {}
+            }
+        }
+
+        fn rewrite_node(
+            node: &AstNode,
+            candidates: &HashMap<String, InlineCandidate>,
+            statement_ctx: bool,
+        ) -> AstNode {
+            if statement_ctx {
+                if let AstNode::FunctionCall { name, args } = node {
+                    if let Some(candidate) = candidates.get(name) {
+                        if candidate.parameters.len() == args.len() {
+                            let mut statements = Vec::with_capacity(
+                                candidate.parameters.len() + 1,
+                            );
+                            for (param, arg) in candidate.parameters.iter().zip(args.iter()) {
+                                statements.push(AstNode::LetStatement {
+                                    name: param.name.clone(),
+                                    type_annotation: None,
+                                    is_mutable: false,
+                                    value: Box::new(rewrite_node(arg, candidates, false)),
+                                });
+                            }
+                            match &candidate.body {
+                                AstNode::Block {
+                                    statements: body_statements,
+                                    ..
+                                } => {
+                                    for stmt in body_statements {
+                                        statements.push(rewrite_node(stmt, candidates, true));
+                                    }
+                                }
+                                other => statements.push(rewrite_node(other, candidates, true)),
+                            }
+                            return AstNode::Block {
+                                statements,
+                                kind: BlockKind::Regular,
+                            };
+                        }
+                    }
+                }
+            }
+
+            match node {
+                AstNode::Program {
+                    program_name,
+                    field_definitions,
+                    instruction_definitions,
+                    event_definitions,
+                    account_definitions,
+                    type_definitions,
+                    interface_definitions,
+                    import_statements,
+                    init_block,
+                    constraints_block,
+                } => AstNode::Program {
+                    program_name: program_name.clone(),
+                    field_definitions: field_definitions.clone(),
+                    instruction_definitions: instruction_definitions
+                        .iter()
+                        .map(|n| rewrite_node(n, candidates, false))
+                        .collect(),
+                    event_definitions: event_definitions.clone(),
+                    account_definitions: account_definitions.clone(),
+                    type_definitions: type_definitions.clone(),
+                    interface_definitions: interface_definitions.clone(),
+                    import_statements: import_statements.clone(),
+                    init_block: init_block
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                    constraints_block: constraints_block
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                },
+                AstNode::Block { statements, kind } => AstNode::Block {
+                    statements: statements
+                        .iter()
+                        .map(|stmt| rewrite_node(stmt, candidates, true))
+                        .collect(),
+                    kind: kind.clone(),
+                },
+                AstNode::InstructionDefinition {
+                    name,
+                    parameters,
+                    return_type,
+                    body,
+                    visibility,
+                    is_public,
+                } => AstNode::InstructionDefinition {
+                    name: name.clone(),
+                    parameters: parameters.clone(),
+                    return_type: return_type.clone(),
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                    visibility: *visibility,
+                    is_public: *is_public,
+                },
+                AstNode::Assignment { target, value } => AstNode::Assignment {
+                    target: target.clone(),
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                },
+                AstNode::FieldAssignment { object, field, value } => AstNode::FieldAssignment {
+                    object: Box::new(rewrite_node(object, candidates, false)),
+                    field: field.clone(),
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                },
+                AstNode::RequireStatement { condition } => AstNode::RequireStatement {
+                    condition: Box::new(rewrite_node(condition, candidates, false)),
+                },
+                AstNode::MethodCall { object, method, args } => AstNode::MethodCall {
+                    object: Box::new(rewrite_node(object, candidates, false)),
+                    method: method.clone(),
+                    args: args
+                        .iter()
+                        .map(|arg| rewrite_node(arg, candidates, false))
+                        .collect(),
+                },
+                AstNode::LetStatement {
+                    name,
+                    type_annotation,
+                    is_mutable,
+                    value,
+                } => AstNode::LetStatement {
+                    name: name.clone(),
+                    type_annotation: type_annotation.clone(),
+                    is_mutable: *is_mutable,
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                },
+                AstNode::TupleDestructuring { targets, value } => AstNode::TupleDestructuring {
+                    targets: targets.clone(),
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                },
+                AstNode::TupleAssignment { targets, value } => AstNode::TupleAssignment {
+                    targets: targets
+                        .iter()
+                        .map(|n| rewrite_node(n, candidates, false))
+                        .collect(),
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                },
+                AstNode::IfStatement {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => AstNode::IfStatement {
+                    condition: Box::new(rewrite_node(condition, candidates, false)),
+                    then_branch: Box::new(rewrite_node(then_branch, candidates, true)),
+                    else_branch: else_branch
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                },
+                AstNode::ReturnStatement { value } => AstNode::ReturnStatement {
+                    value: value
+                        .as_ref()
+                        .map(|v| Box::new(rewrite_node(v, candidates, false))),
+                },
+                AstNode::MatchExpression { expression, arms } => AstNode::MatchExpression {
+                    expression: Box::new(rewrite_node(expression, candidates, false)),
+                    arms: arms
+                        .iter()
+                        .map(|arm| crate::ast::MatchArm {
+                            pattern: Box::new(rewrite_node(&arm.pattern, candidates, false)),
+                            guard: arm
+                                .guard
+                                .as_ref()
+                                .map(|g| Box::new(rewrite_node(g, candidates, false))),
+                            body: Box::new(rewrite_node(&arm.body, candidates, true)),
+                        })
+                        .collect(),
+                },
+                AstNode::ForLoop {
+                    init,
+                    condition,
+                    update,
+                    body,
+                } => AstNode::ForLoop {
+                    init: init
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                    condition: condition
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, false))),
+                    update: update
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                },
+                AstNode::ForInLoop {
+                    variable,
+                    iterable,
+                    body,
+                } => AstNode::ForInLoop {
+                    variable: variable.clone(),
+                    iterable: Box::new(rewrite_node(iterable, candidates, false)),
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                },
+                AstNode::ForOfLoop {
+                    variable,
+                    iterable,
+                    body,
+                } => AstNode::ForOfLoop {
+                    variable: variable.clone(),
+                    iterable: Box::new(rewrite_node(iterable, candidates, false)),
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                },
+                AstNode::WhileLoop { condition, body } => AstNode::WhileLoop {
+                    condition: Box::new(rewrite_node(condition, candidates, false)),
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                },
+                AstNode::DoWhileLoop { body, condition } => AstNode::DoWhileLoop {
+                    body: Box::new(rewrite_node(body, candidates, true)),
+                    condition: Box::new(rewrite_node(condition, candidates, false)),
+                },
+                AstNode::SwitchStatement {
+                    discriminant,
+                    cases,
+                    default_case,
+                } => AstNode::SwitchStatement {
+                    discriminant: Box::new(rewrite_node(discriminant, candidates, false)),
+                    cases: cases
+                        .iter()
+                        .map(|case| crate::ast::SwitchCase {
+                            pattern: Box::new(rewrite_node(&case.pattern, candidates, false)),
+                            body: case
+                                .body
+                                .iter()
+                                .map(|n| rewrite_node(n, candidates, true))
+                                .collect(),
+                        })
+                        .collect(),
+                    default_case: default_case
+                        .as_ref()
+                        .map(|n| Box::new(rewrite_node(n, candidates, true))),
+                },
+                AstNode::FunctionCall { name, args } => AstNode::FunctionCall {
+                    name: name.clone(),
+                    args: args
+                        .iter()
+                        .map(|arg| rewrite_node(arg, candidates, false))
+                        .collect(),
+                },
+                AstNode::FieldAccess { object, field } => AstNode::FieldAccess {
+                    object: Box::new(rewrite_node(object, candidates, false)),
+                    field: field.clone(),
+                },
+                AstNode::Cast { value, target_type } => AstNode::Cast {
+                    value: Box::new(rewrite_node(value, candidates, false)),
+                    target_type: Box::new(rewrite_node(target_type, candidates, false)),
+                },
+                AstNode::TupleAccess { object, index } => AstNode::TupleAccess {
+                    object: Box::new(rewrite_node(object, candidates, false)),
+                    index: *index,
+                },
+                AstNode::ArrayAccess { array, index } => AstNode::ArrayAccess {
+                    array: Box::new(rewrite_node(array, candidates, false)),
+                    index: Box::new(rewrite_node(index, candidates, false)),
+                },
+                AstNode::ErrorPropagation { expression } => AstNode::ErrorPropagation {
+                    expression: Box::new(rewrite_node(expression, candidates, false)),
+                },
+                AstNode::TemplateLiteral { parts } => AstNode::TemplateLiteral {
+                    parts: parts
+                        .iter()
+                        .map(|p| rewrite_node(p, candidates, false))
+                        .collect(),
+                },
+                AstNode::UnaryExpression { operator, operand } => AstNode::UnaryExpression {
+                    operator: operator.clone(),
+                    operand: Box::new(rewrite_node(operand, candidates, false)),
+                },
+                AstNode::BinaryExpression {
+                    operator,
+                    left,
+                    right,
+                } => AstNode::BinaryExpression {
+                    operator: operator.clone(),
+                    left: Box::new(rewrite_node(left, candidates, false)),
+                    right: Box::new(rewrite_node(right, candidates, false)),
+                },
+                AstNode::StructLiteral { fields } => AstNode::StructLiteral {
+                    fields: fields
+                        .iter()
+                        .map(|f| crate::ast::StructLiteralField {
+                            field_name: f.field_name.clone(),
+                            value: Box::new(rewrite_node(&f.value, candidates, false)),
+                        })
+                        .collect(),
+                },
+                AstNode::ArrayLiteral { elements } => AstNode::ArrayLiteral {
+                    elements: elements
+                        .iter()
+                        .map(|e| rewrite_node(e, candidates, false))
+                        .collect(),
+                },
+                AstNode::TupleLiteral { elements } => AstNode::TupleLiteral {
+                    elements: elements
+                        .iter()
+                        .map(|e| rewrite_node(e, candidates, false))
+                        .collect(),
+                },
+                AstNode::EmitStatement { event_name, fields } => AstNode::EmitStatement {
+                    event_name: event_name.clone(),
+                    fields: fields
+                        .iter()
+                        .map(|f| crate::ast::EventFieldAssignment {
+                            field_name: f.field_name.clone(),
+                            value: Box::new(rewrite_node(&f.value, candidates, false)),
+                        })
+                        .collect(),
+                },
+                _ => node.clone(),
+            }
+        }
+
+        let AstNode::Program {
+            program_name,
+            field_definitions,
+            instruction_definitions,
+            event_definitions,
+            account_definitions,
+            type_definitions,
+            interface_definitions,
+            import_statements,
+            init_block,
+            constraints_block,
+        } = ast
+        else {
+            return ast.clone();
+        };
+
+        let mut private_candidates: HashMap<String, InlineCandidate> = HashMap::new();
+        let mut private_names: HashSet<String> = HashSet::new();
+
+        for definition in instruction_definitions {
+            if let AstNode::InstructionDefinition {
+                name,
+                parameters,
+                return_type,
+                body,
+                visibility,
+                ..
+            } = definition
+            {
+                if *visibility == Visibility::Public || name.contains("::") || return_type.is_some() {
+                    continue;
+                }
+                if body_is_safe_inline_candidate(body) {
+                    private_names.insert(name.clone());
+                    private_candidates.insert(
+                        name.clone(),
+                        InlineCandidate {
+                            parameters: parameters.clone(),
+                            body: (**body).clone(),
+                        },
+                    );
+                }
+            }
+        }
+
+        if private_candidates.is_empty() {
+            return ast.clone();
+        }
+
+        let mut call_counts: HashMap<String, usize> = HashMap::new();
+        for definition in instruction_definitions {
+            count_calls(definition, &private_names, &mut call_counts);
+        }
+        if let Some(init_block) = init_block {
+            count_calls(init_block, &private_names, &mut call_counts);
+        }
+        if let Some(constraints_block) = constraints_block {
+            count_calls(constraints_block, &private_names, &mut call_counts);
+        }
+
+        private_candidates.retain(|name, _| call_counts.get(name).copied().unwrap_or(0) == 1);
+        if private_candidates.is_empty() {
+            return ast.clone();
+        }
+
+        let mut rewritten_instruction_defs: Vec<AstNode> = instruction_definitions
+            .iter()
+            .map(|node| rewrite_node(node, &private_candidates, false))
+            .collect();
+
+        rewritten_instruction_defs.retain(|definition| {
+            if let AstNode::InstructionDefinition {
+                name, visibility, ..
+            } = definition
+            {
+                !(*visibility != Visibility::Public && private_candidates.contains_key(name))
+            } else {
+                true
+            }
+        });
+
+        AstNode::Program {
+            program_name: program_name.clone(),
+            field_definitions: field_definitions.clone(),
+            instruction_definitions: rewritten_instruction_defs,
+            event_definitions: event_definitions.clone(),
+            account_definitions: account_definitions.clone(),
+            type_definitions: type_definitions.clone(),
+            interface_definitions: interface_definitions.clone(),
+            import_statements: import_statements.clone(),
+            init_block: init_block
+                .as_ref()
+                .map(|n| Box::new(rewrite_node(n, &private_candidates, true))),
+            constraints_block: constraints_block
+                .as_ref()
+                .map(|n| Box::new(rewrite_node(n, &private_candidates, true))),
+        }
+    }
+
+    fn optimize_bytecode_post_lowering(&mut self, code_offset: usize) -> Result<(), VMError> {
+        if matches!(
+            std::env::var("FIVE_DISABLE_BYTECODE_PEEPHOLE")
+                .ok()
+                .as_deref()
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("1") | Some("true") | Some("yes") | Some("on")
+        ) {
+            return Ok(());
+        }
+
+        use crate::bytecode_generator::disassembler::BytecodeInspector;
+        use five_protocol::opcodes;
+
+        #[derive(Clone)]
+        enum BranchKind {
+            Jump { target_abs: i32 },
+            JumpIfNot { target_abs: i32 },
+            BrEqU8 { compare: u8, target_abs: i32 },
+        }
+
+        #[derive(Clone)]
+        struct InstructionRewrite {
+            old_start: usize,
+            old_size: usize,
+            bytes: Vec<u8>,
+            branch: Option<BranchKind>,
+            removed: bool,
+        }
+
+        fn read_u16_le(bytes: &[u8], offset: usize) -> Option<u16> {
+            if offset + 1 >= bytes.len() {
+                return None;
+            }
+            Some(u16::from_le_bytes([bytes[offset], bytes[offset + 1]]))
+        }
+
+        let original = self.bytecode.clone();
+        if original.is_empty() {
+            return Ok(());
+        }
+
+        let code_offset_i32 = code_offset as i32;
+        let original_len = original.len();
+        let code_end_abs = code_offset_i32 + original_len as i32;
+        let mut instructions: Vec<InstructionRewrite> = Vec::new();
+
+        let mut pc = 0usize;
+        while pc < original_len {
+            let size = BytecodeInspector::instruction_size(&original, pc);
+            if size == 0 || pc + size > original_len {
+                break;
+            }
+
+            let opcode = original[pc];
+            let mut bytes = original[pc..pc + size].to_vec();
+
+            if opcode == opcodes::PUSH_U8 && size >= 2 {
+                bytes = match original[pc + 1] {
+                    0 => vec![opcodes::PUSH_0],
+                    1 => vec![opcodes::PUSH_1],
+                    2 => vec![opcodes::PUSH_2],
+                    3 => vec![opcodes::PUSH_3],
+                    _ => bytes,
+                };
+            } else if opcode == opcodes::GET_LOCAL && size >= 2 {
+                bytes = match original[pc + 1] {
+                    0 => vec![opcodes::GET_LOCAL_0],
+                    1 => vec![opcodes::GET_LOCAL_1],
+                    2 => vec![opcodes::GET_LOCAL_2],
+                    3 => vec![opcodes::GET_LOCAL_3],
+                    _ => bytes,
+                };
+            } else if opcode == opcodes::SET_LOCAL && size >= 2 {
+                bytes = match original[pc + 1] {
+                    0 => vec![opcodes::SET_LOCAL_0],
+                    1 => vec![opcodes::SET_LOCAL_1],
+                    2 => vec![opcodes::SET_LOCAL_2],
+                    3 => vec![opcodes::SET_LOCAL_3],
+                    _ => bytes,
+                };
+            }
+
+            let branch = match opcode {
+                opcodes::JUMP => read_u16_le(&original, pc + 1)
+                    .map(|target| BranchKind::Jump { target_abs: target as i32 }),
+                opcodes::JUMP_IF_NOT => read_u16_le(&original, pc + 1)
+                    .map(|target| BranchKind::JumpIfNot { target_abs: target as i32 }),
+                opcodes::JUMP_S8 => {
+                    if size >= 2 {
+                        let rel = original[pc + 1] as i8 as i32;
+                        Some(BranchKind::Jump {
+                            target_abs: code_offset_i32 + pc as i32 + 2 + rel,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                opcodes::JUMP_IF_NOT_S8 => {
+                    if size >= 2 {
+                        let rel = original[pc + 1] as i8 as i32;
+                        Some(BranchKind::JumpIfNot {
+                            target_abs: code_offset_i32 + pc as i32 + 2 + rel,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                opcodes::BR_EQ_U8 => {
+                    if size >= 4 {
+                        let compare = original[pc + 1];
+                        let rel = read_u16_le(&original, pc + 2)
+                            .map(|raw| raw as i16 as i32)
+                            .unwrap_or(0);
+                        Some(BranchKind::BrEqU8 {
+                            compare,
+                            target_abs: code_offset_i32 + pc as i32 + 4 + rel,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                opcodes::BR_EQ_U8_S8 => {
+                    if size >= 3 {
+                        let compare = original[pc + 1];
+                        let rel = original[pc + 2] as i8 as i32;
+                        Some(BranchKind::BrEqU8 {
+                            compare,
+                            target_abs: code_offset_i32 + pc as i32 + 3 + rel,
+                        })
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+
+            let mut removed = false;
+            if let Some(BranchKind::Jump { target_abs }) = &branch {
+                let next_abs = code_offset_i32 + pc as i32 + size as i32;
+                if *target_abs == next_abs {
+                    removed = true;
+                }
+            }
+
+            instructions.push(InstructionRewrite {
+                old_start: pc,
+                old_size: size,
+                bytes,
+                branch,
+                removed,
+            });
+
+            pc += size;
+        }
+
+        if instructions.is_empty() {
+            return Ok(());
+        }
+
+        for _ in 0..10 {
+            let mut changed = false;
+            let mut old_to_new: HashMap<usize, usize> = HashMap::new();
+            let mut new_pc = 0usize;
+            for inst in &instructions {
+                old_to_new.insert(inst.old_start, new_pc);
+                if !inst.removed {
+                    new_pc += inst.bytes.len();
+                }
+            }
+            let new_code_end_abs = code_offset_i32 + new_pc as i32;
+
+            for inst in &mut instructions {
+                if inst.removed {
+                    continue;
+                }
+                let Some(branch) = &inst.branch else {
+                    continue;
+                };
+                let Some(&inst_new_start) = old_to_new.get(&inst.old_start) else {
+                    continue;
+                };
+
+                let old_target_abs = match branch {
+                    BranchKind::Jump { target_abs }
+                    | BranchKind::JumpIfNot { target_abs }
+                    | BranchKind::BrEqU8 { target_abs, .. } => *target_abs,
+                };
+
+                let mut translated_target_abs = old_target_abs;
+                if old_target_abs >= code_offset_i32 && old_target_abs < code_end_abs {
+                    let old_rel = (old_target_abs - code_offset_i32) as usize;
+                    if let Some(new_rel) = old_to_new.get(&old_rel) {
+                        translated_target_abs = code_offset_i32 + *new_rel as i32;
+                    }
+                } else if old_target_abs == code_end_abs {
+                    translated_target_abs = new_code_end_abs;
+                }
+
+                match branch {
+                    BranchKind::Jump { .. } => {
+                        let rel = translated_target_abs - (code_offset_i32 + inst_new_start as i32 + 2);
+                        let new_bytes = if (i8::MIN as i32..=i8::MAX as i32).contains(&rel) {
+                            vec![opcodes::JUMP_S8, rel as i8 as u8]
+                        } else {
+                            let target_u16 = translated_target_abs as u16;
+                            vec![
+                                opcodes::JUMP,
+                                (target_u16 & 0xFF) as u8,
+                                (target_u16 >> 8) as u8,
+                            ]
+                        };
+                        if new_bytes != inst.bytes {
+                            inst.bytes = new_bytes;
+                            changed = true;
+                        }
+                        if inst.bytes.len() == 3 {
+                            let next_abs = code_offset_i32 + inst.old_start as i32 + inst.old_size as i32;
+                            if translated_target_abs == next_abs {
+                                inst.removed = true;
+                                changed = true;
+                            }
+                        }
+                    }
+                    BranchKind::JumpIfNot { .. } => {
+                        let rel = translated_target_abs - (code_offset_i32 + inst_new_start as i32 + 2);
+                        let new_bytes = if (i8::MIN as i32..=i8::MAX as i32).contains(&rel) {
+                            vec![opcodes::JUMP_IF_NOT_S8, rel as i8 as u8]
+                        } else {
+                            let target_u16 = translated_target_abs as u16;
+                            vec![
+                                opcodes::JUMP_IF_NOT,
+                                (target_u16 & 0xFF) as u8,
+                                (target_u16 >> 8) as u8,
+                            ]
+                        };
+                        if new_bytes != inst.bytes {
+                            inst.bytes = new_bytes;
+                            changed = true;
+                        }
+                    }
+                    BranchKind::BrEqU8 { compare, .. } => {
+                        let rel8 = translated_target_abs - (code_offset_i32 + inst_new_start as i32 + 3);
+                        let new_bytes = if (i8::MIN as i32..=i8::MAX as i32).contains(&rel8) {
+                            vec![opcodes::BR_EQ_U8_S8, *compare, rel8 as i8 as u8]
+                        } else {
+                            let rel16 = translated_target_abs - (code_offset_i32 + inst_new_start as i32 + 4);
+                            if (i16::MIN as i32..=i16::MAX as i32).contains(&rel16) {
+                                let rel_u16 = rel16 as i16 as u16;
+                                vec![
+                                    opcodes::BR_EQ_U8,
+                                    *compare,
+                                    (rel_u16 & 0xFF) as u8,
+                                    (rel_u16 >> 8) as u8,
+                                ]
+                            } else {
+                                inst.bytes.clone()
+                            }
+                        };
+                        if new_bytes != inst.bytes {
+                            inst.bytes = new_bytes;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        let mut optimized = Vec::with_capacity(original_len);
+        for inst in &instructions {
+            if !inst.removed {
+                optimized.extend_from_slice(&inst.bytes);
+            }
+        }
+
+        if !Self::validate_optimized_control_flow(&optimized, code_offset) {
+            self.bytecode = original;
+            self.position = self.bytecode.len();
+            return Ok(());
+        }
+
+        self.bytecode = optimized;
+        self.position = self.bytecode.len();
+        Ok(())
+    }
+
+    fn validate_optimized_control_flow(code: &[u8], code_offset: usize) -> bool {
+        use crate::bytecode_generator::disassembler::BytecodeInspector;
+        use five_protocol::opcodes;
+
+        let mut starts = HashSet::new();
+        let mut pc = 0usize;
+        while pc < code.len() {
+            let size = BytecodeInspector::instruction_size(code, pc);
+            if size == 0 || pc + size > code.len() {
+                return false;
+            }
+            starts.insert(code_offset as i32 + pc as i32);
+            pc += size;
+        }
+
+        let code_start = code_offset as i32;
+        let code_end = code_start + code.len() as i32;
+        let mut pc = 0usize;
+        while pc < code.len() {
+            let size = BytecodeInspector::instruction_size(code, pc);
+            let op = code[pc];
+            let target = match op {
+                opcodes::JUMP | opcodes::JUMP_IF_NOT => {
+                    if pc + 2 >= code.len() {
+                        return false;
+                    }
+                    Some(u16::from_le_bytes([code[pc + 1], code[pc + 2]]) as i32)
+                }
+                opcodes::JUMP_S8 | opcodes::JUMP_IF_NOT_S8 => {
+                    if pc + 1 >= code.len() {
+                        return false;
+                    }
+                    let rel = code[pc + 1] as i8 as i32;
+                    Some(code_start + pc as i32 + 2 + rel)
+                }
+                opcodes::BR_EQ_U8 => {
+                    if pc + 3 >= code.len() {
+                        return false;
+                    }
+                    let rel = u16::from_le_bytes([code[pc + 2], code[pc + 3]]) as i16 as i32;
+                    Some(code_start + pc as i32 + 4 + rel)
+                }
+                opcodes::BR_EQ_U8_S8 => {
+                    if pc + 2 >= code.len() {
+                        return false;
+                    }
+                    let rel = code[pc + 2] as i8 as i32;
+                    Some(code_start + pc as i32 + 3 + rel)
+                }
+                _ => None,
+            };
+
+            if let Some(target) = target {
+                if target < code_start || target >= code_end || !starts.contains(&target) {
+                    return false;
+                }
+            }
+            pc += size;
+        }
+
+        true
     }
 
     /// Reset generator state for new compilation

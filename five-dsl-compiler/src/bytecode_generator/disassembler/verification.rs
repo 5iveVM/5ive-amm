@@ -173,6 +173,31 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
 
                 offset += 3; // opcode + u16
             }
+            opcodes::JUMP_S8 | opcodes::JUMP_IF_NOT_S8 => {
+                jump_count += 1;
+                if offset + 1 >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: opcode_name(opcode),
+                        target: 0,
+                        reason: "Truncated: missing i8 offset".to_string(),
+                    });
+                    break;
+                }
+                let rel = bytecode[offset + 1] as i8 as i32;
+                let target = (offset as i32 + 2 + rel) as isize;
+                if target < 0 || target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: opcode_name(opcode),
+                        target: target.max(0) as u16,
+                        reason: format!("Out of bounds short jump target: {}", target),
+                    });
+                }
+                offset += 2;
+            }
 
             // CALL instruction: param_count(u8) + function_address(u16 fixed)
             opcodes::CALL => {
@@ -322,6 +347,24 @@ pub fn verify_jump_targets(bytecode: &[u8]) -> VerificationResult {
             opcodes::BR_EQ_U8 => {
                 // Opcode(1) + Val(1) + Offset(2) = 4
                 offset += 4;
+            }
+            opcodes::BR_EQ_U8_S8 => {
+                if offset + 2 >= scan_len {
+                    break;
+                }
+                let rel = bytecode[offset + 2] as i8 as i32;
+                let target = (offset as i32 + 3 + rel) as isize;
+                jump_count += 1;
+                if target < 0 || target as usize >= scan_len {
+                    errors.push(VerificationError {
+                        offset,
+                        opcode,
+                        opcode_name: "BR_EQ_U8_S8",
+                        target: target.max(0) as u16,
+                        reason: format!("Out of bounds short branch target: {}", target),
+                    });
+                }
+                offset += 3;
             }
 
             // CMP_EQ_JUMP: compare_value(u8) + absolute_target(u16)

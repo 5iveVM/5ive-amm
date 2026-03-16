@@ -194,7 +194,15 @@ const logger = {
 };
 
 // Helper to create a sample project structure with five.toml and a stub .v file
-async function createProject({ target = 'vm' }: { target?: string } = {}) {
+async function createProject({
+  target = 'vm',
+  enableCompression = true,
+  enableConstraintOptimization = true,
+}: {
+  target?: string;
+  enableCompression?: boolean;
+  enableConstraintOptimization?: boolean;
+} = {}) {
   const root = await mkdtemp(join(tmpdir(), 'five-cli-project-'));
   await mkdir(join(root, 'src'), { recursive: true });
   await mkdir(join(root, 'build'), { recursive: true });
@@ -214,6 +222,11 @@ entry_point = "src/main.v"
 
 [build]
 output_artifact_name = "demo"
+
+[optimizations]
+enable_compression = ${enableCompression ? 'true' : 'false'}
+enable_constraint_optimization = ${enableConstraintOptimization ? 'true' : 'false'}
+optimization_level = "production"
 
 [deploy]
 cluster = "devnet"
@@ -320,6 +333,23 @@ describe('project-aware commands', () => {
 
     expect(discoverySpy).toHaveBeenCalledTimes(1);
     expect(discoverySpy.mock.calls[0][0]).toMatch(/src\/main\.v$/);
+    discoverySpy.mockRestore();
+  });
+
+  it('project build forwards five.toml optimization toggles to compiler options', async () => {
+    const root = await createProject({
+      enableCompression: false,
+      enableConstraintOptimization: false,
+    });
+    const ctx = createContext();
+    const discoverySpy = jest.spyOn(FiveCompilerWasm.prototype, 'compileWithDiscovery');
+
+    await buildCommand.handler([], { project: root }, ctx as any);
+
+    expect(discoverySpy).toHaveBeenCalledTimes(1);
+    const compileOptions = discoverySpy.mock.calls[0][1] as Record<string, unknown>;
+    expect(compileOptions.enableCompression).toBe(false);
+    expect(compileOptions.enable_constraint_cache).toBe(false);
     discoverySpy.mockRestore();
   });
 

@@ -63,6 +63,8 @@ export interface CompilationOptions {
   comprehensiveMetrics?: boolean;
   metricsOutput?: string;
   disableRequireBatch?: boolean;
+  enable_constraint_cache?: boolean;
+  enable_constraint_optimization?: boolean;
 }
 
 export type CompilationTarget = 'vm' | 'solana' | 'debug' | 'test';

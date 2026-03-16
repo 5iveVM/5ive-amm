@@ -97,6 +97,19 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
 
             store_value_into_buffer(data, field_offset as usize, value, ctx)?;
         }
+        STORE_FIELD_S => {
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_byte()? as usize;
+            let value = ctx.pop()?;
+
+            let account = match ctx.get_account_for_write(account_index) {
+                Ok(acc) => acc,
+                Err(VMErrorCode::AccountNotWritable) => return Err(VMErrorCode::InvalidOperation),
+                Err(e) => return Err(e),
+            };
+            let data = unsafe { account.borrow_mut_data_unchecked() };
+            store_value_into_buffer(data, field_offset, value, ctx)?;
+        }
         LOAD_FIELD => {
             let account_index = ctx.fetch_byte()?;
             let field_offset = ctx.fetch_u32()?;
@@ -152,6 +165,16 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                 ctx.push(ValueRef::U64(value))?;
             }
         }
+        LOAD_FIELD_S => {
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_byte()? as usize;
+            let account = ctx.get_account_for_read(account_index)?;
+
+            if field_offset + 8 > account.data_len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
+        }
         LOAD_FIELD_PUBKEY => {
             let account_index = ctx.fetch_byte()?;
             let field_offset = ctx.fetch_u32()?;
@@ -203,6 +226,31 @@ pub fn handle_memory(opcode: u8, ctx: &mut ExecutionManager) -> CompactResult<()
                     temp_offset
                 );
             }
+        }
+        LOAD_FIELD_PUBKEY_S => {
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_byte()? as usize;
+            let account = ctx.get_account_for_read(account_index)?;
+            let data = unsafe { account.borrow_data_unchecked() };
+
+            if field_offset + 32 > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            ctx.push(ValueRef::AccountRef(account_index, field_offset as u16))?;
+        }
+        STORE_FIELD_ZERO_S => {
+            let account_index = ctx.fetch_byte()?;
+            let field_offset = ctx.fetch_byte()? as usize;
+            let account = match ctx.get_account_for_write(account_index) {
+                Ok(acc) => acc,
+                Err(VMErrorCode::AccountNotWritable) => return Err(VMErrorCode::InvalidOperation),
+                Err(e) => return Err(e),
+            };
+            let data = unsafe { account.borrow_mut_data_unchecked() };
+            if field_offset + 8 > data.len() {
+                return Err(VMErrorCode::InvalidAccountData);
+            }
+            data[field_offset..field_offset + 8].fill(0);
         }
         LOAD_INPUT => {
             // LOAD_INPUT: Read raw input data directly (not function parameters)

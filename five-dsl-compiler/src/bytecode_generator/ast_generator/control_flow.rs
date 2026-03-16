@@ -581,13 +581,23 @@ impl ASTGenerator {
             return Err(VMError::InvalidScript); // Continue outside loop
         }
 
-        // Emit JUMP with placeholder
-        emitter.emit_opcode(JUMP);
-        let patch_pos = emitter.get_position();
-        emitter.emit_u16(0);
-
-        // Record patch position in current loop context
         if let Some(ctx) = self.loop_stack.last_mut() {
+            // Continue target is loop start and is always known.
+            // Use compact relative jump when it fits.
+            let instruction_start = emitter.get_position();
+            let rel = ctx.loop_start as i32 - (instruction_start as i32 + 2);
+            if Self::short_branches_enabled()
+                && (i8::MIN as i32..=i8::MAX as i32).contains(&rel)
+            {
+                emitter.emit_opcode(JUMP_S8);
+                emitter.emit_u8(rel as i8 as u8);
+                return Ok(());
+            }
+
+            // Fall back to absolute JUMP with patching for longer deltas.
+            emitter.emit_opcode(JUMP);
+            let patch_pos = emitter.get_position();
+            emitter.emit_u16(0);
             ctx.continue_targets.push(patch_pos);
         }
 
@@ -763,6 +773,19 @@ impl ASTGenerator {
         compare_value: u8,
         target_label: String,
     ) {
+        if Self::short_branches_enabled() {
+            if let Some(&target_pos) = self.label_positions.get(&target_label) {
+                let instruction_start = emitter.get_position();
+                let rel = target_pos as i32 - (instruction_start as i32 + 3);
+                if (i8::MIN as i32..=i8::MAX as i32).contains(&rel) {
+                    emitter.emit_opcode(BR_EQ_U8_S8);
+                    emitter.emit_u8(compare_value);
+                    emitter.emit_u8(rel as i8 as u8);
+                    return;
+                }
+            }
+        }
+
         emitter.emit_opcode(BR_EQ_U8);
         emitter.emit_u8(compare_value);
 

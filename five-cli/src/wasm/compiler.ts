@@ -163,12 +163,15 @@ export class FiveCompilerWasm {
         const disableRequireBatch =
           Boolean(options?.disableRequireBatch) ||
           isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
+        const constraintCacheEnabled = options?.enable_constraint_cache !== false;
+        const compressionEnabled = options?.enableCompression !== false;
 
         const compilationOptions = new WasmCompilationOptions()
           .with_mode(options?.target || "deployment")
           .with_optimization_level(options?.optimizationLevel || "production")
           .with_v2_preview(true)
-          .with_constraint_cache(false)
+          .with_constraint_cache(constraintCacheEnabled)
+          .with_compression(compressionEnabled)
           .with_enhanced_errors(true)
           .with_metrics(includeMetrics)
           .with_comprehensive_metrics(comprehensiveMetrics)
@@ -296,13 +299,16 @@ export class FiveCompilerWasm {
         const disableRequireBatch =
           Boolean((options as any).disableRequireBatch) ||
           isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
+        const constraintCacheEnabled =
+          (options as any).enable_constraint_cache !== false &&
+          (options as any).enable_constraint_optimization !== false;
+        const compressionEnabled = (options as any).enableCompression !== false;
         const compilationOptions = new WasmCompilationOptions()
           .with_mode(options.target || "deployment")
           .with_optimization_level((options as any).optimizationLevel || "production")
           .with_v2_preview(true)
-          .with_constraint_cache(
-            (options as any).enable_constraint_cache !== false,
-          )
+          .with_constraint_cache(constraintCacheEnabled)
+          .with_compression(compressionEnabled)
           .with_enhanced_errors(true)
           .with_metrics(includeMetrics)
           .with_comprehensive_metrics(comprehensiveMetrics)
@@ -1110,12 +1116,17 @@ export class FiveCompilerWasm {
     const disableRequireBatch =
       Boolean(options?.disableRequireBatch) ||
       isTruthyFlag(process.env.FIVE_DISABLE_REQUIRE_BATCH);
+    const constraintCacheEnabled =
+      options?.enable_constraint_cache !== false &&
+      options?.enable_constraint_optimization !== false;
+    const compressionEnabled = options?.enableCompression !== false;
 
     return new WasmCompilationOptions()
       .with_mode(options?.target || "deployment")
       .with_optimization_level(options?.optimizationLevel || "production")
       .with_v2_preview(true)
-      .with_constraint_cache(false)
+      .with_constraint_cache(constraintCacheEnabled)
+      .with_compression(compressionEnabled)
       .with_enhanced_errors(true)
       .with_metrics(includeMetrics)
       .with_comprehensive_metrics(comprehensiveMetrics)

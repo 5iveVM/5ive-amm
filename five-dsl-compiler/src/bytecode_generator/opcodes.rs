@@ -436,15 +436,18 @@ impl OpcodeAnalyzer {
                 opcodes::ArgType::CallExternal => 4,
                 opcodes::ArgType::CallInternal => 3,
                 opcodes::ArgType::AccountField => 5,
+                opcodes::ArgType::AccountFieldS8 => 2,
                 opcodes::ArgType::AccountFieldParam => 6,
                 opcodes::ArgType::FusedAccAcc => 10,
                 opcodes::ArgType::FusedSubAdd => 11,
                 opcodes::ArgType::ParamImm => 2,
                 opcodes::ArgType::FieldImm => 6,
                 opcodes::ArgType::CompareU8Offset16 => 3,
+                opcodes::ArgType::CompareU8Offset8 => 2,
                 opcodes::ArgType::CompareU8Target16 => 3,
                 opcodes::ArgType::TargetU16 => 2,
                 opcodes::ArgType::LocalTarget16 => 3,
+                opcodes::ArgType::TargetI8 => 1,
             };
         }
 

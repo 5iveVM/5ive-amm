@@ -395,6 +395,27 @@ fn decode_operands(
                 }
             }
         }
+        ArgType::AccountFieldS8 => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let account_idx = analyzer.bytecode[analyzer.position];
+                let field_offset = analyzer.bytecode[analyzer.position + 1];
+                operands.push(OperandInfo {
+                    operand_type: "account_index".to_string(),
+                    raw_value: vec![account_idx],
+                    decoded_value: Some(format!("account_{}", account_idx)),
+                    size: 1,
+                    description: "Account index for field access".to_string(),
+                });
+                operands.push(OperandInfo {
+                    operand_type: "field_offset_u8".to_string(),
+                    raw_value: vec![field_offset],
+                    decoded_value: Some(format!("offset_{}", field_offset)),
+                    size: 1,
+                    description: "Field offset (u8)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
         ArgType::CallInternal => {
             if analyzer.position + 2 < analyzer.bytecode.len() {
                 let param_count = analyzer.bytecode[analyzer.position];
@@ -736,6 +757,27 @@ fn decode_operands(
                 analyzer.position += 3;
             }
         }
+        ArgType::CompareU8Offset8 => {
+            if analyzer.position + 1 < analyzer.bytecode.len() {
+                let compare = analyzer.bytecode[analyzer.position];
+                let offset = analyzer.bytecode[analyzer.position + 1] as i8;
+                operands.push(OperandInfo {
+                    operand_type: "compare_u8".to_string(),
+                    raw_value: vec![compare],
+                    decoded_value: Some(compare.to_string()),
+                    size: 1,
+                    description: "Compare value (u8)".to_string(),
+                });
+                operands.push(OperandInfo {
+                    operand_type: "offset_i8".to_string(),
+                    raw_value: vec![analyzer.bytecode[analyzer.position + 1]],
+                    decoded_value: Some(offset.to_string()),
+                    size: 1,
+                    description: "Relative jump offset (i8)".to_string(),
+                });
+                analyzer.position += 2;
+            }
+        }
         ArgType::CompareU8Target16 => {
             if analyzer.position + 2 < analyzer.bytecode.len() {
                 let compare = analyzer.bytecode[analyzer.position];
@@ -801,6 +843,19 @@ fn decode_operands(
                     description: "Absolute jump target (u16)".to_string(),
                 });
                 analyzer.position += 3;
+            }
+        }
+        ArgType::TargetI8 => {
+            if analyzer.position < analyzer.bytecode.len() {
+                let offset = analyzer.bytecode[analyzer.position] as i8;
+                operands.push(OperandInfo {
+                    operand_type: "target_i8".to_string(),
+                    raw_value: vec![analyzer.bytecode[analyzer.position]],
+                    decoded_value: Some(offset.to_string()),
+                    size: 1,
+                    description: "Relative jump target (i8)".to_string(),
+                });
+                analyzer.position += 1;
             }
         }
     }
@@ -1124,6 +1179,25 @@ fn analyze_instruction_control_flow(opcode: u8, operands: &[OperandInfo]) -> Con
                 is_terminator: false,
             }
         }
+        JUMP_S8 => {
+            let target = if !operands.is_empty() {
+                operands[0]
+                    .decoded_value
+                    .as_ref()
+                    .and_then(|s| s.parse::<i32>().ok())
+                    .map(|t| vec![t.max(0) as usize])
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+
+            ControlFlowInfo {
+                is_jump: true,
+                jump_targets: target,
+                can_fall_through: false,
+                is_terminator: false,
+            }
+        }
         JUMP_IF | JUMP_IF_NOT => {
             let target = if !operands.is_empty() {
                 operands[0]
@@ -1140,6 +1214,25 @@ fn analyze_instruction_control_flow(opcode: u8, operands: &[OperandInfo]) -> Con
                 is_jump: true,
                 jump_targets: target,
                 can_fall_through: true, // Conditional jumps can fall through
+                is_terminator: false,
+            }
+        }
+        JUMP_IF_NOT_S8 => {
+            let target = if !operands.is_empty() {
+                operands[0]
+                    .decoded_value
+                    .as_ref()
+                    .and_then(|s| s.parse::<i32>().ok())
+                    .map(|t| vec![t.max(0) as usize])
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+
+            ControlFlowInfo {
+                is_jump: true,
+                jump_targets: target,
+                can_fall_through: true,
                 is_terminator: false,
             }
         }
