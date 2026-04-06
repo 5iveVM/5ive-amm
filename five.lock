@@ -3,9 +3,9 @@ version = 1
 [[packages]]
 name = "5ive-amm"
 version = "0.0.0"
-address = "GTcjC9XETP1pz7zasUQ6vkVQaway5apnuAF3qnukXvqC"
-bytecode_hash = "b1db2a996e1cc8895c7d6d60d18b8ffa327f528280502994fe4195ab2716181e"
-deployed_at = "2026-03-19T01:33:39.795Z"
+address = "5DBjk83NJf26q2d1vbhEaXYKXo5GoRvikxfJh6fCkJxE"
+bytecode_hash = "9a2f162f01616922c96720fa299e08dbb4f0162d200a6511a2d66f8018be23af"
+deployed_at = "2026-03-20T02:02:25.865Z"
 
   [packages.exports]
   methods = [

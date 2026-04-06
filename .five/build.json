@@ -5,8 +5,8 @@
     "/Users/ivmidable/Development/five-mono/5ive-amm/src/main.v"
   ],
   "target": "vm",
-  "timestamp": "2026-03-19T01:33:36.408Z",
-  "hash": "508b6613b142165c8ee0d29e55103985aabc2805dffecdeaa120704084bde06f",
+  "timestamp": "2026-03-20T02:02:17.188Z",
+  "hash": "234a83238323d37bd111b68ad2ec31b4968bb205a3784beef0e48f409b7d9542",
   "format": "five",
   "entry_point": "src/main.v",
   "source_dir": "src"
